@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { WhatsAppMessage } from '@/types'
 import { POINTS, BASE_FARE, NIGHT_EXTRA, getDiscount } from './constants'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_gemini_key')
 
 const SYSTEM_PROMPT = `You are the booking assistant for KC / Khargone Cabs. You help customers book shared cab rides between Khargone and Indore.
 
