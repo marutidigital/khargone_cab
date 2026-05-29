@@ -62,15 +62,7 @@ export function MatchStripe({ bookings, onSelectMatch }: Props) {
                 </span>
               </div>
               
-              <div>
-                <span style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Time</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Clock size={14} color="#666" />
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>
-                    {b.pickup_time}
-                  </span>
-                </div>
-              </div>
+
             </div>
 
             <button
