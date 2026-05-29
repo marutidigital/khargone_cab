@@ -23,9 +23,9 @@ export function TripSummary({
   dateStr, timeSlot, timeLabel,
   price, onContinue, continueDisabled,
 }: Props) {
-  const from = dir === 'KI' ? 'Indore'   : 'Khargone'
-  const to   = dir === 'KI' ? 'Khargone' : 'Indore'
-  const fromSub = dir === 'KI' ? 'Indore, Madhya Pradesh'   : 'Khargone, Madhya Pradesh'
+  const from = dir === 'KI' ? (dropName ?? 'Indore') : 'Bus Stand Khargone'
+  const to   = dir === 'KI' ? 'Bus Stand Khargone' : (dropName ?? 'Indore')
+  const fromSub = dir === 'KI' ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
   const toSub   = dir === 'KI' ? 'Khargone, Madhya Pradesh' : 'Indore, Madhya Pradesh'
   const vehicleLabel = vehicle === 'sedan' ? 'Economy Sedan (5 Seater)' : 'Premium SUV (7 Seater)'
   const isNight = timeSlot === 'night'
@@ -92,7 +92,7 @@ export function TripSummary({
       <div style={{ padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
         <SummaryRow label="Vehicle" value={vehicleLabel} />
         <SummaryRow
-          label="Drop point"
+          label={dir === 'KI' ? "Pickup point" : "Drop point"}
           value={dropName ?? '—'}
           sub={dropExtra > 0 ? `+₹${dropExtra}` : undefined}
           subColor="#F59E0B"
@@ -111,7 +111,10 @@ export function TripSummary({
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
           <PriceRow label="Base fare"          value={`₹${price.base.toLocaleString('en-IN')}`} />
           {price.extra > 0 && (
-            <PriceRow label="Drop point charges" value={`+₹${price.extra.toLocaleString('en-IN')}`} />
+            <PriceRow
+              label={dir === 'KI' ? "Pickup point charges" : "Drop point charges"}
+              value={`+₹${price.extra.toLocaleString('en-IN')}`}
+            />
           )}
           {price.discount > 0 && (
             <PriceRow label="Early discount"     value={`−₹${price.discount.toLocaleString('en-IN')}`} accent="green" />

@@ -244,7 +244,9 @@ export default function Home() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: '#888' }}>Drop point</span>
+                <span style={{ fontSize: 12, color: '#888' }}>
+                  {successBooking.booking.direction === 'KI' ? 'Pickup point' : 'Drop point'}
+                </span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{successBooking.booking.drop_name}</span>
               </div>
 
@@ -369,7 +371,7 @@ export default function Home() {
           </Section>
 
           {/* 3. Drop Point */}
-          <Section num="3." title={`Choose a drop point in ${dir === 'KI' ? 'Khargone' : 'Indore'}`}>
+          <Section num="3." title={dir === 'KI' ? 'Choose your pickup point in Indore' : 'Choose your drop point in Indore'}>
             <DropList
               points={POINTS[dir]}
               selected={selDrop?.id ?? null}

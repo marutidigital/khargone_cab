@@ -7,14 +7,14 @@ export const NIGHT_EXTRA = 300
 
 export const POINTS: Record<Direction, DropOption[]> = {
   KI: [
-    { id: 'rajendra', name: 'Rajendra Nagar', sub: 'City entry · base fare', extra: 0 },
+    { id: 'rajendra', name: 'Rajendra Nagar', sub: 'City pickup · base fare', extra: 0 },
     { id: 'railway',  name: 'Railway Station', sub: 'Indore Junction · +₹200', extra: 200 },
     { id: 'airport',  name: 'Airport (IDR)',   sub: 'Devi Ahilya Airport · +₹300', extra: 300 },
   ],
   IK: [
-    { id: 'rajendra', name: 'Rajendra Nagar', sub: 'Pickup · base fare', extra: 0 },
-    { id: 'railway',  name: 'Railway Station', sub: 'Pickup · +₹200', extra: 200 },
-    { id: 'airport',  name: 'Airport (IDR)',   sub: 'Pickup · +₹300', extra: 300 },
+    { id: 'rajendra', name: 'Rajendra Nagar', sub: 'City entry · base fare', extra: 0 },
+    { id: 'railway',  name: 'Railway Station', sub: 'Indore Junction · +₹200', extra: 200 },
+    { id: 'airport',  name: 'Airport (IDR)',   sub: 'Devi Ahilya Airport · +₹300', extra: 300 },
   ],
 }
 
