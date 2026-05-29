@@ -36,16 +36,16 @@ export function isNightHour(h: number): boolean {
   return h >= 22 || h < 5
 }
 
-export function calcPrice(dropExtra: number, daysAhead: number, isNight: boolean) {
-  const base     = BASE_FARE + dropExtra
+export function calcPrice(dropExtra: number, daysAhead: number, isNight: boolean, vehicleExtra: number = 0) {
+  const base     = BASE_FARE + vehicleExtra
   const discount = getDiscount(daysAhead)
   const night    = isNight ? NIGHT_EXTRA : 0
   return {
-    base: BASE_FARE,
+    base,
     extra: dropExtra,
     discount,
     night_extra: night,
-    total: base - discount + night,
+    total: base + dropExtra - discount + night,
   }
 }
 

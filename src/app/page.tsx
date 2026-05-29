@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Nav }               from '@/components/Nav'
+import { CheckCircle2, Clock } from 'lucide-react'
 import { StepBar }           from '@/components/StepBar'
 import { DirectionTabs }     from '@/components/DirectionTabs'
 import { VehicleSelector }   from '@/components/VehicleSelector'
@@ -41,6 +42,7 @@ export default function Home() {
   const [toast,     setToast]     = useState<{ msg: string; type?: 'success' | 'error' } | null>(null)
   const [loading,   setLoading]   = useState(false)
   const [showForm,  setShowForm]  = useState(false)
+  const [successBooking, setSuccessBooking] = useState<{ booking: Booking; matched: boolean } | null>(null)
   const formRef = useRef<HTMLDivElement>(null)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -83,10 +85,7 @@ export default function Home() {
   const vehicleExtra = vehicle === 'suv' ? 600 : 0
 
   const price = selDrop && selDate && pickupTime
-    ? (() => {
-        const base   = calcPrice(selDrop.extra + vehicleExtra, selDate.daysAhead, isNightHour(pickupTime.h))
-        return base
-      })()
+    ? calcPrice(selDrop.extra, selDate.daysAhead, isNightHour(pickupTime.h), vehicleExtra)
     : null
 
   // Determine current step (1-6)
@@ -129,8 +128,9 @@ export default function Home() {
           passenger_name: name,
           phone,
           email:          email || undefined,
-          extra:          selDrop.extra + vehicleExtra,
+          extra:          selDrop.extra,
           days_ahead:     selDate.daysAhead,
+          vehicle:        vehicle,
         }),
       })
       const json = await res.json()
@@ -140,6 +140,7 @@ export default function Home() {
         json.matched ? '✓ Booking confirmed — match found!' : 'Booking placed — waiting for match',
         'success'
       )
+      setSuccessBooking({ booking: json.booking, matched: json.matched })
       setSelDrop(null); setSelDate(null); setPickupTime(null); setShowForm(false)
       await fetchBookings()
       await fetchWaitingOpposite()
@@ -148,6 +149,189 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (successBooking) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#F5F5F5' }}>
+        <Nav />
+        
+        <div style={{
+          maxWidth: 600,
+          margin: '40px auto 100px',
+          padding: '0 24px',
+        }}>
+          <div style={{
+            background: '#fff',
+            border: '1.5px solid #E8E8E8',
+            borderRadius: 16,
+            boxShadow: '0 6px 30px rgba(0,0,0,0.06)',
+            padding: '40px 32px',
+            textAlign: 'center',
+            animation: 'fadeUp 0.4s ease-out',
+          }}>
+            {/* Header Icon */}
+            <div style={{
+              width: 64, height: 64,
+              borderRadius: '50%',
+              background: successBooking.matched ? '#DCFCE7' : '#FFF9C4',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+            }}>
+              {successBooking.matched ? (
+                <CheckCircle2 size={32} color="#16A34A" strokeWidth={2.5} />
+              ) : (
+                <Clock size={32} color="#F59E0B" strokeWidth={2.5} />
+              )}
+            </div>
+
+            {/* Title */}
+            <h1 style={{
+              fontSize: 24,
+              fontWeight: 800,
+              color: '#111',
+              letterSpacing: '-0.02em',
+              marginBottom: 10,
+            }}>
+              {successBooking.matched ? 'Booking Confirmed!' : 'Booking Placed!'}
+            </h1>
+
+            {/* Message */}
+            <div style={{
+              fontSize: 14,
+              color: '#555',
+              lineHeight: 1.6,
+              marginBottom: 30,
+            }}>
+              {successBooking.matched ? (
+                <span>Your ride is confirmed instantly! We matched you with an opposite direction booking.</span>
+              ) : (
+                <span style={{ fontWeight: 600, color: '#D97706' }}>
+                  Your ride is on hold. We will inform you soon about your confirmation.
+                </span>
+              )}
+            </div>
+
+            {/* Receipt Box */}
+            <div style={{
+              background: '#F9FAFB',
+              border: '1px dashed #E5E7EB',
+              borderRadius: 12,
+              padding: '20px 24px',
+              textAlign: 'left',
+              marginBottom: 30,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #F3F4F6', paddingBottom: 10 }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Booking Reference</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#FFC107' }}>{successBooking.booking.booking_ref}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Route</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
+                  {successBooking.booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Vehicle Type</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
+                  {successBooking.booking.base_fare >= 2600 ? 'Premium SUV (7 Seater)' : 'Economy Sedan (5 Seater)'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Drop point</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{successBooking.booking.drop_name}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Date & Time</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
+                  {successBooking.booking.travel_date} at {successBooking.booking.pickup_time}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Passenger</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
+                  {successBooking.booking.passenger_name} ({successBooking.booking.phone})
+                </span>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                borderTop: '1px dashed #E5E7EB',
+                paddingTop: 10,
+                marginTop: 4,
+                alignItems: 'baseline'
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Total Fare</span>
+                <span style={{ fontSize: 20, fontWeight: 800, color: '#111' }}>
+                  ₹{successBooking.booking.total_fare.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            {/* Status notice */}
+            <div style={{
+              background: successBooking.matched ? '#F0FDF4' : '#FFFBEB',
+              border: `1px solid ${successBooking.matched ? '#BBF7D0' : '#FDE68A'}`,
+              borderRadius: 8,
+              padding: '12px 16px',
+              fontSize: 12,
+              color: successBooking.matched ? '#15803D' : '#B45309',
+              lineHeight: 1.5,
+              marginBottom: 30,
+              textAlign: 'left',
+            }}>
+              {successBooking.matched ? (
+                '✓ Your ride is confirmed. Driver and cab details will be shared on WhatsApp 2 hours prior to the pickup time.'
+              ) : (
+                '⌛ We are actively matching your booking with opposite direction rides. You will receive an instant SMS/WhatsApp notification as soon as it gets confirmed.'
+              )}
+            </div>
+
+            {/* Back Button */}
+            <button
+              onClick={() => {
+                setSuccessBooking(null)
+              }}
+              style={{
+                width: '100%',
+                padding: '14px 20px',
+                background: '#FFC107',
+                color: '#000',
+                border: 'none',
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 14,
+                letterSpacing: '-0.01em',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 14px rgba(255,193,7,0.35)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#F9A825'}
+              onMouseLeave={e => e.currentTarget.style.background = '#FFC107'}
+            >
+              Book Another Ride
+            </button>
+          </div>
+        </div>
+
+        <FooterTicker />
+        <style>{`
+          @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+      </div>
+    )
   }
 
   return (

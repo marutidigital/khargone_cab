@@ -18,6 +18,7 @@ const BookingSchema = z.object({
   email:          z.string().email().optional().or(z.literal('')),
   extra:          z.number().int().min(0),
   days_ahead:     z.number().int().min(1).max(60),
+  vehicle:        z.enum(['sedan', 'suv']).optional(),
 })
 
 // GET /api/bookings?direction=KI&date=YYYY-MM-DD
@@ -54,7 +55,8 @@ export async function POST(req: NextRequest) {
     const d = parsed.data
     const [h] = d.pickup_time.split(':').map(Number)
     const isNight = isNightHour(h)
-    const price   = calcPrice(d.extra, d.days_ahead, isNight)
+    const vehicleExtra = d.vehicle === 'suv' ? 600 : 0
+    const price   = calcPrice(d.extra, d.days_ahead, isNight, vehicleExtra)
 
     const supabase = createServiceClient()
 

@@ -146,7 +146,7 @@ export function VehicleSelector({ selected, onSelect }: Props) {
                   src={v.image}
                   alt={v.name}
                   fill
-                  style={{ objectFit: 'cover', objectPosition: 'center' }}
+                  style={{ objectFit: 'contain', objectPosition: 'center' }}
                   sizes="240px"
                   priority
                 />
