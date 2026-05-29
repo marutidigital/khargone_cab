@@ -1,8 +1,7 @@
 'use client'
 // src/components/DatePicker.tsx
 
-import { useMemo } from 'react'
-import { MONTHS, DAYS, getDiscount } from '@/lib/constants'
+import { useState, useMemo } from 'react'
 
 interface SelDate {
   date: Date
@@ -16,130 +15,160 @@ interface Props {
   waitingDates?: string[]
 }
 
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const DAY_HEADERS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+
 export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
-  const dates = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    return Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(today); d.setDate(today.getDate() + i + 1)
-      const str = d.toISOString().split('T')[0]
-      return { date: d, str, daysAhead: i + 1 }
-    })
-  }, [])
+  const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+
+  const [viewYear,  setViewYear]  = useState(today.getFullYear())
+  const [viewMonth, setViewMonth] = useState(today.getMonth())
+
+  const cells = useMemo(() => {
+    const first = new Date(viewYear, viewMonth, 1)
+    // Mon=0 offset
+    let dow = first.getDay() - 1; if (dow < 0) dow = 6
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+    return { dow, daysInMonth }
+  }, [viewYear, viewMonth])
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
+    else setViewMonth(m => m + 1)
+  }
+
+  // Build grid rows
+  const gridItems: (number | null)[] = [
+    ...Array(cells.dow).fill(null),
+    ...Array.from({ length: cells.daysInMonth }, (_, i) => i + 1),
+  ]
+  while (gridItems.length % 7 !== 0) gridItems.push(null)
+
+  const maxDate = new Date(today); maxDate.setDate(today.getDate() + 60)
 
   return (
-    <>
+    <div style={{
+      background: '#fff',
+      border: '1.5px solid #E8E8E8',
+      borderRadius: 12,
+      overflow: 'hidden',
+    }}>
+      {/* Month navigation */}
       <div style={{
         display: 'flex',
-        gap: 6,
-        overflowX: 'auto',
-        paddingBottom: 4,
-        scrollbarWidth: 'none',
-      }}
-      className="date-scroll"
-      >
-        {dates.map(({ date, str, daysAhead }) => {
-          const sel     = selected?.str === str
-          const disc    = getDiscount(daysAhead)
-          const hasMatch = waitingDates.includes(str)
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '14px 18px',
+        borderBottom: '1px solid #F0F0F0',
+      }}>
+        <button
+          onClick={prevMonth}
+          style={{
+            width: 30, height: 30, borderRadius: '50%',
+            background: '#F5F5F5', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#E8E8E8'}
+          onMouseLeave={e => e.currentTarget.style.background = '#F5F5F5'}
+        >
+          <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M6 1L1 6l5 5" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <span style={{ fontWeight: 700, fontSize: 14, color: '#111', letterSpacing: '-0.01em' }}>
+          {MONTH_NAMES[viewMonth]} {viewYear}
+        </span>
+        <button
+          onClick={nextMonth}
+          style={{
+            width: 30, height: 30, borderRadius: '50%',
+            background: '#F5F5F5', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#E8E8E8'}
+          onMouseLeave={e => e.currentTarget.style.background = '#F5F5F5'}
+        >
+          <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        padding: '10px 12px 4px',
+        gap: 2,
+      }}>
+        {DAY_HEADERS.map(d => (
+          <div key={d} style={{
+            textAlign: 'center',
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#999',
+            padding: '4px 0',
+            letterSpacing: '0.03em',
+          }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Date grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        padding: '2px 12px 14px',
+        gap: 2,
+      }}>
+        {gridItems.map((day, idx) => {
+          if (!day) return <div key={`empty-${idx}`} />
+
+          const cellDate = new Date(viewYear, viewMonth, day)
+          cellDate.setHours(0,0,0,0)
+          const str = cellDate.toISOString().split('T')[0]
+          const daysAhead = Math.round((cellDate.getTime() - today.getTime()) / 86400000)
+          const isPast     = cellDate <= today
+          const isTooFar   = cellDate > maxDate
+          const disabled   = isPast || isTooFar
+          const isSel      = selected?.str === str
+          const isToday    = cellDate.getTime() === today.getTime()
+          const hasWaiting = waitingDates.includes(str)
+
           return (
             <div
               key={str}
-              onClick={() => onSelect({ date, str, daysAhead })}
+              onClick={() => !disabled && onSelect({ date: cellDate, str, daysAhead })}
               style={{
-                flexShrink: 0,
-                width: 52,
-                background: sel ? 'var(--gold-dim)' : 'var(--surface)',
-                borderRadius: 10,
-                padding: '10px 6px',
                 textAlign: 'center',
-                cursor: 'pointer',
-                border: sel ? '1px solid var(--gold)' : hasMatch ? '1px solid rgba(76,175,130,0.3)' : '1px solid transparent',
-                transition: 'all 0.15s',
+                padding: '7px 2px',
+                borderRadius: 8,
+                cursor: disabled ? 'default' : 'pointer',
+                background: isSel ? '#FFC107' : 'transparent',
+                color: disabled ? '#CCC' : isSel ? '#000' : '#111',
+                fontWeight: isSel ? 700 : isToday ? 600 : 400,
+                fontSize: 13,
                 position: 'relative',
+                transition: 'all 0.15s ease',
+                userSelect: 'none',
               }}
+              onMouseEnter={e => { if (!disabled && !isSel) e.currentTarget.style.background = '#F5F5F5' }}
+              onMouseLeave={e => { if (!disabled && !isSel) e.currentTarget.style.background = 'transparent' }}
             >
-              {hasMatch && (
+              {day}
+              {hasWaiting && !isSel && (
                 <div style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  width: 5,
-                  height: 5,
-                  borderRadius: '50%',
-                  background: 'var(--green)',
+                  position: 'absolute', bottom: 2, left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 4, height: 4, borderRadius: '50%',
+                  background: '#22C55E',
                 }} />
               )}
-              <div style={{
-                fontFamily: "'Instrument Serif', serif",
-                fontSize: 20,
-                color: sel ? 'var(--gold)' : 'var(--text)',
-                lineHeight: 1,
-              }}>
-                {date.getDate()}
-              </div>
-              <div style={{
-                fontSize: 9,
-                color: sel ? 'var(--gold)' : 'var(--muted)',
-                textTransform: 'uppercase',
-                marginTop: 3,
-                letterSpacing: '0.06em',
-              }}>
-                {MONTHS[date.getMonth()]}
-              </div>
-              <div style={{
-                fontSize: 9,
-                color: 'var(--muted2)',
-                marginTop: 1,
-                letterSpacing: '0.04em',
-              }}>
-                {DAYS[date.getDay()]}
-              </div>
-              <div style={{
-                fontSize: 8,
-                fontWeight: 500,
-                marginTop: 3,
-                letterSpacing: '0.02em',
-                color: disc > 0 ? 'var(--green)' : 'var(--muted2)',
-              }}>
-                {disc > 0 ? `−₹${disc}` : '—'}
-              </div>
             </div>
           )
         })}
       </div>
-
-      {/* Early discount notice */}
-      {selected && getDiscount(selected.daysAhead) > 0 && (
-        <div style={{
-          background: 'var(--green-dim)',
-          border: '1px solid rgba(76,175,130,0.18)',
-          borderRadius: 8,
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          marginTop: 10,
-        }}>
-          <div style={{
-            fontFamily: "'Instrument Serif', serif",
-            fontSize: 22,
-            color: 'var(--green)',
-            flexShrink: 0,
-            letterSpacing: '-0.03em',
-          }}>
-            −₹{getDiscount(selected.daysAhead)}
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.5 }}>
-            <strong style={{ color: 'var(--green)', fontWeight: 400 }}>Early bird discount!</strong>
-            {' '}
-            {selected.daysAhead >= 4 ? '4+ days early — ₹300 off applied!'
-              : selected.daysAhead === 3 ? '3 days early — ₹200 off applied!'
-              : '2 days early — ₹100 off applied!'}
-          </div>
-        </div>
-      )}
-
-      <style>{`.date-scroll::-webkit-scrollbar{display:none}`}</style>
-    </>
+    </div>
   )
 }

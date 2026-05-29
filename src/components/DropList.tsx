@@ -2,7 +2,6 @@
 // src/components/DropList.tsx
 
 import type { DropOption, DropPoint } from '@/types'
-import { BASE_FARE } from '@/lib/constants'
 
 interface Props {
   points: DropOption[]
@@ -12,17 +11,9 @@ interface Props {
 
 export function DropList({ points, selected, onSelect }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {points.map((p, i) => {
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {points.map(p => {
         const sel = selected === p.id
-        const first = i === 0
-        const last  = i === points.length - 1
-        const only  = points.length === 1
-        const radius = only
-          ? '10px'
-          : first ? '10px 10px 0 0'
-          : last  ? '0 0 10px 10px'
-          : '0'
         return (
           <div
             key={p.id}
@@ -30,59 +21,56 @@ export function DropList({ points, selected, onSelect }: Props) {
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              gap: 14,
               padding: '14px 16px',
-              background: sel ? 'var(--gold-dim)' : 'var(--surface)',
+              background: sel ? '#FFFDE7' : '#fff',
+              border: sel ? '1.5px solid #FFC107' : '1.5px solid #E8E8E8',
+              borderRadius: 10,
               cursor: 'pointer',
-              borderRadius: radius,
-              position: 'relative',
-              gap: 12,
-              transition: 'background 0.15s',
-              borderLeft: sel ? '2px solid var(--gold)' : '2px solid transparent',
+              transition: 'all 0.18s ease',
+              boxShadow: sel ? '0 2px 10px rgba(255,193,7,0.12)' : 'none',
             }}
+            onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#CCC' }}
+            onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = '#E8E8E8' }}
           >
-            {/* Check circle */}
+            {/* Radio dot */}
             <div style={{
-              width: 18,
-              height: 18,
+              width: 20,
+              height: 20,
               borderRadius: '50%',
-              border: sel ? 'none' : '1px solid var(--line2)',
-              background: sel ? 'var(--gold)' : 'transparent',
-              flexShrink: 0,
+              border: sel ? '2px solid #FFC107' : '2px solid #CCC',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
+              background: '#fff',
               transition: 'all 0.15s',
             }}>
               {sel && (
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4l3 3 5-6" stroke="#0C0C0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFC107' }} />
               )}
             </div>
 
             {/* Label */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontFamily: "'Instrument Serif', serif",
-                fontSize: 17,
-                color: 'var(--text)',
-                letterSpacing: '-0.02em',
-              }}>{p.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, letterSpacing: '0.02em' }}>
-                {p.sub}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#111', letterSpacing: '-0.01em' }}>
+                {p.name}
               </div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{p.sub}</div>
             </div>
 
-            {/* Price */}
+            {/* Extra price badge */}
             <div style={{
-              fontFamily: "'Instrument Serif', serif",
-              fontSize: 22,
-              color: 'var(--gold)',
-              letterSpacing: '-0.03em',
-              flexShrink: 0,
+              fontSize: 13,
+              fontWeight: 700,
+              color: p.extra === 0 ? '#22C55E' : '#F59E0B',
+              background: p.extra === 0 ? '#F0FDF4' : '#FFFBEB',
+              border: `1px solid ${p.extra === 0 ? '#BBF7D0' : '#FDE68A'}`,
+              padding: '4px 10px',
+              borderRadius: 20,
+              letterSpacing: '-0.01em',
             }}>
-              ₹{(BASE_FARE + p.extra).toLocaleString('en-IN')}
+              {p.extra === 0 ? '+₹0' : `+₹${p.extra}`}
             </div>
           </div>
         )

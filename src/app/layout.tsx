@@ -3,12 +3,12 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'KC · Khargone Cabs',
-  description: 'Shared cab service between Khargone and Indore. Safe, affordable, full AC Dzire.',
-  keywords: 'khargone cab, indore cab, khargone to indore, shared taxi',
+  title: 'Khargone_Cab · Book Your Cab Online',
+  description: 'Book a cab between Khargone and Indore. Transparent pricing, no hidden charges. Economy Sedan & Premium SUV available.',
+  keywords: 'khargone cab, indore cab, khargone to indore, shared taxi, book cab online',
   openGraph: {
-    title: 'KC · Khargone Cabs',
-    description: 'Shared cab Khargone ↔ Indore. Book online, get matched instantly.',
+    title: 'Khargone_Cab · Book Your Cab Online',
+    description: 'Book a cab Khargone ↔ Indore. Transparent pricing, no hidden charges.',
     type: 'website',
   },
 }
@@ -18,7 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0C0C0B',
+  themeColor: '#FFFFFF',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -5,42 +5,63 @@ import Link from 'next/link'
 
 export function Nav() {
   return (
-    <nav className="glass-panel" style={{
+    <nav style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '18px 24px',
+      padding: '0 40px',
+      height: 64,
+      background: '#FFFFFF',
+      borderBottom: '1px solid var(--line)',
       position: 'sticky',
       top: 0,
-      zIndex: 100,
-      borderRadius: '0 0 16px 16px',
-      borderTop: 'none',
-      marginBottom: 20,
+      zIndex: 200,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     }}>
-      <Link href="/" style={{ textDecoration: 'none' }}>
+      {/* Logo */}
+      <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          fontFamily: "'Instrument Serif', serif",
-          fontSize: 26,
-          color: 'var(--text)',
-          letterSpacing: '-0.03em',
-          textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+          width: 34,
+          height: 34,
+          background: '#111',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
         }}>
-          KC<em style={{ color: 'var(--gold)', fontStyle: 'italic', textShadow: '0 0 10px var(--gold-glow)' }}>.</em>
+          <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+            <path d="M8 0C4.686 0 2 2.686 2 6c0 4.5 6 14 6 14s6-9.5 6-14c0-3.314-2.686-6-6-6zm0 8.5A2.5 2.5 0 1 1 8 3.5a2.5 2.5 0 0 1 0 5z" fill="#FFC107"/>
+          </svg>
         </div>
+        <span style={{ fontSize: 20, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>
+          Khargone<span style={{ color: '#FFC107' }}>_Cab</span>
+        </span>
       </Link>
-      <div style={{
-        fontSize: 10,
-        color: 'var(--gold)',
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase',
-        fontWeight: 500,
-        background: 'var(--gold-dim)',
-        padding: '6px 12px',
-        borderRadius: 20,
-        border: '1px solid var(--gold-glow)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-      }}>
-        Khargone ↔ Indore
+
+      {/* Nav Links */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 36 }}>
+        <Link href="/" style={{ fontSize: 14, fontWeight: 500, color: '#111', letterSpacing: '-0.01em' }}>Home</Link>
+        <Link href="#" style={{ fontSize: 14, fontWeight: 500, color: '#666', letterSpacing: '-0.01em' }}>About</Link>
+        <Link href="#" style={{ fontSize: 14, fontWeight: 500, color: '#666', letterSpacing: '-0.01em' }}>Services</Link>
+        <Link href="#" style={{ fontSize: 14, fontWeight: 500, color: '#666', letterSpacing: '-0.01em' }}>Help</Link>
+
+        <button style={{
+          background: '#FFC107',
+          color: '#000',
+          padding: '10px 26px',
+          borderRadius: 8,
+          fontWeight: 700,
+          fontSize: 14,
+          letterSpacing: '-0.01em',
+          boxShadow: '0 2px 8px rgba(255,193,7,0.35)',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#F9A825'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = '#FFC107'; e.currentTarget.style.transform = 'translateY(0)' }}
+        >
+          Sign In
+        </button>
       </div>
     </nav>
   )
