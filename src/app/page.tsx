@@ -397,8 +397,8 @@ export default function Home() {
             />
           </Section>
 
-          {/* 4. Date + Time side-by-side */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          {/* 4. Date + 5. Time vertically stacked */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <Section num="4." title="Select travel date">
               <DatePicker
                 selected={selDate}

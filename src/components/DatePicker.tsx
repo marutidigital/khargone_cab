@@ -159,6 +159,8 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
             padding: '12px 36px',
             gap: 8,
             msOverflowStyle: 'none',
+            minWidth: 0,
+            width: '100%',
           }}
         >
           <style>{`
