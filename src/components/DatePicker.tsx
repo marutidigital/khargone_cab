@@ -2,6 +2,7 @@
 // src/components/DatePicker.tsx
 
 import { useState, useMemo } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface SelDate {
   date: Date
@@ -76,7 +77,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
           onMouseEnter={e => e.currentTarget.style.background = '#E8E8E8'}
           onMouseLeave={e => e.currentTarget.style.background = '#F5F5F5'}
         >
-          <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M6 1L1 6l5 5" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <ChevronLeft size={16} color="#555" strokeWidth={2} />
         </button>
         <span style={{ fontWeight: 700, fontSize: 14, color: '#111', letterSpacing: '-0.01em' }}>
           {MONTH_NAMES[viewMonth]} {viewYear}
@@ -92,7 +93,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
           onMouseEnter={e => e.currentTarget.style.background = '#E8E8E8'}
           onMouseLeave={e => e.currentTarget.style.background = '#F5F5F5'}
         >
-          <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <ChevronRight size={16} color="#555" strokeWidth={2} />
         </button>
       </div>
 

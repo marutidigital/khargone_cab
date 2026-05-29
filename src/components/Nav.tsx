@@ -2,6 +2,7 @@
 // src/components/Nav.tsx
 
 import Link from 'next/link'
+import { MapPin } from 'lucide-react'
 
 export function Nav() {
   return (
@@ -30,9 +31,7 @@ export function Nav() {
           justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-            <path d="M8 0C4.686 0 2 2.686 2 6c0 4.5 6 14 6 14s6-9.5 6-14c0-3.314-2.686-6-6-6zm0 8.5A2.5 2.5 0 1 1 8 3.5a2.5 2.5 0 0 1 0 5z" fill="#FFC107"/>
-          </svg>
+          <MapPin size={18} fill="#FFC107" color="#FFC107" />
         </div>
         <span style={{ fontSize: 20, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>
           Khargone<span style={{ color: '#FFC107' }}>_Cab</span>

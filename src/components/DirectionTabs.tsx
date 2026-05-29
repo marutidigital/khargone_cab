@@ -2,6 +2,7 @@
 // src/components/DirectionTabs.tsx
 
 import type { Direction } from '@/types'
+import { ArrowLeftRight, CircleDot, MapPin } from 'lucide-react'
 
 interface Props {
   dir: Direction
@@ -37,11 +38,7 @@ export function DirectionTabs({ dir, onChange }: Props) {
       }}>
         <span style={{ fontSize: 10, color: '#999', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>From</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 10, height: 10, borderRadius: '50%',
-            background: '#22C55E', flexShrink: 0,
-            boxShadow: '0 0 0 2px rgba(34,197,94,0.2)',
-          }} />
+          <CircleDot size={14} color="#22C55E" strokeWidth={3} style={{ flexShrink: 0 }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: '#111', letterSpacing: '-0.01em' }}>{from}</span>
         </div>
       </div>
@@ -66,10 +63,7 @@ export function DirectionTabs({ dir, onChange }: Props) {
         onMouseEnter={e => { e.currentTarget.style.borderColor = '#FFC107'; e.currentTarget.style.background = '#FFFDE7' }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line2)'; e.currentTarget.style.background = '#fff' }}
       >
-        <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-          <path d="M1 4h14M11 1l4 3-4 3" stroke="#555" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M17 10H3M7 7l-4 3 4 3" stroke="#555" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        <ArrowLeftRight size={16} color="#555" strokeWidth={2} />
       </button>
 
       {/* To */}
@@ -86,9 +80,7 @@ export function DirectionTabs({ dir, onChange }: Props) {
       }}>
         <span style={{ fontSize: 10, color: '#999', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>To</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="10" height="13" viewBox="0 0 10 13" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M5 0C2.24 0 0 2.24 0 5c0 3.75 5 8 5 8s5-4.25 5-8c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 5 3.5a1.5 1.5 0 0 1 0 3z" fill="#EF4444"/>
-          </svg>
+          <MapPin size={14} color="#EF4444" fill="#EF4444" strokeWidth={1} style={{ flexShrink: 0 }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: '#111', letterSpacing: '-0.01em' }}>{to}</span>
         </div>
       </div>

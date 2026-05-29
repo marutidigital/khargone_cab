@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import type { PriceBreakdown } from '@/types'
+import { Loader2 } from 'lucide-react'
 
 interface Props {
   disabled: boolean
@@ -130,9 +131,7 @@ export function BookForm({ disabled, loading, price, onSubmit }: Props) {
         }}
       >
         {loading && (
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
-            <circle cx="8" cy="8" r="6" stroke="#888" strokeWidth="2" strokeDasharray="25 10"/>
-          </svg>
+          <Loader2 size={16} strokeWidth={2.5} style={{ animation: 'spin 1s linear infinite' }} />
         )}
         {btnLabel}
       </button>

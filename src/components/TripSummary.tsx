@@ -3,6 +3,7 @@
 
 import type { PriceBreakdown } from '@/types'
 import type { VehicleType } from '@/components/VehicleSelector'
+import { CircleDot, MapPin, Car, CreditCard, ArrowRight, ShieldCheck, CheckCircle2, Phone } from 'lucide-react'
 
 interface Props {
   dir: 'KI' | 'IK'
@@ -51,9 +52,7 @@ export function TripSummary({
           <div style={{ flex: 1 }}>
             {/* From */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
-              <div style={{ paddingTop: 4 }}>
-                <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 2px rgba(34,197,94,0.2)' }} />
-              </div>
+              <CircleDot size={12} color="#22C55E" strokeWidth={3} style={{ marginTop: 4, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111', letterSpacing: '-0.01em' }}>{from}</div>
                 <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{fromSub}</div>
@@ -61,15 +60,11 @@ export function TripSummary({
             </div>
 
             {/* Line connector */}
-            <div style={{ marginLeft: 4, width: 1, height: 12, background: '#E0E0E0', marginBottom: 10, marginTop: -6 }} />
+            <div style={{ marginLeft: 5, width: 1, height: 12, background: '#E0E0E0', marginBottom: 10, marginTop: -6 }} />
 
             {/* To */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ paddingTop: 4 }}>
-                <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
-                  <path d="M4.5 0C2.015 0 0 2.015 0 4.5c0 3.375 4.5 7.5 4.5 7.5s4.5-4.125 4.5-7.5C9 2.015 6.985 0 4.5 0zm0 6A1.5 1.5 0 1 1 4.5 3 1.5 1.5 0 0 1 4.5 6z" fill="#EF4444"/>
-                </svg>
-              </div>
+              <MapPin size={12} color="#EF4444" fill="#EF4444" strokeWidth={1} style={{ marginTop: 4, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111', letterSpacing: '-0.01em' }}>{to}</div>
                 <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{toSub}</div>
@@ -88,16 +83,7 @@ export function TripSummary({
             flexShrink: 0,
             border: '1px solid #FFF9C4',
           }}>
-            <svg viewBox="0 0 80 34" width="46" height="20" fill="none">
-              <rect x="4" y="12" width="72" height="16" rx="3" fill="#E0E0E0"/>
-              <path d="M14 12 C18 4 28 2 40 2 C52 2 62 4 66 12Z" fill="#BDBDBD"/>
-              <circle cx="20" cy="28" r="6" fill="#555"/>
-              <circle cx="20" cy="28" r="3" fill="#DDD"/>
-              <circle cx="60" cy="28" r="6" fill="#555"/>
-              <circle cx="60" cy="28" r="3" fill="#DDD"/>
-              <rect x="66" y="14" width="8" height="6" rx="1" fill="#FFC107" opacity="0.9"/>
-              <rect x="6" y="14" width="8" height="6" rx="1" fill="#EF4444" opacity="0.7"/>
-            </svg>
+            <Car size={26} color="#F59E0B" strokeWidth={1.8} />
           </div>
         </div>
       </div>
@@ -167,7 +153,7 @@ export function TripSummary({
               background: '#DCFCE7', display: 'flex',
               alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              💳
+              <CreditCard size={16} color="#16A34A" strokeWidth={2} />
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#15803D', letterSpacing: '-0.01em' }}>
@@ -210,9 +196,7 @@ export function TripSummary({
         >
           {continueDisabled ? 'Complete selections above' : 'Continue to passenger details'}
           {!continueDisabled && (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8h10M9 4l4 4-4 4" stroke="#000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <ArrowRight size={16} color="#000" strokeWidth={2} />
           )}
         </button>
 
@@ -224,13 +208,13 @@ export function TripSummary({
           marginTop: 16,
         }}>
           {[
-            { icon: '🛡️', text: 'No Hidden\nCharges' },
-            { icon: '✅', text: 'Everything\nIncluded' },
-            { icon: '🚗', text: 'Safe &\nReliable' },
-            { icon: '📞', text: '24/7\nSupport' },
-          ].map(b => (
-            <div key={b.text} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 18, marginBottom: 4 }}>{b.icon}</div>
+            { icon: <ShieldCheck size={18} color="#16A34A" strokeWidth={2} />, text: 'No Hidden\nCharges' },
+            { icon: <CheckCircle2 size={18} color="#16A34A" strokeWidth={2} />, text: 'Everything\nIncluded' },
+            { icon: <Car size={18} color="#16A34A" strokeWidth={2} />, text: 'Safe &\nReliable' },
+            { icon: <Phone size={18} color="#16A34A" strokeWidth={2} />, text: '24/7\nSupport' },
+          ].map((b, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ marginBottom: 4, display: 'flex' }}>{b.icon}</div>
               <div style={{ fontSize: 9, color: '#888', lineHeight: 1.4, whiteSpace: 'pre-line', fontWeight: 500 }}>{b.text}</div>
             </div>
           ))}

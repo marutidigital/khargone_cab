@@ -1,6 +1,8 @@
 'use client'
 // src/components/MatchPrompt.tsx
 
+import { Zap } from 'lucide-react'
+
 interface Props {
   count: number
   matchOnDate: boolean
@@ -19,7 +21,7 @@ export function MatchPrompt({ count, matchOnDate, dateStr, onScrollToForm }: Pro
       gap: 10,
       alignItems: 'flex-start',
     }}>
-      <div style={{ fontSize: 20, flexShrink: 0 }}>⚡</div>
+      <Zap size={20} color="#16A34A" fill="#16A34A" strokeWidth={1} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
         <div style={{
           fontFamily: "'Instrument Serif', serif",

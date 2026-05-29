@@ -1,6 +1,8 @@
 'use client'
 // src/components/StepBar.tsx
 
+import { Check } from 'lucide-react'
+
 const STEPS = [
   { num: 1, label: 'Route' },
   { num: 2, label: 'Vehicle' },
@@ -55,9 +57,7 @@ export function StepBar({ current }: Props) {
                   color: done ? '#000' : active ? '#000' : '#999',
                 }}>
                   {done ? (
-                    <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-                      <path d="M1 4.5l3.5 3.5L11 1" stroke="#000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <Check size={14} strokeWidth={3} color="#000" />
                   ) : step.num}
                 </div>
 
