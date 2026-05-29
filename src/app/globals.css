@@ -1,0 +1,84 @@
+/* src/app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg:         #050505;
+  --surface:    rgba(20, 20, 20, 0.6);
+  --surface-hover: rgba(30, 30, 30, 0.8);
+  --line:       rgba(255, 255, 255, 0.08);
+  --line2:      rgba(255, 255, 255, 0.12);
+  --text:       #FAFAFA;
+  --muted:      #8A8A8A;
+  --muted2:     #4A4A4A;
+  --gold:       #D4AF37;
+  --gold-dim:   rgba(212, 175, 55, 0.1);
+  --gold-glow:  rgba(212, 175, 55, 0.25);
+  --green:      #2E8B57;
+  --green-dim:  rgba(46, 139, 87, 0.15);
+  --amber:      #CD853F;
+  --amber-dim:  rgba(205, 133, 63, 0.15);
+  --red:        #B22222;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 13px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Geist Mono', monospace;
+  min-height: 100vh;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* Background animated gradient glow */
+body::before {
+  content: "";
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.03), transparent 60%);
+  z-index: -1;
+  animation: bgGlow 15s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes bgGlow {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.1) translate(2%, 2%); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; transition: background 0.2s; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted2); }
+
+/* Selection */
+::selection { background: var(--gold-dim); color: var(--gold); }
+
+button { cursor: pointer; font-family: inherit; transition: all 0.2s ease; }
+input, textarea { font-family: inherit; transition: all 0.2s ease; }
+a { color: inherit; text-decoration: none; transition: opacity 0.2s; }
+a:hover { opacity: 0.8; }
+
+.glass-panel {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
