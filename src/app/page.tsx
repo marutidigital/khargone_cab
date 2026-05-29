@@ -376,7 +376,7 @@ export default function Home() {
         }}
       >
         {/* ── LEFT COLUMN ─────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
 
           {/* 1. Route */}
           <Section num="1." title="Select your route">

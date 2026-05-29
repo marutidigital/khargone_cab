@@ -132,7 +132,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
       </div>
 
       {/* Scroll strip */}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', minWidth: 0 }}>
 
         {/* Left arrow */}
         <button
@@ -159,8 +159,8 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
             padding: '12px 36px',
             gap: 8,
             msOverflowStyle: 'none',
+            flex: 1,
             minWidth: 0,
-            width: '100%',
           }}
         >
           <style>{`
