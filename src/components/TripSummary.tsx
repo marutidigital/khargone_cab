@@ -3,6 +3,7 @@
 
 import type { PriceBreakdown } from '@/types'
 import type { VehicleType } from '@/components/VehicleSelector'
+import Image from 'next/image'
 import { CircleDot, MapPin, Car, CreditCard, ArrowRight, ShieldCheck, CheckCircle2, Phone } from 'lucide-react'
 
 interface Props {
@@ -72,18 +73,27 @@ export function TripSummary({
             </div>
           </div>
 
-          {/* Car icon */}
+          {/* Vehicle image */}
           <div style={{
-            width: 60, height: 60,
-            background: '#FFFDE7',
-            borderRadius: '50%',
+            width: 80, height: 60,
+            background: '#F9FAFB',
+            borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            border: '1px solid #FFF9C4',
+            position: 'relative',
+            overflow: 'hidden',
+            border: '1.5px solid #E8E8E8',
           }}>
-            <Car size={26} color="#F59E0B" strokeWidth={1.8} />
+            <Image
+              src={vehicle === 'suv' ? '/premium_suv.png' : '/economy_sedan.png'}
+              alt={vehicle}
+              fill
+              style={{ objectFit: 'contain' }}
+              sizes="80px"
+              priority
+            />
           </div>
         </div>
       </div>

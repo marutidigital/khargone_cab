@@ -6,6 +6,16 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
+-- ── CLIENTS TABLE ────────────────────────────
+create table public.clients (
+  id            uuid primary key default uuid_generate_v4(),
+  name          text not null,
+  phone         text not null unique,
+  email         text,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
 -- ── BOOKINGS TABLE ──────────────────────────
 create table public.bookings (
   id            uuid primary key default uuid_generate_v4(),
@@ -24,6 +34,7 @@ create table public.bookings (
   phone         text not null,
   email         text,
   status        text default 'waiting' check (status in ('waiting','confirmed','cancelled')),
+  client_id     uuid references public.clients(id),
   matched_with  uuid references public.bookings(id),
   whatsapp_sent boolean default false,
   email_sent    boolean default false,
@@ -42,6 +53,7 @@ create table public.whatsapp_sessions (
 );
 
 -- ── RLS POLICIES ────────────────────────────
+alter table public.clients enable row level security;
 alter table public.bookings enable row level security;
 alter table public.whatsapp_sessions enable row level security;
 
@@ -57,10 +69,22 @@ create policy "bookings_anon_insert" on public.bookings
 create policy "bookings_service_all" on public.bookings
   for all using (auth.role() = 'service_role');
 
+-- Allow anon read/insert for clients, service role full access
+create policy "clients_anon_read" on public.clients
+  for select using (true);
+
+create policy "clients_anon_insert" on public.clients
+  for insert with check (true);
+
+create policy "clients_service_all" on public.clients
+  for all using (auth.role() = 'service_role');
+
 create policy "sessions_service_all" on public.whatsapp_sessions
   for all using (auth.role() = 'service_role');
 
 -- ── INDEXES ─────────────────────────────────
+create index idx_clients_phone        on public.clients(phone);
+create index idx_bookings_client_id   on public.bookings(client_id);
 create index idx_bookings_direction   on public.bookings(direction);
 create index idx_bookings_travel_date on public.bookings(travel_date);
 create index idx_bookings_status      on public.bookings(status);
@@ -78,6 +102,10 @@ $$ language plpgsql;
 
 create trigger bookings_updated_at
   before update on public.bookings
+  for each row execute function update_updated_at();
+
+create trigger clients_updated_at
+  before update on public.clients
   for each row execute function update_updated_at();
 
 -- ── BOOKING REF GENERATOR ───────────────────

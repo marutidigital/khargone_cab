@@ -1,6 +1,6 @@
 // src/app/api/bookings/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase-server'
 import { sendBookingConfirmation, sendMatchNotification } from '@/lib/whatsapp'
 import { sendBookingEmail, sendAdminAlert, sendMatchEmail } from '@/lib/email'
 import { calcPrice, isNightHour } from '@/lib/constants'
@@ -21,7 +21,7 @@ const BookingSchema = z.object({
   vehicle:        z.enum(['sedan', 'suv']).optional(),
 })
 
-// GET /api/bookings?direction=KI&date=YYYY-MM-DD
+// GET /api/bookings?direction=KI&date=YYYY-MM-DD&status=waiting&limit=50
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const supabase = createServiceClient()
@@ -29,14 +29,21 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('bookings')
     .select('id,booking_ref,direction,drop_name,travel_date,pickup_time,status,is_night,total_fare,created_at')
-    .eq('status', 'waiting')
     .order('created_at', { ascending: false })
-    .limit(50)
 
-  const dir  = searchParams.get('direction')
-  const date = searchParams.get('date')
+  const dir    = searchParams.get('direction')
+  const date   = searchParams.get('date')
+  const status = searchParams.get('status')
+  const limit  = searchParams.get('limit')
+
   if (dir)  query = query.eq('direction', dir)
   if (date) query = query.eq('travel_date', date)
+  if (status && status !== 'all') {
+    query = query.eq('status', status)
+  }
+
+  const limitNum = limit ? parseInt(limit, 10) : 50
+  query = query.limit(limitNum)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -63,6 +70,39 @@ export async function POST(req: NextRequest) {
     // Generate booking ref
     const { data: refData } = await supabase.rpc('generate_booking_ref')
     const booking_ref = refData as string
+
+    // Find or create client account
+    let clientId: string | null = null
+    const { data: existingClients } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('phone', d.phone)
+      .limit(1)
+
+    if (existingClients && existingClients.length > 0) {
+      clientId = existingClients[0].id
+      // Update client name and email if provided
+      await supabase
+        .from('clients')
+        .update({ name: d.passenger_name, email: d.email || null })
+        .eq('id', clientId)
+    } else {
+      const { data: newClient, error: clientErr } = await supabase
+        .from('clients')
+        .insert({
+          name: d.passenger_name,
+          phone: d.phone,
+          email: d.email || null,
+        })
+        .select('id')
+        .single()
+      
+      if (clientErr) {
+        console.error('Failed to auto-create client account:', clientErr)
+      } else if (newClient) {
+        clientId = newClient.id
+      }
+    }
 
     // Check for opposite-direction match on same date
     const { data: matches } = await supabase
@@ -95,6 +135,7 @@ export async function POST(req: NextRequest) {
         phone:          d.phone,
         email:          d.email || null,
         status,
+        client_id:      clientId,
         matched_with:   match?.id ?? null,
       })
       .select()

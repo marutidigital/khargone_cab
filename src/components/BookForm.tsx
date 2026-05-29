@@ -35,8 +35,8 @@ export function BookForm({ disabled, loading, price, onSubmit }: Props) {
   const btnLabel = loading
     ? 'Placing booking…'
     : price
-    ? `Confirm Booking — ₹${price.total.toLocaleString('en-IN')}`
-    : 'Confirm Booking'
+    ? `Book Now — ₹${price.total.toLocaleString('en-IN')}`
+    : 'Book Now'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

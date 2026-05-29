@@ -13,21 +13,39 @@ export default function AdminPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      let q = supabase.from('bookings').select('*').order('created_at', { ascending: false }).limit(100)
-      if (filter !== 'all') q = q.eq('status', filter)
-      const { data } = await q
-      if (data) setBookings(data as Booking[])
+      try {
+        const res = await fetch(`/api/bookings?status=${filter}&limit=100`)
+        const json = await res.json()
+        if (json.bookings) setBookings(json.bookings as Booking[])
+      } catch (e) {
+        console.error('Failed to load admin bookings:', e)
+      }
       setLoading(false)
     }
     load()
 
-    // Realtime subscription
-    const sub = supabase
-      .channel('admin-bookings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => load())
-      .subscribe()
+    // 5-second interval fallback for polling in local/mock mode
+    const interval = setInterval(load, 5000)
 
-    return () => { supabase.removeChannel(sub) }
+    // Realtime subscription (safely wrapped for cases where Supabase connection is down/mocked)
+    let sub: any = null
+    try {
+      sub = supabase
+        .channel('admin-bookings')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => load())
+        .subscribe()
+    } catch (e) {
+      console.warn('Realtime subscription not available. Using polling fallback.', e)
+    }
+
+    return () => {
+      clearInterval(interval)
+      if (sub) {
+        try {
+          supabase.removeChannel(sub)
+        } catch (e) {}
+      }
+    }
   }, [filter])
 
   const waiting   = bookings.filter(b => b.status === 'waiting').length

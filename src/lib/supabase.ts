@@ -3,14 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabaseService = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Browser client (anon key)
-export const supabase = createClient(supabaseUrl, supabaseAnon)
+// Detect if env keys are dummy or missing
+const useLocalFallback = !supabaseUrl || supabaseUrl.includes('dummy');
 
-// Server client (service role — only used in API routes)
-export function createServiceClient() {
-  return createClient(supabaseUrl, supabaseService, {
-    auth: { persistSession: false }
-  })
-}
+// Client-safe dummy setup if local mode is detected
+export const supabase = createClient(
+  useLocalFallback ? 'https://dummy-project.supabase.co' : supabaseUrl,
+  useLocalFallback ? 'dummy-anon-key' : supabaseAnon
+)

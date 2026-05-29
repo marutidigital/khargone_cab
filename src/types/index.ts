@@ -28,6 +28,7 @@ export interface Booking {
   phone: string
   email?: string
   status: BookingStatus
+  client_id?: string
   matched_with?: string
   whatsapp_sent: boolean
   email_sent: boolean

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Nav }               from '@/components/Nav'
+import Image                 from 'next/image'
 import { CheckCircle2, Clock } from 'lucide-react'
 import { StepBar }           from '@/components/StepBar'
 import { DirectionTabs }     from '@/components/DirectionTabs'
@@ -51,23 +52,24 @@ export default function Home() {
   }
 
   const fetchBookings = useCallback(async () => {
-    const { data } = await supabase
-      .from('bookings')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20)
-    if (data) setBookings(data as Booking[])
+    try {
+      const res = await fetch('/api/bookings?limit=20')
+      const json = await res.json()
+      if (json.bookings) setBookings(json.bookings as Booking[])
+    } catch (e) {
+      console.error('Failed to fetch bookings:', e)
+    }
   }, [])
 
   const fetchWaitingOpposite = useCallback(async () => {
     const opp = dir === 'KI' ? 'IK' : 'KI'
-    const { data } = await supabase
-      .from('bookings')
-      .select('id,direction,travel_date,status,booking_ref')
-      .eq('direction', opp)
-      .eq('status', 'waiting')
-      .limit(5)
-    if (data) setWaitingOpp(data as Booking[])
+    try {
+      const res = await fetch(`/api/bookings?direction=${opp}&status=waiting&limit=5`)
+      const json = await res.json()
+      if (json.bookings) setWaitingOpp(json.bookings as Booking[])
+    } catch (e) {
+      console.error('Failed to fetch waiting opposite bookings:', e)
+    }
   }, [dir])
 
   useEffect(() => { fetchBookings() },        [fetchBookings])
@@ -174,15 +176,11 @@ export default function Home() {
             <div style={{
               width: 64, height: 64,
               borderRadius: '50%',
-              background: successBooking.matched ? '#DCFCE7' : '#FFF9C4',
+              background: '#FFF9C4',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 20px',
             }}>
-              {successBooking.matched ? (
-                <CheckCircle2 size={32} color="#16A34A" strokeWidth={2.5} />
-              ) : (
-                <Clock size={32} color="#F59E0B" strokeWidth={2.5} />
-              )}
+              <Clock size={32} color="#F59E0B" strokeWidth={2.5} />
             </div>
 
             {/* Title */}
@@ -193,23 +191,47 @@ export default function Home() {
               letterSpacing: '-0.02em',
               marginBottom: 10,
             }}>
-              {successBooking.matched ? 'Booking Confirmed!' : 'Booking Placed!'}
+              Booking Received!
             </h1>
 
             {/* Message */}
             <div style={{
-              fontSize: 14,
+              fontSize: 15,
               color: '#555',
               lineHeight: 1.6,
-              marginBottom: 30,
+              marginBottom: 20,
+              padding: '0 10px',
             }}>
-              {successBooking.matched ? (
-                <span>Your ride is confirmed instantly! We matched you with an opposite direction booking.</span>
-              ) : (
-                <span style={{ fontWeight: 600, color: '#D97706' }}>
-                  Your ride is on hold. We will inform you soon about your confirmation.
-                </span>
-              )}
+              <span style={{ fontWeight: 600, color: '#D97706', display: 'block', marginBottom: 8 }}>
+                Your ride is under waiting list.
+              </span>
+              <span style={{ color: '#666', fontSize: 13 }}>
+                Once confirmed, we will share all the details to you.
+              </span>
+            </div>
+
+            {/* Vehicle Image */}
+            <div style={{
+              width: '100%',
+              height: 140,
+              position: 'relative',
+              marginBottom: 30,
+              background: '#F9FAFB',
+              borderRadius: 12,
+              border: '1.5px solid #E8E8E8',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Image
+                src={successBooking.booking.base_fare >= 2600 ? '/premium_suv.png' : '/economy_sedan.png'}
+                alt={successBooking.booking.base_fare >= 2600 ? 'Premium SUV' : 'Economy Sedan'}
+                fill
+                style={{ objectFit: 'contain', padding: '12px' }}
+                sizes="500px"
+                priority
+              />
             </div>
 
             {/* Receipt Box */}
@@ -281,21 +303,17 @@ export default function Home() {
 
             {/* Status notice */}
             <div style={{
-              background: successBooking.matched ? '#F0FDF4' : '#FFFBEB',
-              border: `1px solid ${successBooking.matched ? '#BBF7D0' : '#FDE68A'}`,
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
               borderRadius: 8,
               padding: '12px 16px',
               fontSize: 12,
-              color: successBooking.matched ? '#15803D' : '#B45309',
+              color: '#B45309',
               lineHeight: 1.5,
               marginBottom: 30,
               textAlign: 'left',
             }}>
-              {successBooking.matched ? (
-                '✓ Your ride is confirmed. Driver and cab details will be shared on WhatsApp 2 hours prior to the pickup time.'
-              ) : (
-                '⌛ We are actively matching your booking with opposite direction rides. You will receive an instant SMS/WhatsApp notification as soon as it gets confirmed.'
-              )}
+              ⌛ <strong>Waiting List Status:</strong> We are actively matching your ride. We will share the driver and cab details via SMS/WhatsApp once confirmed.
             </div>
 
             {/* Back Button */}

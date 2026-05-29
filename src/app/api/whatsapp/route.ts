@@ -1,6 +1,6 @@
 // src/app/api/whatsapp/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase-server'
 import { sendTextMessage, formatIncomingMessage } from '@/lib/whatsapp'
 import { chatWithGemini, extractBookingAction } from '@/lib/gemini'
 import type { WhatsAppMessage } from '@/types'
