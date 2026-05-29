@@ -11,6 +11,7 @@ import { VehicleSelector }   from '@/components/VehicleSelector'
 import { DropList }          from '@/components/DropList'
 import { DatePicker }        from '@/components/DatePicker'
 import { TimePicker }        from '@/components/TimePicker'
+import { MatchStripe }       from '@/components/MatchStripe'
 import { TripSummary }       from '@/components/TripSummary'
 import { BookForm }          from '@/components/BookForm'
 import { FooterTicker }      from '@/components/FooterTicker'
@@ -81,6 +82,30 @@ export default function Home() {
     setSelDate(null)
     setPickupTime(null)
     setShowForm(false)
+  }
+
+  const handleMatchSelect = (b: Booking) => {
+    const matchDate = new Date(b.travel_date)
+    const today = new Date()
+    today.setHours(0,0,0,0)
+    
+    // We compute days ahead relative to today
+    const diffTime = matchDate.getTime() - today.getTime()
+    const daysAhead = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+
+    setSelDate({
+      date: matchDate,
+      str: b.travel_date,
+      daysAhead: daysAhead
+    })
+    
+    const [h, m] = b.pickup_time.split(':').map(Number)
+    setPickupTime({ h, m })
+    
+    setShowForm(true)
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   // SUV adds ₹600 to all prices
@@ -382,6 +407,8 @@ export default function Home() {
           <Section num="1." title="Select your route">
             <DirectionTabs dir={dir} onChange={handleDirChange} />
           </Section>
+
+          <MatchStripe bookings={waitingOpp} onSelectMatch={handleMatchSelect} />
 
           {/* 2. Vehicle */}
           <Section num="2." title="Choose your vehicle" sub="Select the vehicle that best suits your journey">

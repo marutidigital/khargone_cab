@@ -74,7 +74,10 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
       const d = new Date(today)
       d.setDate(today.getDate() + i + 1)
       d.setHours(0,0,0,0)
-      const str = d.toISOString().split('T')[0]
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const str = `${year}-${month}-${day}`
       return { date: d, str, daysAhead: i + 1 }
     })
   }, [today])
