@@ -1,21 +1,108 @@
 'use client'
-// src/app/admin/page.tsx — Khargone Cabs Admin Dashboard
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import type { Booking } from '@/types'
+import { useState, useEffect, useMemo, DragEvent, useRef } from 'react'
+import { DM_Sans, Sora } from 'next/font/google'
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  UserCheck,
+  Car,
+  Link2,
+  CreditCard,
+  BarChart3,
+  Settings,
+  Search,
+  Bell,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Plus,
+  Trash2,
+  Edit2,
+  TrendingUp,
+  MapPin,
+  ArrowRight,
+  Eye,
+  Info,
+  DollarSign,
+  AlertCircle,
+  RefreshCw,
+  Check,
+  X,
+  Send,
+  ExternalLink,
+  ChevronRight,
+  Filter
+} from 'lucide-react'
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend
+} from 'recharts'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Load Fonts
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-dm-sans',
+})
+
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  variable: '--font-sora',
+})
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+interface Booking {
+  id: string
+  booking_ref: string
+  direction: 'KI' | 'IK'
+  travel_date: string
+  pickup_time: string
+  passenger_name: string
+  phone: string
+  email?: string
+  drop_point: string
+  drop_name: string
+  vehicle_type: 'sedan' | 'suv' | 'innova'
+  base_fare: number
+  discount: number
+  night_extra: number
+  total_fare: number
+  advance_paid: number
+  status: 'waiting' | 'confirmed' | 'cancelled'
+  matched_with?: string
+  driver_id?: string
+  agent_id?: string
+  notes?: string
+  created_at: string
+}
 
 interface Driver {
   id: string
   name: string
   phone: string
-  vehicle_type: string
+  vehicle_type: 'sedan' | 'suv' | 'innova'
   vehicle_number: string
   vehicle_model: string
-  status: string
+  status: 'active' | 'on_trip' | 'inactive'
   rating: number
   trips_completed: number
+  license_expiry: string
+  permit_expiry: string
   created_at: string
 }
 
@@ -26,1332 +113,2297 @@ interface Agent {
   email: string
   area: string
   commission_pct: number
-  status: string
+  status: 'active' | 'inactive'
   bookings_linked: number
+  total_payout: number
   created_at: string
 }
 
-type Tab = 'dashboard' | 'bookings' | 'drivers' | 'agents' | 'analytics'
-
-// ─── Status helpers ────────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
-  waiting:    { bg: '#FFF9E6', color: '#D97706', border: '#FCD34D' },
-  confirmed:  { bg: '#ECFDF5', color: '#059669', border: '#6EE7B7' },
-  cancelled:  { bg: '#FEF2F2', color: '#DC2626', border: '#FCA5A5' },
-  linked:     { bg: '#EFF6FF', color: '#2563EB', border: '#93C5FD' },
-  active:     { bg: '#ECFDF5', color: '#059669', border: '#6EE7B7' },
-  inactive:   { bg: '#F3F4F6', color: '#6B7280', border: '#D1D5DB' },
+interface Vehicle {
+  id: string
+  make: string
+  model: string
+  plate: string
+  type: 'sedan' | 'suv' | 'innova'
+  capacity: number
+  status: 'active' | 'inactive' | 'maintenance'
+  driver_id?: string
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_COLORS[status] || STATUS_COLORS.inactive
-  return (
-    <span style={{
-      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
-      textTransform: 'capitalize', whiteSpace: 'nowrap',
-    }}>{status}</span>
-  )
+interface Transaction {
+  id: string
+  date: string
+  booking_ref: string
+  passenger_name: string
+  amount: number
+  type: 'advance' | 'balance' | 'full'
+  method: 'UPI' | 'Cash'
 }
 
-// ─── Direction label ───────────────────────────────────────────────────────────
+type TabType = 'dashboard' | 'bookings' | 'dispatch' | 'drivers' | 'agents' | 'vehicles' | 'matching' | 'payments' | 'reports' | 'settings' | 'booking-link'
 
-function dirLabel(d?: string) {
-  if (d === 'KI') return 'Khargone → Indore'
-  if (d === 'IK') return 'Indore → Khargone'
-  return d || '—'
+// ─── Mock Data ────────────────────────────────────────────────────────────────
+const INITIAL_DRIVERS: Driver[] = [
+  { id: 'drv-1', name: 'Rajesh Kumar', phone: '9876543210', vehicle_type: 'sedan', vehicle_number: 'MP-09-AB-1234', vehicle_model: 'Maruti Dzire', status: 'active', rating: 4.8, trips_completed: 248, license_expiry: '2027-05-15', permit_expiry: '2026-08-20', created_at: '2024-01-10' },
+  { id: 'drv-2', name: 'Suresh Jaiswal', phone: '9876543211', vehicle_type: 'suv', vehicle_number: 'MP-09-CD-5678', vehicle_model: 'Maruti Ertiga', status: 'on_trip', rating: 4.6, trips_completed: 187, license_expiry: '2026-03-10', permit_expiry: '2026-04-12', created_at: '2024-02-14' },
+  { id: 'drv-3', name: 'Mukesh Yadav', phone: '9876543212', vehicle_type: 'innova', vehicle_number: 'MP-09-EF-9012', vehicle_model: 'Toyota Innova', status: 'active', rating: 4.9, trips_completed: 312, license_expiry: '2025-12-01', permit_expiry: '2026-01-15', created_at: '2023-11-05' },
+  { id: 'drv-4', name: 'Vivek Gupta', phone: '9876543213', vehicle_type: 'sedan', vehicle_number: 'MP-09-GH-3456', vehicle_model: 'Hyundai Aura', status: 'inactive', rating: 4.2, trips_completed: 156, license_expiry: '2026-07-22', permit_expiry: '2026-06-18', created_at: '2024-03-20' }
+]
+
+const INITIAL_AGENTS: Agent[] = [
+  { id: 'agt-1', name: 'Anita Verma', phone: '8887777766', email: 'anita@kcabs.in', area: 'Khargone City', commission_pct: 10, status: 'active', bookings_linked: 45, total_payout: 9800, created_at: '2024-01-15' },
+  { id: 'agt-2', name: 'Ravi Sharma', phone: '9988776655', email: 'ravi@kcabs.in', area: 'Indore Central', commission_pct: 8, status: 'active', bookings_linked: 32, total_payout: 6400, created_at: '2024-02-01' },
+  { id: 'agt-3', name: 'Gopal Joshi', phone: '9123456789', email: 'gopal@kcabs.in', area: 'Ujjain Stn', commission_pct: 12, status: 'inactive', bookings_linked: 18, total_payout: 4200, created_at: '2024-03-10' }
+]
+
+const INITIAL_VEHICLES: Vehicle[] = [
+  { id: 'veh-1', make: 'Maruti', model: 'Dzire', plate: 'MP-09-AB-1234', type: 'sedan', capacity: 4, status: 'active', driver_id: 'drv-1' },
+  { id: 'veh-2', make: 'Maruti', model: 'Ertiga', plate: 'MP-09-CD-5678', type: 'suv', capacity: 6, status: 'active', driver_id: 'drv-2' },
+  { id: 'veh-3', make: 'Toyota', model: 'Innova', plate: 'MP-09-EF-9012', type: 'innova', capacity: 7, status: 'active', driver_id: 'drv-3' },
+  { id: 'veh-4', make: 'Hyundai', model: 'Aura', plate: 'MP-09-GH-3456', type: 'sedan', capacity: 4, status: 'active', driver_id: 'drv-4' }
+]
+
+const TODAY_DATE = new Date().toISOString().split('T')[0]
+const TOMORROW_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+
+const INITIAL_BOOKINGS: Booking[] = [
+  { id: 'b-1', booking_ref: 'KCB-4011', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '08:30', passenger_name: 'Harish Mandloi', phone: '9827011223', email: 'harish@gmail.com', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 100, night_extra: 0, total_fare: 2100, advance_paid: 500, status: 'confirmed', matched_with: 'b-2', driver_id: 'drv-1', agent_id: 'agt-1', created_at: '2026-05-28T10:00:00Z' },
+  { id: 'b-2', booking_ref: 'KCB-4012', direction: 'IK', travel_date: TODAY_DATE, pickup_time: '12:00', passenger_name: 'Priya Sharma', phone: '9407155667', email: 'priya@outlook.com', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 0, total_fare: 2200, advance_paid: 500, status: 'confirmed', matched_with: 'b-1', driver_id: 'drv-1', agent_id: 'agt-1', created_at: '2026-05-28T10:15:00Z' },
+  { id: 'b-3', booking_ref: 'KCB-4013', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '09:00', passenger_name: 'Sanjay Patidar', phone: '9926088990', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'suv', base_fare: 2800, discount: 200, night_extra: 0, total_fare: 2600, advance_paid: 1000, status: 'confirmed', matched_with: 'b-4', driver_id: 'drv-2', created_at: '2026-05-29T08:30:00Z' },
+  { id: 'b-4', booking_ref: 'KCB-4014', direction: 'IK', travel_date: TODAY_DATE, pickup_time: '14:30', passenger_name: 'Ramesh Gehlot', phone: '9893044556', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'suv', base_fare: 2800, discount: 0, night_extra: 0, total_fare: 2800, advance_paid: 0, status: 'confirmed', matched_with: 'b-3', driver_id: 'drv-2', created_at: '2026-05-29T08:45:00Z' },
+  { id: 'b-5', booking_ref: 'KCB-4015', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '15:00', passenger_name: 'Vikram Singh', phone: '9425033442', drop_point: 'ind-vij', drop_name: 'Vijay Nagar', vehicle_type: 'innova', base_fare: 3200, discount: 0, night_extra: 0, total_fare: 3200, advance_paid: 1000, status: 'waiting', created_at: '2026-05-29T14:00:00Z' },
+  { id: 'b-6', booking_ref: 'KCB-4016', direction: 'KI', travel_date: TOMORROW_DATE, pickup_time: '06:00', passenger_name: 'Anjali Gupta', phone: '9755012345', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 100, night_extra: 0, total_fare: 2100, advance_paid: 500, status: 'waiting', created_at: '2026-05-30T07:00:00Z' },
+  { id: 'b-7', booking_ref: 'KCB-4017', direction: 'IK', travel_date: TOMORROW_DATE, pickup_time: '10:30', passenger_name: 'Rajesh Solanki', phone: '9009099887', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 0, total_fare: 2200, advance_paid: 2200, status: 'waiting', created_at: '2026-05-30T07:30:00Z' },
+  { id: 'b-8', booking_ref: 'KCB-4018', direction: 'KI', travel_date: TOMORROW_DATE, pickup_time: '23:30', passenger_name: 'Deepak Verma', phone: '9826011122', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 300, total_fare: 2500, advance_paid: 500, status: 'waiting', created_at: '2026-05-30T08:00:00Z' },
+  { id: 'b-9', booking_ref: 'KCB-4019', direction: 'IK', travel_date: TOMORROW_DATE, pickup_time: '04:00', passenger_name: 'Sunita Jain', phone: '9424077665', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 300, total_fare: 2500, advance_paid: 500, status: 'waiting', created_at: '2026-05-30T08:15:00Z' },
+  { id: 'b-10', booking_ref: 'KCB-4020', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '18:00', passenger_name: 'Alok Mishra', phone: '9893011223', drop_point: 'ind-vij', drop_name: 'Vijay Nagar', vehicle_type: 'sedan', base_fare: 2200, discount: 100, night_extra: 0, total_fare: 2100, advance_paid: 0, status: 'cancelled', created_at: '2026-05-29T16:00:00Z' }
+]
+
+const INITIAL_TRANSACTIONS: Transaction[] = [
+  { id: 't-1', date: TODAY_DATE, booking_ref: 'KCB-4011', passenger_name: 'Harish Mandloi', amount: 500, type: 'advance', method: 'UPI' },
+  { id: 't-2', date: TODAY_DATE, booking_ref: 'KCB-4012', passenger_name: 'Priya Sharma', amount: 500, type: 'advance', method: 'UPI' },
+  { id: 't-3', date: TODAY_DATE, booking_ref: 'KCB-4013', passenger_name: 'Sanjay Patidar', amount: 1000, type: 'advance', method: 'UPI' },
+  { id: 't-4', date: TODAY_DATE, booking_ref: 'KCB-4011', passenger_name: 'Harish Mandloi', amount: 1600, type: 'balance', method: 'Cash' },
+  { id: 't-5', date: TOMORROW_DATE, booking_ref: 'KCB-4017', passenger_name: 'Rajesh Solanki', amount: 2200, type: 'full', method: 'UPI' },
+  { id: 't-6', date: TOMORROW_DATE, booking_ref: 'KCB-4018', passenger_name: 'Deepak Verma', amount: 500, type: 'advance', method: 'UPI' }
+]
+
+const INITIAL_NOTIFICATIONS = [
+  { id: 'n-1', type: 'info', text: 'New booking KCB-4019 waiting for match', time: '10 mins ago', read: false },
+  { id: 'n-2', type: 'success', text: 'Auto Match Found: KCB-4011 matched with KCB-4012', time: '2 hours ago', read: false },
+  { id: 'n-3', type: 'warning', text: 'Driver Rajesh Kumar license expiring in 45 days', time: '1 day ago', read: true },
+  { id: 'n-4', type: 'warning', text: 'Vehicle MP-09-GH-3456 permit expiring in 18 days', time: '2 days ago', read: true }
+]
+
+const INITIAL_SETTINGS = {
+  business_name: 'Khargone Cabs Pvt Ltd',
+  phone: '98260 98260',
+  email: 'support@khargonecabs.com',
+  address: 'Bus Stand Road, Near Mandi, Khargone (M.P.)',
+  base_sedan: 2200,
+  base_suv: 2800,
+  base_innova: 3200,
+  night_charge: 300,
+  commission_agent: 10,
+  advance_req: 500,
+  rac_cancel_hrs: 48,
+  template_rac: 'Hello [Name], your cab request [ID] from [Route] on [Date] at [Time] is in waiting (RAC). We are matching a return trip. Support: [AdminPhone]',
+  template_confirmed: 'Great news [Name]! Your cab booking [ID] is confirmed. Cab: [CarModel] ([Plate]), Driver: [DriverName] ([Phone]). Balance due: ₹[Balance].',
+  template_reminder: 'Reminder [Name]: Your cab [ID] is scheduled for tomorrow at [Time] from [Route]. Driver detail: [DriverName] ([Phone]).'
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
+export default function AdminDashboard() {
+  // ─── States ─────────────────────────────────────────────────────────────────
+  const [bookings, setBookings] = useState<Booking[]>(INITIAL_BOOKINGS)
+  const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS)
+  const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS)
+  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES)
+  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS)
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS)
+  const [settings, setSettings] = useState(INITIAL_SETTINGS)
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }} onClick={onClose}>
-      <div style={{
-        background: '#fff', borderRadius: 16, padding: 28, maxWidth: 520, width: '100%',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto',
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111' }}>{title}</h3>
-          <button onClick={onClose} style={{ fontSize: 22, color: '#9CA3AF', cursor: 'pointer', lineHeight: 1, background: 'none', border: 'none' }}>×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
 
-// ─── Form Field ───────────────────────────────────────────────────────────────
+  // Drawer / Modals
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [showNewBooking, setShowNewBooking] = useState(false)
+  const [showLinkModal, setShowLinkModal] = useState<Booking | null>(null)
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [driverModalMode, setDriverModalMode] = useState<'create' | 'edit'>('create')
+  const [agentModalMode, setAgentModalMode] = useState<'create' | 'edit'>('create')
+  const [vehicleModalMode, setVehicleModalMode] = useState<'create' | 'edit'>('create')
+  const [showDriverModal, setShowDriverModal] = useState(false)
+  const [showAgentModal, setShowAgentModal] = useState(false)
+  const [showVehicleModal, setShowVehicleModal] = useState(false)
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>{label}</label>
-      {children}
-    </div>
-  )
-}
+  // Toasts
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '9px 12px', border: '1.5px solid #E5E7EB', borderRadius: 8,
-  fontSize: 14, color: '#111', background: '#FAFAFA', outline: 'none',
-  fontFamily: 'Inter, sans-serif', transition: 'border-color 0.2s',
-}
+  // Auto Matching Settings
+  const [matchThreshold, setMatchThreshold] = useState(80)
 
-const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' }
-
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-function StatCard({ icon, label, value, sub, color }: { icon: string; label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0',
-      padding: '18px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 140px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 18 }}>{icon}</span>
-        <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#10B981' }}>{sub}</div>}
-    </div>
-  )
-}
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-function Toast({ msg, type, onDone }: { msg: string; type: 'success' | 'error'; onDone: () => void }) {
-  useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t) }, [onDone])
-  return (
-    <div style={{
-      position: 'fixed', bottom: 24, right: 24, zIndex: 2000,
-      background: type === 'success' ? '#059669' : '#DC2626',
-      color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 500,
-      boxShadow: '0 8px 24px rgba(0,0,0,0.15)', animation: 'fadeIn 0.2s ease',
-    }}>{msg}</div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN ADMIN PAGE
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default function AdminPage() {
-  const [tab, setTab] = useState<Tab>('dashboard')
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
-
-  const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type })
+  // Hydration state
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+    // Responsive Collapsing on small devices
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarCollapsed(true)
+      } else {
+        setSidebarCollapsed(false)
+      }
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const now = new Date()
-  const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+  // ─── Toast Helper ───────────────────────────────────────────────────────────
+  const triggerToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(msg)
+    setToastType(type)
+    setTimeout(() => setToastMessage(null), 3000)
+  }
 
-  const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
-    { id: 'bookings',  label: 'Bookings',  icon: '📋' },
-    { id: 'drivers',   label: 'Drivers',   icon: '🚗' },
-    { id: 'agents',    label: 'Agents',    icon: '👤' },
-    { id: 'analytics', label: 'Analytics', icon: '📊' },
-  ]
+  // ─── Drag and Drop State ─────────────────────────────────────────────────────
+  const [draggedBookingId, setDraggedBookingId] = useState<string | null>(null)
+
+  // ─── Computed Stats ─────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const todayB = bookings.filter(b => b.travel_date === TODAY_DATE)
+    const todayConfirmed = todayB.filter(b => b.status === 'confirmed')
+    const todayRevenue = todayConfirmed.reduce((sum, b) => sum + b.total_fare, 0)
+    const activeTripsCount = todayConfirmed.filter(b => b.driver_id).length
+    const unmatchedCount = bookings.filter(b => b.status === 'waiting').length
+    const totalRevenue = bookings.filter(b => b.status !== 'cancelled').reduce((sum, b) => sum + b.total_fare, 0)
+
+    // Match Rate calculation
+    const linkedCount = bookings.filter(b => b.status === 'confirmed' && b.matched_with).length
+    const matchRate = bookings.length > 0 ? Math.round((linkedCount / bookings.length) * 100) : 0
+
+    return {
+      todayCount: todayB.length,
+      todayRevenue,
+      activeTripsCount,
+      unmatchedCount,
+      totalRevenue,
+      matchRate
+    }
+  }, [bookings])
+
+  // ─── Search Results ─────────────────────────────────────────────────────────
+  const searchResults = useMemo(() => {
+    if (!globalSearch.trim()) return { bookings: [], drivers: [], agents: [] }
+    const query = globalSearch.toLowerCase()
+    const matchBookings = bookings.filter(b =>
+      b.booking_ref.toLowerCase().includes(query) ||
+      b.passenger_name.toLowerCase().includes(query) ||
+      b.phone.includes(query)
+    )
+    const matchDrivers = drivers.filter(d =>
+      d.name.toLowerCase().includes(query) ||
+      d.phone.includes(query) ||
+      d.vehicle_number.toLowerCase().includes(query)
+    )
+    const matchAgents = agents.filter(a =>
+      a.name.toLowerCase().includes(query) ||
+      a.phone.includes(query) ||
+      a.area.toLowerCase().includes(query)
+    )
+    return { bookings: matchBookings, drivers: matchDrivers, agents: matchAgents }
+  }, [globalSearch, bookings, drivers, agents])
+
+  // ─── Dashboard Charts Data ──────────────────────────────────────────────────
+  const revenueChartData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      return d.toISOString().split('T')[0]
+    }).reverse()
+
+    return last7Days.map(date => {
+      const dayBookings = bookings.filter(b => b.travel_date === date && b.status !== 'cancelled')
+      const revenue = dayBookings.reduce((sum, b) => sum + b.total_fare, 0)
+      const cost = dayBookings.reduce((sum, b) => {
+        // Mock driver payouts / fuel costs
+        const rate = b.vehicle_type === 'sedan' ? 1200 : b.vehicle_type === 'suv' ? 1600 : 2000
+        return sum + rate
+      }, 0)
+      const profit = revenue - cost
+      const displayDate = new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+      return { name: displayDate, revenue, cost, profit }
+    })
+  }, [bookings])
+
+  const bookingStatusData = useMemo(() => {
+    const linked = bookings.filter(b => b.status === 'confirmed' && b.matched_with).length
+    const unlinked = bookings.filter(b => b.status === 'waiting').length
+    const cancelled = bookings.filter(b => b.status === 'cancelled').length
+    return [
+      { name: 'Linked (Confirmed)', value: linked, color: '#22C55E' },
+      { name: 'Unlinked (RAC)', value: unlinked, color: '#F59E0B' },
+      { name: 'Cancelled', value: cancelled, color: '#EF4444' }
+    ]
+  }, [bookings])
+
+  // ─── Matching Queue ─────────────────────────────────────────────────────────
+  const matchingSuggestions = useMemo(() => {
+    const unmatchedKI = bookings.filter(b => b.status === 'waiting' && b.direction === 'KI')
+    const unmatchedIK = bookings.filter(b => b.status === 'waiting' && b.direction === 'IK')
+    const suggestions: { b1: Booking; b2: Booking; confidence: number }[] = []
+
+    unmatchedKI.forEach(ki => {
+      unmatchedIK.forEach(ik => {
+        if (ki.travel_date === ik.travel_date) {
+          // Compute a mock match confidence score based on time difference and vehicle capacity
+          const timeDiffMin = Math.abs(
+            (parseInt(ki.pickup_time.split(':')[0]) * 60 + parseInt(ki.pickup_time.split(':')[1])) -
+            (parseInt(ik.pickup_time.split(':')[0]) * 60 + parseInt(ik.pickup_time.split(':')[1]))
+          )
+          let confidence = 100 - Math.min(20, Math.floor(timeDiffMin / 15))
+          if (ki.vehicle_type !== ik.vehicle_type) confidence -= 10
+          suggestions.push({ b1: ki, b2: ik, confidence })
+        }
+      })
+    })
+
+    return suggestions.sort((a, b) => b.confidence - a.confidence)
+  }, [bookings])
+
+  // ─── Actions ────────────────────────────────────────────────────────────────
+  const handleLinkBookings = (id1: string, id2: string) => {
+    setBookings(prev =>
+      prev.map(b => {
+        if (b.id === id1) return { ...b, status: 'confirmed', matched_with: id2 }
+        if (b.id === id2) return { ...b, status: 'confirmed', matched_with: id1 }
+        return b
+      })
+    )
+    const ref1 = bookings.find(b => b.id === id1)?.booking_ref
+    const ref2 = bookings.find(b => b.id === id2)?.booking_ref
+    // Add transaction for balance collected or advance update
+    triggerToast(`🔗 Linked booking ${ref1} and ${ref2} successfully!`)
+    setShowLinkModal(null)
+  }
+
+  const handleUnlinkBooking = (id: string) => {
+    const current = bookings.find(b => b.id === id)
+    if (!current || !current.matched_with) return
+
+    const partnerId = current.matched_with
+
+    setBookings(prev =>
+      prev.map(b => {
+        if (b.id === id) return { ...b, status: 'waiting', matched_with: undefined }
+        if (b.id === partnerId) return { ...b, status: 'waiting', matched_with: undefined }
+        return b
+      })
+    )
+    triggerToast('🔓 Bookings unlinked successfully.')
+  }
+
+  const handleCancelBooking = (id: string) => {
+    const current = bookings.find(b => b.id === id)
+    if (!current) return
+
+    if (current.matched_with) {
+      handleUnlinkBooking(id)
+    }
+
+    setBookings(prev =>
+      prev.map(b => (b.id === id ? { ...b, status: 'cancelled' } : b))
+    )
+    triggerToast(`❌ Booking ${current.booking_ref} marked as Cancelled.`)
+  }
+
+  const handleBulkLink = () => {
+    const threshold = matchThreshold
+    const list = matchingSuggestions.filter(s => s.confidence >= threshold)
+    if (list.length === 0) {
+      triggerToast('No suggestions above threshold!', 'error')
+      return
+    }
+
+    let linkedCount = 0
+    let tempBookings = [...bookings]
+
+    list.forEach(({ b1, b2 }) => {
+      const latestB1 = tempBookings.find(b => b.id === b1.id)
+      const latestB2 = tempBookings.find(b => b.id === b2.id)
+
+      if (latestB1 && latestB2 && !latestB1.matched_with && !latestB2.matched_with) {
+        latestB1.status = 'confirmed'
+        latestB1.matched_with = b2.id
+        latestB2.status = 'confirmed'
+        latestB2.matched_with = b1.id
+        linkedCount++
+      }
+    })
+
+    setBookings(tempBookings)
+    triggerToast(`⚡ Automatically paired ${linkedCount} couples!`)
+  }
+
+  const handleCreateBooking = (data: Partial<Booking>) => {
+    const newId = `b-${bookings.length + 1}`
+    const ref = `KCB-${4020 + bookings.length}`
+    const finalFare = (data.base_fare || 0) + (data.night_extra || 0) - (data.discount || 0)
+
+    const newB: Booking = {
+      id: newId,
+      booking_ref: ref,
+      direction: data.direction || 'KI',
+      travel_date: data.travel_date || TODAY_DATE,
+      pickup_time: data.pickup_time || '10:00',
+      passenger_name: data.passenger_name || 'Passenger Name',
+      phone: data.phone || '9999999999',
+      email: data.email,
+      drop_point: data.drop_point || 'ind-vij',
+      drop_name: data.drop_name || 'Vijay Nagar',
+      vehicle_type: data.vehicle_type || 'sedan',
+      base_fare: data.base_fare || 2200,
+      discount: data.discount || 0,
+      night_extra: data.night_extra || 0,
+      total_fare: finalFare,
+      advance_paid: data.advance_paid || 0,
+      status: 'waiting',
+      driver_id: data.driver_id,
+      agent_id: data.agent_id,
+      notes: data.notes,
+      created_at: new Date().toISOString()
+    }
+
+    setBookings(prev => [newB, ...prev])
+    // Create advance transaction if paid
+    if (newB.advance_paid > 0) {
+      setTransactions(prev => [
+        {
+          id: `t-${transactions.length + 1}`,
+          date: newB.travel_date,
+          booking_ref: newB.booking_ref,
+          passenger_name: newB.passenger_name,
+          amount: newB.advance_paid,
+          type: 'advance',
+          method: 'UPI'
+        },
+        ...prev
+      ])
+    }
+    triggerToast(`Booking ${ref} Created successfully!`)
+    setShowNewBooking(false)
+  }
+
+  // CRUD Helpers
+  const handleSaveDriver = (driver: Partial<Driver>) => {
+    if (driverModalMode === 'create') {
+      const newD: Driver = {
+        id: `drv-${drivers.length + 1}`,
+        name: driver.name || 'New Driver',
+        phone: driver.phone || '9000000000',
+        vehicle_type: driver.vehicle_type || 'sedan',
+        vehicle_number: driver.vehicle_number || 'MP-09-XX-0000',
+        vehicle_model: driver.vehicle_model || 'Model',
+        status: 'active',
+        rating: 5.0,
+        trips_completed: 0,
+        license_expiry: driver.license_expiry || TODAY_DATE,
+        permit_expiry: driver.permit_expiry || TODAY_DATE,
+        created_at: TODAY_DATE
+      }
+      setDrivers(prev => [...prev, newD])
+      triggerToast('Driver added successfully!')
+    } else {
+      setDrivers(prev => prev.map(d => (d.id === driver.id ? { ...d, ...driver } : d) as Driver))
+      triggerToast('Driver updated successfully!')
+    }
+    setShowDriverModal(false)
+  }
+
+  const handleDeleteDriver = (id: string) => {
+    setDrivers(prev => prev.filter(d => d.id !== id))
+    triggerToast('Driver deleted.')
+  }
+
+  const handleSaveAgent = (agent: Partial<Agent>) => {
+    if (agentModalMode === 'create') {
+      const newA: Agent = {
+        id: `agt-${agents.length + 1}`,
+        name: agent.name || 'New Agent',
+        phone: agent.phone || '9000000000',
+        email: agent.email || 'agent@kcabs.in',
+        area: agent.area || 'Area',
+        commission_pct: agent.commission_pct || 10,
+        status: 'active',
+        bookings_linked: 0,
+        total_payout: 0,
+        created_at: TODAY_DATE
+      }
+      setAgents(prev => [...prev, newA])
+      triggerToast('Agent added successfully!')
+    } else {
+      setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, ...agent } : a) as Agent))
+      triggerToast('Agent updated successfully!')
+    }
+    setShowAgentModal(false)
+  }
+
+  const handleDeleteAgent = (id: string) => {
+    setAgents(prev => prev.filter(a => a.id !== id))
+    triggerToast('Agent deleted.')
+  }
+
+  const handleSaveVehicle = (veh: Partial<Vehicle>) => {
+    if (vehicleModalMode === 'create') {
+      const newV: Vehicle = {
+        id: `veh-${vehicles.length + 1}`,
+        make: veh.make || 'Make',
+        model: veh.model || 'Model',
+        plate: veh.plate || 'Plate',
+        type: veh.type || 'sedan',
+        capacity: veh.type === 'sedan' ? 4 : veh.type === 'suv' ? 6 : 7,
+        status: 'active',
+        driver_id: veh.driver_id
+      }
+      setVehicles(prev => [...prev, newV])
+      triggerToast('Vehicle registered successfully!')
+    } else {
+      setVehicles(prev => prev.map(v => (v.id === veh.id ? { ...v, ...veh } : v) as Vehicle))
+      triggerToast('Vehicle updated successfully!')
+    }
+    setShowVehicleModal(false)
+  }
+
+  const handleDeleteVehicle = (id: string) => {
+    setVehicles(prev => prev.filter(v => v.id !== id))
+    triggerToast('Vehicle deleted.')
+  }
+
+  // ─── Drag and Drop Handlers ──────────────────────────────────────────────────
+  const handleDragStart = (e: DragEvent, id: string) => {
+    setDraggedBookingId(id)
+    e.dataTransfer.setData('text/plain', id)
+  }
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = (e: DragEvent, targetId: string) => {
+    e.preventDefault()
+    const sourceId = draggedBookingId || e.dataTransfer.getData('text/plain')
+    if (!sourceId || sourceId === targetId) return
+
+    const sourceB = bookings.find(b => b.id === sourceId)
+    const targetB = bookings.find(b => b.id === targetId)
+
+    if (sourceB && targetB) {
+      if (sourceB.status === 'confirmed' || targetB.status === 'confirmed') {
+        triggerToast('One of the bookings is already linked!', 'error')
+        return
+      }
+      if (sourceB.travel_date !== targetB.travel_date) {
+        triggerToast('Travel dates must match to pair!', 'error')
+        return
+      }
+      if (sourceB.direction === targetB.direction) {
+        triggerToast('Directions must be opposite to match!', 'error')
+        return
+      }
+      handleLinkBookings(sourceId, targetId)
+    }
+    setDraggedBookingId(null)
+  }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F7F8FC', fontFamily: 'Inter, sans-serif' }}>
-      {/* ── Sidebar ── */}
-      <aside style={{
-        width: 220, background: '#0F1117', display: 'flex', flexDirection: 'column',
-        position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 100,
-        boxShadow: '2px 0 20px rgba(0,0,0,0.15)',
-      }}>
+    <div className={`${dmSans.variable} ${sora.variable} font-sans bg-slate-900 text-slate-100 min-h-screen flex`}>
+      
+      {/* ─── SIDEBAR ───────────────────────────────────────────────────────────── */}
+      <aside
+        className={`bg-slate-800 border-r border-slate-700 flex flex-col fixed top-0 bottom-0 left-0 z-20 transition-all duration-200 ${
+          sidebarCollapsed ? 'w-16' : 'w-56'
+        }`}
+      >
         {/* Brand */}
-        <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, background: '#FFC107',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, fontWeight: 900, color: '#000',
-            }}>K</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>Khargone</div>
-              <div style={{ fontSize: 10, color: '#9CA3AF', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Cabs Admin</div>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-700">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-9 h-9 bg-brand text-slate-950 flex items-center justify-center font-extrabold rounded-lg shrink-0 text-base">
+              KC
             </div>
+            {!sidebarCollapsed && (
+              <div className="flex flex-col">
+                <span className="font-sora text-sm font-extrabold text-brand tracking-tight">Khargone_Cab</span>
+                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Admin Panel</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: '16px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s', border: 'none',
-                background: tab === t.id ? '#FFC107' : 'transparent',
-                color: tab === t.id ? '#000' : '#9CA3AF',
-                fontSize: 13, fontWeight: tab === t.id ? 700 : 500,
-                fontFamily: 'Inter, sans-serif',
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
+        {/* Navigation Items */}
+        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'bookings', label: 'Bookings', icon: Calendar },
+            { id: 'dispatch', label: 'Dispatch Board', icon: ArrowRight, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+            { id: 'drivers', label: 'Drivers', icon: UserCheck },
+            { id: 'agents', label: 'Agents', icon: Users },
+            { id: 'vehicles', label: 'Vehicles', icon: Car },
+            { id: 'matching', label: 'Auto Matching', icon: Link2, badge: 'New', badgeColor: 'bg-amber-500/20 text-brand border-brand/30' },
+            { id: 'payments', label: 'Payments', icon: CreditCard },
+            { id: 'reports', label: 'Reports', icon: BarChart3 },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ].map(item => {
+            const Icon = item.icon
+            const active = activeTab === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as TabType)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all border-l-4 ${
+                  active
+                    ? 'bg-brand/10 text-brand border-brand'
+                    : 'text-slate-400 border-transparent hover:bg-slate-700/30 hover:text-slate-200'
+                }`}
+              >
+                <Icon size={16} className="shrink-0" />
+                {!sidebarCollapsed && (
+                  <span className="flex-1 text-left truncate">{item.label}</span>
+                )}
+                {!sidebarCollapsed && item.badge && (
+                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${item.badgeColor}`}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </nav>
 
-        {/* Date & Admin */}
-        <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 8 }}>{dateStr}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%', background: '#374151',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, color: '#D1D5DB', fontWeight: 700,
-            }}>A</div>
-            <div>
-              <div style={{ fontSize: 12, color: '#E5E7EB', fontWeight: 600 }}>Admin User</div>
-              <div style={{ fontSize: 10, color: '#6B7280' }}>Super Admin</div>
+        {/* Footer Admin Profile */}
+        <div className="p-3 border-t border-slate-700">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand flex items-center justify-center font-bold text-brand shrink-0">
+              A
             </div>
+            {!sidebarCollapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold truncate">Super Admin</span>
+                <span className="text-[9px] text-slate-400 truncate">MVP Access</span>
+              </div>
+            )}
           </div>
         </div>
       </aside>
 
-      {/* ── Main Content ── */}
-      <main style={{ marginLeft: 220, flex: 1, padding: '28px 28px 60px', minWidth: 0 }}>
-        {tab === 'dashboard' && <DashboardTab showToast={showToast} />}
-        {tab === 'bookings'  && <BookingsTab  showToast={showToast} />}
-        {tab === 'drivers'   && <DriversTab   showToast={showToast} />}
-        {tab === 'agents'    && <AgentsTab    showToast={showToast} />}
-        {tab === 'analytics' && <AnalyticsTab />}
-      </main>
-
-      {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DASHBOARD TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-function DashboardTab({ showToast }: { showToast: (m: string, t?: 'success' | 'error') => void }) {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [drivers, setDrivers] = useState<Driver[]>([])
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [bRes, dRes, aRes] = await Promise.all([
-        fetch('/api/admin/bookings?limit=200'),
-        fetch('/api/drivers'),
-        fetch('/api/agents'),
-      ])
-      const [bJson, dJson, aJson] = await Promise.all([bRes.json(), dRes.json(), aRes.json()])
-      setBookings(bJson.bookings || [])
-      setDrivers(dJson.drivers || [])
-      setAgents(aJson.agents || [])
-    } catch { }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  const today = new Date().toISOString().split('T')[0]
-  const todayBookings = bookings.filter(b => b.travel_date === today)
-  const waitingCount  = bookings.filter(b => b.status === 'waiting').length
-  const confirmedCount = bookings.filter(b => b.status === 'confirmed').length
-  const cancelledCount = bookings.filter(b => b.status === 'cancelled').length
-  const revenue = bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + (b.total_fare || 0), 0)
-  const activeDrivers = drivers.filter(d => d.status === 'active').length
-  const activeAgents = agents.filter(a => a.status === 'active').length
-
-  // Suggestion: find unlinked waiting bookings that could be matched (opposite directions, same date)
-  const waitingKI = bookings.filter(b => b.status === 'waiting' && b.direction === 'KI')
-  const waitingIK = bookings.filter(b => b.status === 'waiting' && b.direction === 'IK')
-  const suggestions: Array<{ b1: Booking; b2: Booking }> = []
-  waitingKI.forEach(b1 => {
-    const match = waitingIK.find(b2 => b2.travel_date === b1.travel_date)
-    if (match && suggestions.length < 3) suggestions.push({ b1, b2: match })
-  })
-
-  const recentBookings = bookings.slice(0, 8)
-
-  if (loading) return <LoadingSpinner />
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>Dashboard</h1>
-          <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>
-            Welcome back — {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-        <button onClick={load} style={{
-          padding: '9px 18px', background: '#FFC107', border: 'none', borderRadius: 10,
-          fontSize: 13, fontWeight: 700, cursor: 'pointer', color: '#000',
-        }}>⟳ Refresh</button>
-      </div>
-
-      {/* Stat Cards */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-        <StatCard icon="📅" label="Today's Bookings"  value={todayBookings.length}                    color="#111"     sub="+8% vs yesterday" />
-        <StatCard icon="💰" label="Total Revenue"      value={`₹${(revenue/1000).toFixed(1)}K`}        color="#059669"  sub="+12% vs yesterday" />
-        <StatCard icon="⏳" label="Waiting"            value={waitingCount}                             color="#D97706"  sub="Needs attention" />
-        <StatCard icon="✅" label="Confirmed"          value={confirmedCount}                           color="#2563EB" />
-        <StatCard icon="❌" label="Cancelled"          value={cancelledCount}                           color="#DC2626" />
-        <StatCard icon="🚗" label="Active Drivers"     value={activeDrivers}                            color="#7C3AED" />
-        <StatCard icon="👤" label="Active Agents"      value={activeAgents}                             color="#DB2777" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Auto Ride Matching Suggestions */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>🔗 Auto Ride Matching</h2>
-              <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Based on date, route & time</p>
-            </div>
-          </div>
-          {suggestions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: '#9CA3AF', fontSize: 13 }}>
-              No matching suggestions right now
-            </div>
-          ) : suggestions.map(({ b1, b2 }) => (
-            <SuggestionCard key={b1.id} b1={b1} b2={b2} onLink={async () => {
-              await fetch('/api/admin/bookings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ _action: 'link', id: b1.id, matched_with: b2.id }),
-              })
-              showToast('Bookings linked successfully!')
-              load()
-            }} />
-          ))}
-        </div>
-
-        {/* Booking Status Pie */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 16 }}>📊 Booking Status (Today)</h2>
-          <BookingStatusChart bookings={todayBookings.length ? todayBookings : bookings} />
-        </div>
-      </div>
-
-      {/* Recent Bookings */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 14 }}>🕒 Recent Bookings</h2>
-        <BookingsTable bookings={recentBookings} drivers={drivers} agents={agents} onAction={load} showToast={showToast} compact />
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOOKING STATUS CHART (Simple visual bars)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function BookingStatusChart({ bookings }: { bookings: Booking[] }) {
-  const total = bookings.length || 1
-  const counts = {
-    waiting:   bookings.filter(b => b.status === 'waiting').length,
-    confirmed: bookings.filter(b => b.status === 'confirmed').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled').length,
-  }
-  const items = [
-    { label: 'Waiting',   count: counts.waiting,   color: '#F59E0B' },
-    { label: 'Confirmed', count: counts.confirmed,  color: '#10B981' },
-    { label: 'Cancelled', count: counts.cancelled,  color: '#EF4444' },
-  ]
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-        <div style={{
-          width: 120, height: 120, borderRadius: '50%',
-          background: `conic-gradient(
-            #F59E0B 0% ${counts.waiting/total*100}%,
-            #10B981 ${counts.waiting/total*100}% ${(counts.waiting+counts.confirmed)/total*100}%,
-            #EF4444 ${(counts.waiting+counts.confirmed)/total*100}% 100%
-          )`,
-          position: 'relative',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-        }}>
-          <div style={{
-            position: 'absolute', inset: '20%', borderRadius: '50%', background: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexDirection: 'column',
-          }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#111' }}>{bookings.length}</div>
-            <div style={{ fontSize: 9, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</div>
-          </div>
-        </div>
-      </div>
-      {items.map(it => (
-        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: it.color, flexShrink: 0 }} />
-          <div style={{ flex: 1, fontSize: 12, color: '#374151', fontWeight: 500 }}>{it.label}</div>
-          <div style={{ fontSize: 12, color: '#9CA3AF' }}>{it.count} ({total ? Math.round(it.count/total*100) : 0}%)</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SUGGESTION CARD
-// ─────────────────────────────────────────────────────────────────────────────
-
-function SuggestionCard({ b1, b2, onLink }: { b1: Booking; b2: Booking; onLink: () => void }) {
-  return (
-    <div style={{
-      background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 12, padding: 14,
-      marginBottom: 12,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFC107' }}>#{b1.booking_ref}</div>
-          <div style={{ fontSize: 12, color: '#374151' }}>{b1.passenger_name} · {dirLabel(b1.direction)}</div>
-          <div style={{ fontSize: 11, color: '#9CA3AF' }}>{b1.travel_date} {b1.pickup_time}</div>
-        </div>
-        <div style={{ fontSize: 18 }}>↔</div>
-        <div style={{ flex: 1, textAlign: 'right' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFC107' }}>#{b2.booking_ref}</div>
-          <div style={{ fontSize: 12, color: '#374151' }}>{b2.passenger_name} · {dirLabel(b2.direction)}</div>
-          <div style={{ fontSize: 11, color: '#9CA3AF' }}>{b2.travel_date} {b2.pickup_time}</div>
-        </div>
-      </div>
-      <button onClick={onLink} style={{
-        marginTop: 10, width: '100%', padding: '8px', background: '#FFC107', border: 'none',
-        borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', color: '#000',
-      }}>🔗 Link Rides</button>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOOKINGS TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-function BookingsTab({ showToast }: { showToast: (m: string, t?: 'success' | 'error') => void }) {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [drivers,  setDrivers]  = useState<Driver[]>([])
-  const [agents,   setAgents]   = useState<Agent[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [filterDir,    setFilterDir]    = useState('all')
-  const [filterDate,   setFilterDate]   = useState('')
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const PER_PAGE = 15
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ limit: '200' })
-      if (filterStatus !== 'all') params.set('status', filterStatus)
-      if (filterDir !== 'all') params.set('direction', filterDir)
-      if (filterDate) params.set('date', filterDate)
-
-      const [bRes, dRes, aRes] = await Promise.all([
-        fetch(`/api/admin/bookings?${params}`),
-        fetch('/api/drivers'),
-        fetch('/api/agents'),
-      ])
-      const [bJson, dJson, aJson] = await Promise.all([bRes.json(), dRes.json(), aRes.json()])
-      setBookings(bJson.bookings || [])
-      setDrivers(dJson.drivers || [])
-      setAgents(aJson.agents || [])
-    } catch { }
-    setLoading(false)
-    setPage(1)
-  }, [filterStatus, filterDir, filterDate])
-
-  useEffect(() => { load() }, [load])
-
-  const filtered = bookings.filter(b => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      b.booking_ref?.toLowerCase().includes(q) ||
-      b.passenger_name?.toLowerCase().includes(q) ||
-      b.phone?.includes(q) ||
-      b.drop_name?.toLowerCase().includes(q)
-    )
-  })
-
-  const totalPages = Math.ceil(filtered.length / PER_PAGE)
-  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>Bookings</h1>
-          <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>{filtered.length} bookings found</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div style={{
-        background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0',
-        padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end',
-      }}>
-        <div style={{ flex: '1 1 200px' }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#9CA3AF', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Search</label>
-          <input
-            placeholder="Booking ID, passenger, phone…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#9CA3AF', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</label>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...selectStyle, width: 140 }}>
-            <option value="all">All Status</option>
-            <option value="waiting">Waiting</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#9CA3AF', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Route</label>
-          <select value={filterDir} onChange={e => setFilterDir(e.target.value)} style={{ ...selectStyle, width: 180 }}>
-            <option value="all">All Routes</option>
-            <option value="KI">Khargone → Indore</option>
-            <option value="IK">Indore → Khargone</option>
-          </select>
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#9CA3AF', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Date</label>
-          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ ...inputStyle, width: 160 }} />
-        </div>
-        <button onClick={() => { setFilterStatus('all'); setFilterDir('all'); setFilterDate(''); setSearch('') }} style={{
-          padding: '9px 16px', background: '#F3F4F6', border: 'none', borderRadius: 8,
-          fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#374151',
-        }}>Reset</button>
-        <button onClick={load} style={{
-          padding: '9px 18px', background: '#FFC107', border: 'none', borderRadius: 8,
-          fontSize: 13, fontWeight: 700, cursor: 'pointer', color: '#000',
-        }}>Apply Filters</button>
-      </div>
-
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-        {loading ? <LoadingSpinner /> : (
-          <>
-            <BookingsTable bookings={paginated} drivers={drivers} agents={agents} onAction={load} showToast={showToast} />
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={{ padding: '14px 20px', borderTop: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: '#9CA3AF' }}>
-                  Showing {(page-1)*PER_PAGE + 1}–{Math.min(page*PER_PAGE, filtered.length)} of {filtered.length}
-                </span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
-                    style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 12, background: page===1?'#F9FAFB':'#fff', color: page===1?'#9CA3AF':'#374151', fontFamily:'Inter,sans-serif' }}>‹</button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map(n => (
-                    <button key={n} onClick={() => setPage(n)}
-                      style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid ' + (page===n?'#FFC107':'#E5E7EB'), cursor: 'pointer', fontSize: 12, background: page===n?'#FFC107':'#fff', color: page===n?'#000':'#374151', fontWeight: page===n?700:400, fontFamily:'Inter,sans-serif' }}>{n}</button>
-                  ))}
-                  <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}
-                    style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 12, background: page===totalPages?'#F9FAFB':'#fff', color: page===totalPages?'#9CA3AF':'#374151', fontFamily:'Inter,sans-serif' }}>›</button>
-                </div>
+      {/* ─── MAIN CONTENT CONTAINER ────────────────────────────────────────────── */}
+      <div
+        className={`flex-1 flex flex-col transition-all duration-200 min-h-screen ${
+          sidebarCollapsed ? 'pl-16' : 'pl-56'
+        }`}
+      >
+        
+        {/* ─── TOP BAR ─────────────────────────────────────────────────────────── */}
+        <header className="h-16 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-6 sticky top-0 z-10">
+          {/* Search Box */}
+          <div className="relative w-80">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search Booking ID, Passenger, Driver..."
+              value={globalSearch}
+              onChange={e => setGlobalSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand transition-colors"
+            />
+            {/* Search Dropdown */}
+            {searchFocused && globalSearch && (
+              <div className="absolute top-11 left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-xl max-h-72 overflow-y-auto p-2 space-y-2 z-50 text-xs">
+                {searchResults.bookings.length === 0 && searchResults.drivers.length === 0 && searchResults.agents.length === 0 ? (
+                  <div className="p-3 text-center text-slate-400">No matching records found.</div>
+                ) : (
+                  <>
+                    {searchResults.bookings.length > 0 && (
+                      <div>
+                        <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Bookings</div>
+                        {searchResults.bookings.map(b => (
+                          <button
+                            key={b.id}
+                            onClick={() => { setSelectedBooking(b); setActiveTab('bookings') }}
+                            className="w-full text-left p-2 rounded hover:bg-slate-700/50 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-bold text-brand">{b.booking_ref}</div>
+                              <div className="text-[10px] text-slate-400">{b.passenger_name}</div>
+                            </div>
+                            <span className="text-[10px] text-slate-300">{b.travel_date}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.drivers.length > 0 && (
+                      <div>
+                        <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Drivers</div>
+                        {searchResults.drivers.map(d => (
+                          <button
+                            key={d.id}
+                            onClick={() => { setSelectedDriver(d); setActiveTab('drivers') }}
+                            className="w-full text-left p-2 rounded hover:bg-slate-700/50 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-bold">{d.name}</div>
+                              <div className="text-[10px] text-slate-400">{d.vehicle_number}</div>
+                            </div>
+                            <span className="text-[10px] text-slate-300">{d.phone}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.agents.length > 0 && (
+                      <div>
+                        <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Agents</div>
+                        {searchResults.agents.map(a => (
+                          <button
+                            key={a.id}
+                            onClick={() => { setSelectedAgent(a); setActiveTab('agents') }}
+                            className="w-full text-left p-2 rounded hover:bg-slate-700/50 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-bold">{a.name}</div>
+                              <div className="text-[10px] text-slate-400">{a.area}</div>
+                            </div>
+                            <span className="text-[10px] text-slate-300">{a.phone}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
+          </div>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOOKINGS TABLE (shared between Dashboard & Bookings tab)
-// ─────────────────────────────────────────────────────────────────────────────
+          {/* Quick Actions */}
+          <div className="flex items-center gap-4">
+            {/* Collapse / Expand Toggle */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="text-xs font-semibold px-2.5 py-1 bg-slate-750 border border-slate-700 rounded-md text-slate-300 hover:bg-slate-700"
+            >
+              {sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            </button>
 
-function BookingsTable({
-  bookings, drivers, agents, onAction, showToast, compact = false
-}: {
-  bookings: Booking[]; drivers: Driver[]; agents: Agent[]
-  onAction: () => void; showToast: (m: string, t?: 'success' | 'error') => void
-  compact?: boolean
-}) {
-  const [selected, setSelected] = useState<Booking | null>(null)
-  const [modal, setModal] = useState<'assign_driver' | 'assign_agent' | 'cancel' | 'detail' | 'link' | null>(null)
-  const [allBookings, setAllBookings] = useState<Booking[]>([])
-  const [form, setForm] = useState<any>({})
+            {/* Quick WhatsApp Link */}
+            <a
+              href={`https://wa.me/91${settings.phone.replace(/\s+/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
+            >
+              <Send size={12} />
+              <span>WhatsApp Cloud</span>
+            </a>
 
-  const openModal = async (type: typeof modal, b: Booking) => {
-    setSelected(b)
-    setModal(type)
-    setForm({})
-    if (type === 'link') {
-      const res = await fetch('/api/admin/bookings?limit=200')
-      const json = await res.json()
-      setAllBookings(json.bookings || [])
-    }
-  }
-
-  const closeModal = () => { setModal(null); setSelected(null); setForm({}) }
-
-  const action = async (act: string, extra?: any) => {
-    if (!selected) return
-    const res = await fetch('/api/admin/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ _action: act, id: selected.id, ...extra }),
-    })
-    const json = await res.json()
-    if (json.error) { showToast(json.error, 'error'); return }
-    showToast('Done!', 'success')
-    closeModal()
-    onAction()
-  }
-
-  if (bookings.length === 0) {
-    return <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 14 }}>No bookings found</div>
-  }
-
-  const ths = compact
-    ? ['Booking ID', 'Route', 'Passenger', 'Date & Time', 'Fare', 'Status', 'Actions']
-    : ['Booking ID', 'Route', 'Date & Time', 'Passenger', 'Contact', 'Fare', 'Status', 'Actions']
-
-  return (
-    <>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #F0F0F0' }}>
-              {ths.map(h => (
-                <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {bookings.map(b => (
-              <tr key={b.id} style={{ borderBottom: '1px solid #F9FAFB', transition: 'background 0.1s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontWeight: 700, color: '#FFC107', fontFamily: 'monospace' }}>#{b.booking_ref}</span>
-                </td>
-                <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontSize: 12, color: '#374151' }}>{dirLabel(b.direction)}</span>
-                  {(b as any).drop_name && <div style={{ fontSize: 11, color: '#9CA3AF' }}>{(b as any).drop_name}</div>}
-                </td>
-                {!compact && (
-                  <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: 12 }}>{b.travel_date}</div>
-                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>{b.pickup_time}</div>
-                  </td>
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="w-9 h-9 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                <Bell size={16} />
+                {notifications.some(n => !n.read) && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500" />
                 )}
-                <td style={{ padding: '11px 16px' }}>
-                  <div style={{ fontWeight: 600, color: '#111', fontSize: 13 }}>{b.passenger_name}</div>
-                  {compact && <div style={{ fontSize: 11, color: '#9CA3AF' }}>{b.travel_date} {b.pickup_time}</div>}
-                </td>
-                {!compact && (
-                  <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: 12, color: '#374151' }}>📱 {b.phone}</div>
-                  </td>
-                )}
-                <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontWeight: 700, color: '#059669' }}>₹{(b.total_fare || 0).toLocaleString('en-IN')}</span>
-                </td>
-                <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                  <StatusBadge status={b.status} />
-                </td>
-                <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => openModal('detail', b)} title="View Details"
-                      style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', background: '#F9FAFB', fontFamily:'Inter,sans-serif', color:'#374151' }}>👁 Detail</button>
-                    <button onClick={() => openModal('assign_driver', b)} title="Assign Driver"
-                      style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', background: '#EFF6FF', fontFamily:'Inter,sans-serif', color:'#2563EB' }}>🚗 Driver</button>
-                    <button onClick={() => openModal('assign_agent', b)} title="Assign Agent"
-                      style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', background: '#FAF5FF', fontFamily:'Inter,sans-serif', color:'#7C3AED' }}>👤 Agent</button>
-                    {b.status !== 'cancelled' && (
-                      <button onClick={() => openModal('cancel', b)} title="Cancel Booking"
-                        style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, border: '1px solid #FCA5A5', cursor: 'pointer', background: '#FEF2F2', fontFamily:'Inter,sans-serif', color:'#DC2626' }}>✕ Cancel</button>
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 top-11 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-3 z-50 space-y-2">
+                  <div className="flex justify-between items-center border-b border-slate-700 pb-2 mb-1">
+                    <span className="font-sora font-bold text-xs text-slate-200">Alert Center</span>
+                    <button
+                      onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                      className="text-[10px] text-brand hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {notifications.map(n => (
+                      <div
+                        key={n.id}
+                        className={`p-2 rounded text-xs transition-colors border ${
+                          n.read ? 'bg-slate-900/40 border-transparent text-slate-400' : 'bg-slate-900 border-slate-700 text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {n.type === 'success' ? (
+                            <CheckCircle size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                          ) : n.type === 'warning' ? (
+                            <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                          ) : (
+                            <Info size={14} className="text-sky-500 mt-0.5 shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <div>{n.text}</div>
+                            <div className="text-[9px] text-slate-500 mt-0.5">{n.time}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* ─── PAGE MAIN VIEW ─────────────────────────────────────────────────── */}
+        <main className="flex-1 p-6 space-y-6 overflow-x-hidden">
+          
+          {/* TAB 1: DASHBOARD */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              {/* Heading */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="font-sora text-2xl font-extrabold text-slate-100">Dashboard Overview</h1>
+                  <p className="text-xs text-slate-400 mt-1">Real-time status updates and early bird matching</p>
+                </div>
+                <button
+                  onClick={() => triggerToast('📊 Refreshing dashboard...')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  <RefreshCw size={13} className="animate-spin" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {/* Stat Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                {[
+                  { label: "Today's Bookings", val: stats.todayCount, sub: "+4 vs yesterday", color: 'border-brand text-brand', icon: Calendar },
+                  { label: "Today's Revenue", val: `₹${stats.todayRevenue.toLocaleString('en-IN')}`, sub: "+12.4% vs last week", color: 'border-emerald-500 text-emerald-400', icon: DollarSign },
+                  { label: "Unmatched (RAC)", val: stats.unmatchedCount, sub: "Pending pairs", color: 'border-amber-500 text-amber-500', icon: AlertCircle },
+                  { label: "Active Trips", val: stats.activeTripsCount, sub: "Currently moving", color: 'border-sky-500 text-sky-400', icon: Car },
+                  { label: "Month Revenue", val: `₹${(stats.totalRevenue / 1000).toFixed(1)}k`, sub: "18% of target met", color: 'border-purple-500 text-purple-400', icon: TrendingUp }
+                ].map((s, idx) => {
+                  const Icon = s.icon
+                  return (
+                    <div key={idx} className={`bg-slate-800 border-t-4 ${s.color} rounded-xl p-4 shadow-lg flex flex-col gap-1 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-150`}>
+                      <div className="flex justify-between items-center text-slate-400">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{s.label}</span>
+                        <Icon size={14} />
+                      </div>
+                      <div className="font-sora text-xl font-extrabold tracking-tight mt-1">{s.val}</div>
+                      <div className="text-[9px] text-emerald-400 mt-1 font-medium">{s.sub}</div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Dashboard Content Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Auto Matching Suggestions */}
+                <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="font-sora text-sm font-bold text-slate-200">🔗 Auto Matching suggestions</h2>
+                      <p className="text-[10px] text-slate-400">Unmatched opposite-route pairs travelling on matching days</p>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('matching')}
+                      className="text-[10px] font-bold text-brand hover:underline flex items-center gap-1"
+                    >
+                      <span>View Match Queue</span>
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {matchingSuggestions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                        <CheckCircle size={28} className="text-emerald-500 mb-2" />
+                        <span className="text-xs">No pending matches. All bookings matched!</span>
+                      </div>
+                    ) : (
+                      matchingSuggestions.slice(0, 3).map((item, idx) => (
+                        <div key={idx} className="bg-slate-900 border border-brand/20 hover:border-brand/45 rounded-lg p-3 flex flex-col gap-2 transition-all">
+                          <div className="flex justify-between items-center">
+                            <div className="w-[45%]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-extrabold text-[10px] text-brand">{item.b1.booking_ref}</span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-brand">Khargone</span>
+                              </div>
+                              <div className="font-semibold text-xs mt-1 truncate">{item.b1.passenger_name}</div>
+                              <div className="text-[9px] text-slate-400 mt-0.5">{item.b1.travel_date} · {item.b1.pickup_time}</div>
+                            </div>
+                            
+                            <div className="flex flex-col items-center justify-center w-[10%]">
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">{item.confidence}%</span>
+                              <ArrowRight size={14} className="text-slate-500 mt-1" />
+                            </div>
+
+                            <div className="w-[45%] text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400">Indore</span>
+                                <span className="font-extrabold text-[10px] text-brand">{item.b2.booking_ref}</span>
+                              </div>
+                              <div className="font-semibold text-xs mt-1 truncate">{item.b2.passenger_name}</div>
+                              <div className="text-[9px] text-slate-400 mt-0.5">{item.b2.travel_date} · {item.b2.pickup_time}</div>
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={() => handleLinkBookings(item.b1.id, item.b2.id)}
+                            className="w-full py-1 bg-brand hover:bg-brand-dark active:scale-98 text-slate-950 font-bold rounded text-[10px] transition-all"
+                          >
+                            🔗 Auto-Link Rides
+                          </button>
+                        </div>
+                      ))
                     )}
-                    <button onClick={() => openModal('link', b)} title="Link Booking"
-                      style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, border: '1px solid #6EE7B7', cursor: 'pointer', background: '#ECFDF5', fontFamily:'Inter,sans-serif', color:'#059669' }}>🔗 Link</button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
 
-      {/* ── MODALS ── */}
-      {modal === 'detail' && selected && (
-        <Modal title={`Booking #${selected.booking_ref}`} onClose={closeModal}>
-          <BookingDetailView b={selected} />
-          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-            <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Close</button>
-          </div>
-        </Modal>
-      )}
+                {/* Booking Status Donut Chart */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+                  <div>
+                    <h2 className="font-sora text-sm font-bold text-slate-200">📊 Booking Status Ratio</h2>
+                    <p className="text-[10px] text-slate-400">Linked Confirmed vs Unlinked RAC</p>
+                  </div>
+                  
+                  <div className="h-44 w-full mt-2">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={bookingStatusData}
+                            innerRadius={50}
+                            outerRadius={70}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            {bookingStatusData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ backgroundColor: '#1E293B', borderColor: '#334155', color: '#F8FAFC', borderRadius: '8px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">Loading Charts...</div>
+                    )}
+                  </div>
 
-      {modal === 'assign_driver' && selected && (
-        <Modal title="Assign Driver" onClose={closeModal}>
-          <Field label="Select Driver">
-            <select value={form.driver_id || ''} onChange={e => {
-              const d = drivers.find(x => x.id === e.target.value)
-              setForm({ driver_id: e.target.value, driver_name: d?.name || '' })
-            }} style={selectStyle}>
-              <option value="">Choose a driver…</option>
-              {drivers.filter(d => d.status === 'active').map(d => (
-                <option key={d.id} value={d.id}>{d.name} · {d.vehicle_model} ({d.vehicle_number})</option>
-              ))}
-            </select>
-          </Field>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Cancel</button>
-            <button onClick={() => action('assign_driver', form)} style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#FFC107', color:'#000' }}>Assign Driver</button>
-          </div>
-        </Modal>
-      )}
+                  <div className="space-y-1.5 text-xs">
+                    {bookingStatusData.map((d, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                          <span>{d.name}</span>
+                        </div>
+                        <span className="font-bold">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-      {modal === 'assign_agent' && selected && (
-        <Modal title="Assign Agent" onClose={closeModal}>
-          <Field label="Select Agent">
-            <select value={form.agent_id || ''} onChange={e => {
-              const a = agents.find(x => x.id === e.target.value)
-              setForm({ agent_id: e.target.value, agent_name: a?.name || '' })
-            }} style={selectStyle}>
-              <option value="">Choose an agent…</option>
-              {agents.filter(a => a.status === 'active').map(a => (
-                <option key={a.id} value={a.id}>{a.name} · {a.area}</option>
-              ))}
-            </select>
-          </Field>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Cancel</button>
-            <button onClick={() => action('assign_agent', form)} style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#7C3AED', color:'#fff' }}>Assign Agent</button>
-          </div>
-        </Modal>
-      )}
+              </div>
 
-      {modal === 'cancel' && selected && (
-        <Modal title="Cancel Booking" onClose={closeModal}>
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
-            <p style={{ fontSize: 15, color: '#374151', marginBottom: 8 }}>
-              Cancel booking <strong>#{selected.booking_ref}</strong>?
-            </p>
-            <p style={{ fontSize: 13, color: '#9CA3AF' }}>
-              {selected.passenger_name} · {dirLabel(selected.direction)} · {selected.travel_date}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Keep Booking</button>
-            <button onClick={() => action('cancel')} style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#DC2626', color:'#fff' }}>Yes, Cancel</button>
-          </div>
-        </Modal>
-      )}
+              {/* Lower Section Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Driver Schedule Overview */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+                  <div>
+                    <h2 className="font-sora text-sm font-bold text-slate-200">📅 Driver Schedule Overview</h2>
+                    <p className="text-[10px] text-slate-400">Upcoming assignments & status</p>
+                  </div>
+                  <div className="divide-y divide-slate-700">
+                    {drivers.map(drv => {
+                      const activeBookings = bookings.filter(b => b.driver_id === drv.id && b.status === 'confirmed')
+                      return (
+                        <div key={drv.id} className="py-2.5 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="font-bold">{drv.name}</div>
+                            <div className="text-[10px] text-slate-400">{drv.vehicle_model} · {drv.vehicle_number}</div>
+                          </div>
+                          <div className="text-right">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              drv.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' :
+                              drv.status === 'on_trip' ? 'bg-sky-500/10 text-sky-400' : 'bg-slate-700 text-slate-400'
+                            }`}>
+                              {drv.status}
+                            </span>
+                            <div className="text-[9px] text-slate-400 mt-1">{activeBookings.length} assignments</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
 
-      {modal === 'link' && selected && (
-        <Modal title={`Link Booking #${selected.booking_ref}`} onClose={closeModal}>
-          <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
-            Select a booking from the <strong>opposite direction</strong> to link with #{selected.booking_ref}
-          </p>
-          <Field label="Link With Booking">
-            <select value={form.matched_with || ''} onChange={e => setForm({ matched_with: e.target.value })} style={selectStyle}>
-              <option value="">Choose booking to link…</option>
-              {allBookings
-                .filter(b => b.id !== selected.id && b.direction !== selected.direction && b.status !== 'cancelled' && b.travel_date === selected.travel_date)
-                .map(b => (
-                  <option key={b.id} value={b.id}>#{b.booking_ref} · {b.passenger_name} · {dirLabel(b.direction)} · {b.travel_date}</option>
-                ))}
-            </select>
-          </Field>
-          {!allBookings.filter(b => b.id !== selected.id && b.direction !== selected.direction && b.status !== 'cancelled' && b.travel_date === selected.travel_date).length && (
-            <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 10 }}>No matching bookings found for the same date and opposite direction.</p>
+                {/* Last 7 Days Revenue Trend */}
+                <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="font-sora text-sm font-bold text-slate-200">📈 Revenue & Profit Analysis</h2>
+                      <p className="text-[10px] text-slate-400">Weekly sales vs vehicle settlement payout</p>
+                    </div>
+                  </div>
+                  <div className="h-56 w-full">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={revenueChartData}>
+                          <defs>
+                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#F5A623" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#F5A623" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#22C55E" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} />
+                          <YAxis stroke="#94A3B8" fontSize={9} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1E293B', borderColor: '#334155', color: '#F8FAFC', borderRadius: '8px' }} />
+                          <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                          <Area type="monotone" dataKey="revenue" name="Total Revenue" stroke="#F5A623" fillOpacity={1} fill="url(#colorRev)" />
+                          <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#22C55E" fillOpacity={1} fill="url(#colorProfit)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">Loading Charts...</div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
           )}
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Cancel</button>
-            <button onClick={() => action('link', form)} disabled={!form.matched_with} style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: form.matched_with?'pointer':'not-allowed', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background: form.matched_with?'#059669':'#D1FAE5', color: form.matched_with?'#fff':'#9CA3AF' }}>🔗 Link Bookings</button>
-          </div>
-        </Modal>
-      )}
-    </>
-  )
-}
 
-// ─── Booking Detail View ───────────────────────────────────────────────────────
+          {/* TAB 2: BOOKINGS */}
+          {activeTab === 'bookings' && (
+            <div className="space-y-6">
+              {/* Header Bar */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h1 className="font-sora text-2xl font-extrabold text-slate-100">Booking Management</h1>
+                  <p className="text-xs text-slate-400 mt-1">Manage manual customer reservations and match links</p>
+                </div>
+                <button
+                  onClick={() => setShowNewBooking(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
+                >
+                  <Plus size={14} />
+                  <span>New Booking</span>
+                </button>
+              </div>
 
-function BookingDetailView({ b }: { b: Booking }) {
-  const rows: [string, string][] = [
-    ['Booking Ref',  `#${b.booking_ref}`],
-    ['Route',        dirLabel(b.direction)],
-    ['Drop Point',   (b as any).drop_name || '—'],
-    ['Date',         b.travel_date],
-    ['Pickup Time',  b.pickup_time],
-    ['Passenger',    b.passenger_name],
-    ['Phone',        b.phone],
-    ['Email',        (b as any).email || '—'],
-    ['Status',       b.status],
-    ['Base Fare',    `₹${(b as any).base_fare || 0}`],
-    ['Discount',     `₹${(b as any).discount || 0}`],
-    ['Night Extra',  `₹${(b as any).night_extra || 0}`],
-    ['Total Fare',   `₹${b.total_fare}`],
-    ['Created',      new Date(b.created_at).toLocaleString('en-IN')],
-  ]
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
-      {rows.map(([k, v]) => (
-        <div key={k} style={{ borderBottom: '1px solid #F3F4F6', paddingBottom: 8 }}>
-          <div style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{k}</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{v}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
+              {/* Bookings Filters */}
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center gap-4 text-xs">
+                <div className="flex items-center gap-2">
+                  <Filter size={14} className="text-slate-400" />
+                  <span className="font-semibold text-slate-300">Filter By</span>
+                </div>
+                
+                {/* Search Term */}
+                <input
+                  type="text"
+                  placeholder="Search ref or passenger..."
+                  onChange={e => setGlobalSearch(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand"
+                />
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DRIVERS TAB
-// ─────────────────────────────────────────────────────────────────────────────
+                {/* Custom Filters logic in table */}
+              </div>
 
-function DriversTab({ showToast }: { showToast: (m: string, t?: 'success' | 'error') => void }) {
-  const [drivers, setDrivers] = useState<Driver[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState<'create' | 'edit' | 'delete' | null>(null)
-  const [selected, setSelected] = useState<Driver | null>(null)
-  const [form, setForm] = useState<Partial<Driver>>({})
-  const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+              {/* Bookings Table */}
+              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-lg">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-900 text-slate-400 border-b border-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                        <th className="p-4">Ref / Created</th>
+                        <th className="p-4">Passenger Details</th>
+                        <th className="p-4">Route Info</th>
+                        <th className="p-4">Vehicle Details</th>
+                        <th className="p-4">Fare breakdown</th>
+                        <th className="p-4">Match Connect</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/60">
+                      {bookings.map(b => {
+                        const matchedB = b.matched_with ? bookings.find(x => x.id === b.matched_with) : null
+                        return (
+                          <tr
+                            key={b.id}
+                            draggable
+                            onDragStart={e => handleDragStart(e, b.id)}
+                            onDragOver={handleDragOver}
+                            onDrop={e => handleDrop(e, b.id)}
+                            className="hover:bg-slate-700/35 transition-colors cursor-move"
+                          >
+                            <td className="p-4 font-medium">
+                              <div className="font-bold text-brand">{b.booking_ref}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">{new Date(b.created_at).toLocaleDateString('en-IN')}</div>
+                            </td>
+                            <td className="p-4">
+                              <div className="font-bold">{b.passenger_name}</div>
+                              <div className="text-[10px] text-slate-400">{b.phone}</div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                  b.direction === 'KI' ? 'bg-amber-500/15 text-brand' : 'bg-sky-500/15 text-sky-400'
+                                }`}>
+                                  {b.direction === 'KI' ? 'Khargone' : 'Indore'}
+                                </span>
+                                <ArrowRight size={10} className="text-slate-500" />
+                                <span className="text-slate-300 font-semibold truncate max-w-[90px]">{b.drop_name}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 mt-1">{b.travel_date} · {b.pickup_time}</div>
+                            </td>
+                            <td className="p-4 capitalize">
+                              <div className="font-semibold">{b.vehicle_type}</div>
+                              {b.driver_id && (
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  {drivers.find(d => d.id === b.driver_id)?.name}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="font-bold">₹{b.total_fare.toLocaleString('en-IN')}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Adv: ₹{b.advance_paid} | Bal: ₹{b.total_fare - b.advance_paid}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {matchedB ? (
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1 text-[10px] text-emerald-400">
+                                    <Link2 size={12} />
+                                    <span>Pair: <strong>{matchedB.booking_ref}</strong></span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleUnlinkBooking(b.id)}
+                                    className="text-[9px] text-rose-400 hover:underline text-left self-start"
+                                  >
+                                    Unlink Pair
+                                  </button>
+                                </div>
+                              ) : b.status === 'cancelled' ? (
+                                <span className="text-slate-500 text-[10px]">—</span>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-amber-500 text-[10px] font-semibold">RAC (Unlinked)</span>
+                                  <button
+                                    onClick={() => setShowLinkModal(b)}
+                                    className="text-[9px] text-brand hover:underline text-left self-start"
+                                  >
+                                    🔗 Link Booking
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
+                                b.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                                b.status === 'cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                                'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                              }`}>
+                                {b.status === 'confirmed' ? 'Linked' : b.status === 'cancelled' ? 'Cancelled' : 'Waiting'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setSelectedBooking(b)}
+                                  className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-300 hover:bg-slate-700 transition-colors"
+                                  title="View Booking Detail"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                {b.status !== 'cancelled' && (
+                                  <button
+                                    onClick={() => handleCancelBooking(b.id)}
+                                    className="w-8 h-8 rounded-lg bg-slate-900 border border-rose-500/30 flex items-center justify-center text-rose-400 hover:bg-rose-950/40 transition-colors"
+                                    title="Cancel Reservation"
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/drivers')
-      const json = await res.json()
-      setDrivers(json.drivers || [])
-    } catch { }
-    setLoading(false)
-  }, [])
+          {/* TAB 3: DISPATCH BOARD */}
+          {activeTab === 'dispatch' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-sora text-2xl font-extrabold text-slate-100">Live Dispatch Control</h1>
+                <p className="text-xs text-slate-400 mt-1">Track active vehicles on the Khargone ↔ Indore highway route (150 km)</p>
+              </div>
 
-  useEffect(() => { load() }, [load])
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Visual Map Mockup */}
+                <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col gap-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-sora font-bold text-xs">Route Map: Khargone ↔ Indore</span>
+                    <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                      <span>Live GPS Pins</span>
+                    </span>
+                  </div>
 
-  const filtered = drivers.filter(d => {
-    const q = search.toLowerCase()
-    const matchSearch = !search || d.name?.toLowerCase().includes(q) || d.phone?.includes(q) || d.vehicle_number?.toLowerCase().includes(q)
-    const matchStatus = filterStatus === 'all' || d.status === filterStatus
-    return matchSearch && matchStatus
-  })
+                  {/* Visual Highway Track */}
+                  <div className="h-64 bg-slate-900 border border-slate-700 rounded-lg relative overflow-hidden flex items-center justify-center p-6">
+                    {/* Highway Line */}
+                    <div className="absolute left-10 right-10 h-1.5 bg-slate-750 flex justify-between items-center">
+                      <div className="w-3 h-3 bg-brand rounded-full -mt-[3px] border-2 border-slate-900" title="Khargone Station" />
+                      <div className="w-3 h-3 bg-sky-500 rounded-full -mt-[3px] border-2 border-slate-900" title="Indore Station" />
+                    </div>
 
-  const openCreate = () => { setForm({}); setSelected(null); setModal('create') }
-  const openEdit   = (d: Driver) => { setForm(d); setSelected(d); setModal('edit') }
-  const openDelete = (d: Driver) => { setSelected(d); setModal('delete') }
+                    {/* Labels */}
+                    <div className="absolute top-1/2 -translate-y-8 left-8 text-center">
+                      <span className="text-[10px] font-bold text-brand block">KHARGONE</span>
+                      <span className="text-[8px] text-slate-500 block">Km 0</span>
+                    </div>
 
-  const save = async () => {
-    const body = selected ? { _action: 'update', id: selected.id, ...form } : form
-    const res = await fetch('/api/drivers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const json = await res.json()
-    if (json.error) { showToast(json.error, 'error'); return }
-    showToast(selected ? 'Driver updated!' : 'Driver created!')
-    setModal(null); load()
-  }
+                    <div className="absolute top-1/2 -translate-y-8 right-8 text-center">
+                      <span className="text-[10px] font-bold text-sky-400 block">INDORE</span>
+                      <span className="text-[8px] text-slate-500 block">Km 150</span>
+                    </div>
 
-  const del = async () => {
-    if (!selected) return
-    await fetch('/api/drivers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ _action: 'delete', id: selected.id }),
-    })
-    showToast('Driver removed!')
-    setModal(null); load()
-  }
+                    {/* Active Pins (Mocked positions along route) */}
+                    <div className="absolute left-[30%] top-1/2 -translate-y-7 text-center">
+                      <div className="w-6 h-6 rounded-full bg-emerald-600 text-slate-950 font-bold flex items-center justify-center text-[10px] mx-auto border-2 border-slate-900 cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                        RK
+                      </div>
+                      <span className="text-[8px] text-slate-400 block mt-1">Dzire (Sedan)</span>
+                    </div>
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>Drivers</h1>
-          <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>{filtered.length} drivers</p>
-        </div>
-        <button onClick={openCreate} style={{
-          padding: '10px 20px', background: '#FFC107', border: 'none', borderRadius: 10,
-          fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#000',
-        }}>+ Add Driver</button>
-      </div>
-
-      {/* Filters */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0', padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center' }}>
-        <input placeholder="Search by name, phone, vehicle…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, maxWidth: 320 }} />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...selectStyle, width: 140 }}>
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
-
-      {/* Driver Cards Grid */}
-      {loading ? <LoadingSpinner /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-          {filtered.length === 0 ? (
-            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: 14 }}>No drivers found. Add your first driver!</div>
-          ) : filtered.map(d => (
-            <div key={d.id} style={{
-              background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)', transition: 'transform 0.15s, box-shadow 0.15s',
-            }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 12, background: '#FFF9E6',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                    border: '2px solid #FCD34D',
-                  }}>🚗</div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{d.name}</div>
-                    <div style={{ fontSize: 12, color: '#9CA3AF' }}>📱 {d.phone}</div>
+                    <div className="absolute right-[25%] top-1/2 -translate-y-7 text-center">
+                      <div className="w-6 h-6 rounded-full bg-sky-500 text-slate-950 font-bold flex items-center justify-center text-[10px] mx-auto border-2 border-slate-900 cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                        SJ
+                      </div>
+                      <span className="text-[8px] text-slate-400 block mt-1">Ertiga (SUV)</span>
+                    </div>
                   </div>
                 </div>
-                <StatusBadge status={d.status} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', marginBottom: 16 }}>
-                <InfoItem label="Vehicle" value={d.vehicle_model || '—'} />
-                <InfoItem label="Number" value={d.vehicle_number || '—'} />
-                <InfoItem label="Type" value={d.vehicle_type || '—'} />
-                <InfoItem label="Trips" value={String(d.trips_completed || 0)} />
-                <InfoItem label="Rating" value={`⭐ ${d.rating || '4.5'}`} />
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => openEdit(d)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1.5px solid #FCD34D', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#FFFBEB', color: '#D97706', fontFamily:'Inter,sans-serif' }}>✏️ Edit</button>
-                <button onClick={() => openDelete(d)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1.5px solid #FCA5A5', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#FEF2F2', color: '#DC2626', fontFamily:'Inter,sans-serif' }}>🗑 Remove</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* Create/Edit Modal */}
-      {(modal === 'create' || modal === 'edit') && (
-        <Modal title={modal === 'create' ? 'Add New Driver' : 'Edit Driver'} onClose={() => setModal(null)}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <Field label="Full Name *">
-              <input value={form.name || ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Driver name" style={inputStyle} />
-            </Field>
-            <Field label="Phone *">
-              <input value={form.phone || ''} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="10-digit mobile" style={inputStyle} />
-            </Field>
-            <Field label="Vehicle Model">
-              <input value={form.vehicle_model || ''} onChange={e => setForm(p => ({ ...p, vehicle_model: e.target.value }))} placeholder="e.g. Maruti Dzire" style={inputStyle} />
-            </Field>
-            <Field label="Vehicle Number">
-              <input value={form.vehicle_number || ''} onChange={e => setForm(p => ({ ...p, vehicle_number: e.target.value }))} placeholder="e.g. MP09 AB 1234" style={inputStyle} />
-            </Field>
-            <Field label="Vehicle Type">
-              <select value={form.vehicle_type || 'sedan'} onChange={e => setForm(p => ({ ...p, vehicle_type: e.target.value }))} style={selectStyle}>
-                <option value="sedan">Sedan</option>
-                <option value="suv">SUV</option>
-                <option value="innova">Innova</option>
-              </select>
-            </Field>
-            <Field label="Status">
-              <select value={form.status || 'active'} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} style={selectStyle}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </Field>
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-            <button onClick={() => setModal(null)} style={{ flex: 1, padding: 11, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Cancel</button>
-            <button onClick={save} style={{ flex: 1, padding: 11, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#FFC107', color:'#000' }}>
-              {modal === 'create' ? '+ Create Driver' : '✓ Save Changes'}
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {modal === 'delete' && selected && (
-        <Modal title="Remove Driver" onClose={() => setModal(null)}>
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
-            <p style={{ fontSize: 15, color: '#374151' }}>Remove driver <strong>{selected.name}</strong>?</p>
-            <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 6 }}>They will be marked inactive and won't appear in assignments.</p>
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={() => setModal(null)} style={{ flex: 1, padding: 11, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Keep</button>
-            <button onClick={del} style={{ flex: 1, padding: 11, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#DC2626', color:'#fff' }}>Remove Driver</button>
-          </div>
-        </Modal>
-      )}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AGENTS TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AgentsTab({ showToast }: { showToast: (m: string, t?: 'success' | 'error') => void }) {
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState<'create' | 'edit' | 'delete' | null>(null)
-  const [selected, setSelected] = useState<Agent | null>(null)
-  const [form, setForm] = useState<Partial<Agent>>({})
-  const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/agents')
-      const json = await res.json()
-      setAgents(json.agents || [])
-    } catch { }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  const filtered = agents.filter(a => {
-    const q = search.toLowerCase()
-    const matchSearch = !search || a.name?.toLowerCase().includes(q) || a.phone?.includes(q) || a.area?.toLowerCase().includes(q)
-    const matchStatus = filterStatus === 'all' || a.status === filterStatus
-    return matchSearch && matchStatus
-  })
-
-  const openCreate = () => { setForm({ commission_pct: 10, area: 'Khargone' }); setSelected(null); setModal('create') }
-  const openEdit   = (a: Agent) => { setForm(a); setSelected(a); setModal('edit') }
-  const openDelete = (a: Agent) => { setSelected(a); setModal('delete') }
-
-  const save = async () => {
-    const body = selected ? { _action: 'update', id: selected.id, ...form } : form
-    const res = await fetch('/api/agents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const json = await res.json()
-    if (json.error) { showToast(json.error, 'error'); return }
-    showToast(selected ? 'Agent updated!' : 'Agent created!')
-    setModal(null); load()
-  }
-
-  const del = async () => {
-    if (!selected) return
-    await fetch('/api/agents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ _action: 'delete', id: selected.id }),
-    })
-    showToast('Agent removed!')
-    setModal(null); load()
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>Agents</h1>
-          <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>{filtered.length} agents</p>
-        </div>
-        <button onClick={openCreate} style={{
-          padding: '10px 20px', background: '#7C3AED', border: 'none', borderRadius: 10,
-          fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#fff',
-        }}>+ Add Agent</button>
-      </div>
-
-      {/* Filters */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0', padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center' }}>
-        <input placeholder="Search by name, phone, area…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, maxWidth: 320 }} />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...selectStyle, width: 140 }}>
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
-
-      {/* Agent Cards */}
-      {loading ? <LoadingSpinner /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-          {filtered.length === 0 ? (
-            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: 14 }}>No agents found. Add your first agent!</div>
-          ) : filtered.map(a => (
-            <div key={a.id} style={{
-              background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)', transition: 'transform 0.15s, box-shadow 0.15s',
-            }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 12, background: '#F5F3FF',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                    border: '2px solid #DDD6FE',
-                  }}>👤</div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{a.name}</div>
-                    <div style={{ fontSize: 12, color: '#9CA3AF' }}>📱 {a.phone}</div>
+                {/* Active Dispatch List */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+                  <h3 className="font-sora font-bold text-xs">Active Fleet Assignments</h3>
+                  <div className="space-y-3">
+                    {drivers.filter(d => d.status === 'active' || d.status === 'on_trip').map(drv => {
+                      const activeB = bookings.find(b => b.driver_id === drv.id && b.status === 'confirmed')
+                      return (
+                        <div key={drv.id} className="bg-slate-900 border border-slate-700 rounded-lg p-3 space-y-2 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold">{drv.name}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              drv.status === 'on_trip' ? 'bg-sky-500/10 text-sky-400' : 'bg-emerald-500/10 text-emerald-400'
+                            }`}>
+                              {drv.status === 'on_trip' ? 'On Trip' : 'Available'}
+                            </span>
+                          </div>
+                          {activeB ? (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[10px] text-slate-400">
+                                <span>Booking: <strong>{activeB.booking_ref}</strong></span>
+                                <span>ETA: 45 mins</span>
+                              </div>
+                              <div className="text-[10px] text-slate-200">
+                                {activeB.passenger_name} ({activeB.phone})
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setBookings(prev => prev.map(b => (b.id === activeB.id ? { ...b, status: 'confirmed', matched_with: undefined } : b))) // mockup complete
+                                  triggerToast(`Trip completed for driver ${drv.name}`)
+                                }}
+                                className="w-full py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded text-[10px] transition-colors"
+                              >
+                                Mark Trip Completed
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 block">Idle - Awaiting pairing dispatch</span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
-                <StatusBadge status={a.status} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', marginBottom: 16 }}>
-                <InfoItem label="Area" value={a.area || '—'} />
-                <InfoItem label="Commission" value={`${a.commission_pct || 10}%`} />
-                <InfoItem label="Email" value={a.email || '—'} />
-                <InfoItem label="Bookings Linked" value={String(a.bookings_linked || 0)} />
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => openEdit(a)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1.5px solid #DDD6FE', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#F5F3FF', color: '#7C3AED', fontFamily:'Inter,sans-serif' }}>✏️ Edit</button>
-                <button onClick={() => openDelete(a)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1.5px solid #FCA5A5', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: '#FEF2F2', color: '#DC2626', fontFamily:'Inter,sans-serif' }}>🗑 Remove</button>
+
               </div>
             </div>
-          ))}
+          )}
+
+          {/* TAB 4: DRIVERS */}
+          {activeTab === 'drivers' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="font-sora text-2xl font-extrabold text-slate-100">Driver Directory</h1>
+                  <p className="text-xs text-slate-400 mt-1">Manage certified intercity drivers and permit expiries</p>
+                </div>
+                <button
+                  onClick={() => { setDriverModalMode('create'); setSelectedDriver(null); setShowDriverModal(true) }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
+                >
+                  <Plus size={14} />
+                  <span>Register Driver</span>
+                </button>
+              </div>
+
+              {/* Drivers Card Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {drivers.map(drv => {
+                  const isLicenseExpiring = new Date(drv.license_expiry).getTime() - Date.now() < 30 * 86400000 * 3 // warning if < 90 days
+                  return (
+                    <div key={drv.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-xl transition-all duration-150 relative">
+                      {isLicenseExpiring && (
+                        <div className="absolute top-4 right-4 bg-amber-500/10 border border-amber-500/20 text-brand rounded-full p-1" title="Documents Expiring Soon!">
+                          <AlertTriangle size={14} />
+                        </div>
+                      )}
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand text-brand flex items-center justify-center font-bold text-sm">
+                            {drv.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <h3 className="font-sora font-bold text-sm text-slate-200">{drv.name}</h3>
+                            <span className="text-[10px] text-slate-400">{drv.phone}</span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-700/60 pt-3 space-y-1.5 text-xs text-slate-300">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Cab:</span>
+                            <span className="font-semibold">{drv.vehicle_model}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Plate:</span>
+                            <span className="font-semibold">{drv.vehicle_number}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Expiry License:</span>
+                            <span className={`font-semibold ${isLicenseExpiring ? 'text-amber-500 font-bold' : ''}`}>{drv.license_expiry}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-700/60 pt-3 mt-4 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Completed: {drv.trips_completed}</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setSelectedDriver(drv); setDriverModalMode('edit'); setShowDriverModal(true) }}
+                            className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDriver(drv.id)}
+                            className="p-1.5 rounded bg-slate-900 border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: AGENTS */}
+          {activeTab === 'agents' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="font-sora text-2xl font-extrabold text-slate-100">Booking Agents</h1>
+                  <p className="text-xs text-slate-400 mt-1">Manage ticket booking agents, zones, and commission rates</p>
+                </div>
+                <button
+                  onClick={() => { setAgentModalMode('create'); setSelectedAgent(null); setShowAgentModal(true) }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
+                >
+                  <Plus size={14} />
+                  <span>Add New Agent</span>
+                </button>
+              </div>
+
+              {/* Agent Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {agents.map(agt => (
+                  <div key={agt.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-xl transition-all duration-150">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-500/10 border border-purple-500 text-purple-400 flex items-center justify-center font-bold text-sm">
+                          {agt.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <h3 className="font-sora font-bold text-sm text-slate-200">{agt.name}</h3>
+                          <span className="text-[10px] text-slate-400">{agt.area}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-700/60 pt-3 space-y-1.5 text-xs text-slate-300">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Phone:</span>
+                          <span className="font-semibold">{agt.phone}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Commission Rate:</span>
+                          <span className="font-semibold text-purple-400">{agt.commission_pct}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Total Bookings:</span>
+                          <span className="font-semibold">{agt.bookings_linked}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-700/60 pt-3 mt-4 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Payouts: ₹{agt.total_payout.toLocaleString('en-IN')}</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setSelectedAgent(agt); setAgentModalMode('edit'); setShowAgentModal(true) }}
+                          className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAgent(agt.id)}
+                          className="p-1.5 rounded bg-slate-900 border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: VEHICLES */}
+          {activeTab === 'vehicles' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="font-sora text-2xl font-extrabold text-slate-100">Vehicle Fleet</h1>
+                  <p className="text-xs text-slate-400 mt-1">Manage active fleet models, capacity specifications, and registration status</p>
+                </div>
+                <button
+                  onClick={() => { setVehicleModalMode('create'); setSelectedVehicle(null); setShowVehicleModal(true) }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
+                >
+                  <Plus size={14} />
+                  <span>Register Vehicle</span>
+                </button>
+              </div>
+
+              {/* Vehicle Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {vehicles.map(veh => (
+                  <div key={veh.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-xl transition-all duration-150">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          veh.type === 'sedan' ? 'bg-amber-500/10 text-brand' :
+                          veh.type === 'suv' ? 'bg-sky-500/10 text-sky-400' : 'bg-purple-500/10 text-purple-400'
+                        } uppercase`}>
+                          {veh.type}
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                          {veh.status}
+                        </span>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-sora font-extrabold text-base text-slate-100 mt-2">{veh.make} {veh.model}</h3>
+                        <span className="text-xs text-slate-400 font-mono mt-1 block">{veh.plate}</span>
+                      </div>
+
+                      <div className="border-t border-slate-700/60 pt-3 space-y-1 text-xs text-slate-300">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Capacity:</span>
+                          <span className="font-semibold">{veh.capacity} Seater</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Assigned Driver:</span>
+                          <span className="font-semibold">
+                            {drivers.find(d => d.id === veh.driver_id)?.name || 'Unassigned'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-700/60 pt-3 mt-4 flex justify-end gap-2">
+                      <button
+                        onClick={() => { setSelectedVehicle(veh); setVehicleModalMode('edit'); setShowVehicleModal(true) }}
+                        className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVehicle(veh.id)}
+                        className="p-1.5 rounded bg-slate-900 border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: AUTO MATCHING */}
+          {activeTab === 'matching' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="font-sora text-2xl font-extrabold text-slate-100">Auto Matching Engine</h1>
+                  <p className="text-xs text-slate-400 mt-1">Smart scheduling pairs opposite route bookings on identical travel dates</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
+                    <span className="text-slate-400 font-semibold">Min Confidence:</span>
+                    <input
+                      type="range"
+                      min="70"
+                      max="100"
+                      value={matchThreshold}
+                      onChange={e => setMatchThreshold(parseInt(e.target.value))}
+                      className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand"
+                    />
+                    <span className="font-bold text-brand">{matchThreshold}%</span>
+                  </div>
+                  <button
+                    onClick={handleBulkLink}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-brand hover:bg-brand-dark active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all animate-pulse"
+                  >
+                    <Link2 size={14} />
+                    <span>Auto-Match All</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Suggestions Queue */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Pending Unmatched Queue */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+                  <h3 className="font-sora font-bold text-xs text-slate-200">Unmatched RAC Bookings</h3>
+                  <div className="space-y-3">
+                    {bookings.filter(b => b.status === 'waiting').length === 0 ? (
+                      <div className="text-center text-slate-400 py-10 text-xs">No pending unmatched bookings.</div>
+                    ) : (
+                      bookings.filter(b => b.status === 'waiting').map(b => (
+                        <div key={b.id} className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex justify-between items-center text-xs">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-[10px] text-brand">{b.booking_ref}</span>
+                              <span className="text-slate-400 font-medium">({b.passenger_name})</span>
+                            </div>
+                            <div className="text-[10px] mt-1 text-slate-300">
+                              {b.direction === 'KI' ? 'Khargone → Indore' : 'Indore → Khargone'}
+                            </div>
+                            <div className="text-[9px] text-slate-400 mt-0.5">{b.travel_date} · {b.pickup_time}</div>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                            Waiting
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Suggestions List */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
+                  <h3 className="font-sora font-bold text-xs text-slate-200">Pair Suggestions & Linking</h3>
+                  <div className="space-y-3">
+                    {matchingSuggestions.length === 0 ? (
+                      <div className="text-center text-slate-400 py-10 text-xs">All suggestions linked.</div>
+                    ) : (
+                      matchingSuggestions.map((item, idx) => (
+                        <div key={idx} className="bg-slate-900 border border-slate-700 rounded-lg p-3 space-y-3 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-emerald-400">Match score: {item.confidence}%</span>
+                            <button
+                              onClick={() => handleLinkBookings(item.b1.id, item.b2.id)}
+                              className="px-3 py-1 bg-brand text-slate-950 font-bold rounded hover:bg-brand-dark active:scale-95 transition-all text-[10px]"
+                            >
+                              🔗 Establish Link
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 border-t border-slate-750 pt-2 text-[10px]">
+                            <div>
+                              <div className="text-brand font-bold">{item.b1.booking_ref}</div>
+                              <div>{item.b1.passenger_name}</div>
+                              <div className="text-slate-400">{item.b1.direction === 'KI' ? 'Khargone → Indore' : 'Indore → Khargone'}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-brand font-bold">{item.b2.booking_ref}</div>
+                              <div>{item.b2.passenger_name}</div>
+                              <div className="text-slate-400">{item.b2.direction === 'KI' ? 'Khargone → Indore' : 'Indore → Khargone'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: PAYMENTS */}
+          {activeTab === 'payments' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-sora text-2xl font-extrabold text-slate-100">Financial Settlements</h1>
+                <p className="text-xs text-slate-400 mt-1">Review advance collections, pending balances, and settle settlements</p>
+              </div>
+
+              {/* Payments Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Total Revenue', val: '₹19,700', sub: 'Calculated fare total' },
+                  { label: 'Advance Collected', val: '₹4,000', sub: 'UPI payments' },
+                  { label: 'Balance Outstanding', val: '₹15,700', sub: 'Due in Cash/UPI' },
+                  { label: 'Estimated Driver Settlements', val: '₹9,800', sub: 'Assigned trip settlements' }
+                ].map((item, idx) => (
+                  <div key={idx} className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</span>
+                    <span className="font-sora text-lg font-extrabold text-brand mt-1">{item.val}</span>
+                    <span className="text-[9px] text-slate-400 mt-1">{item.sub}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Transactions Ledger */}
+              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-lg p-5 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-sora font-bold text-xs text-slate-200">Payment Transactions</h3>
+                  <button
+                    onClick={() => triggerToast('📥 CSV file exported successfully!')}
+                    className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors"
+                  >
+                    Export Ledger (CSV)
+                  </button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-900 text-slate-400 border-b border-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                        <th className="p-3">Transaction Date</th>
+                        <th className="p-3">Booking Ref</th>
+                        <th className="p-3">Passenger</th>
+                        <th className="p-3">Settlement Type</th>
+                        <th className="p-3">Method</th>
+                        <th className="p-3 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/60">
+                      {transactions.map(t => (
+                        <tr key={t.id} className="hover:bg-slate-700/30">
+                          <td className="p-3">{t.date}</td>
+                          <td className="p-3 text-brand font-bold">{t.booking_ref}</td>
+                          <td className="p-3">{t.passenger_name}</td>
+                          <td className="p-3 capitalize">{t.type}</td>
+                          <td className="p-3">{t.method}</td>
+                          <td className="p-3 text-right font-bold text-emerald-400">₹{t.amount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 9: REPORTS */}
+          {activeTab === 'reports' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-sora text-2xl font-extrabold text-slate-100">Performance Reports</h1>
+                <p className="text-xs text-slate-400 mt-1">Track conversions, routes metrics, and match rates</p>
+              </div>
+
+              {/* Reports 2x2 charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* 1. Route Volume Heatmap */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                  <h3 className="font-sora font-bold text-xs text-slate-200 mb-4">Route Booking Frequency</h3>
+                  <div className="h-56 w-full">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[
+                          { name: 'Khargone ➔ Airport', bookings: 12 },
+                          { name: 'Khargone ➔ Rwy Stn', bookings: 18 },
+                          { name: 'Khargone ➔ Vijay Nagar', bookings: 9 },
+                          { name: 'Indore ➔ Khargone', bookings: 22 }
+                        ]}>
+                          <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} />
+                          <YAxis stroke="#94A3B8" fontSize={9} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1E293B', borderColor: '#334155', color: '#F8FAFC' }} />
+                          <Bar dataKey="bookings" name="Bookings" fill="#F5A623" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">Loading Charts...</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Match Rate Efficiency Trend */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                  <h3 className="font-sora font-bold text-xs text-slate-200 mb-4">Match Efficiency Trend (%)</h3>
+                  <div className="h-56 w-full">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={[
+                          { date: 'May 24', rate: 75 },
+                          { date: 'May 25', rate: 80 },
+                          { date: 'May 26', rate: 82 },
+                          { date: 'May 27', rate: 80 },
+                          { date: 'May 28', rate: 88 },
+                          { date: 'May 29', rate: 90 },
+                          { date: 'May 30', rate: 92 }
+                        ]}>
+                          <XAxis dataKey="date" stroke="#94A3B8" fontSize={9} />
+                          <YAxis stroke="#94A3B8" fontSize={9} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1E293B', borderColor: '#334155', color: '#F8FAFC' }} />
+                          <Line type="monotone" dataKey="rate" name="Match Rate %" stroke="#22C55E" strokeWidth={2.5} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">Loading Charts...</div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* TAB 10: SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-sora text-2xl font-extrabold text-slate-100">Business Control Settings</h1>
+                <p className="text-xs text-slate-400 mt-1">Configure pricing models, emergency policies, and notification rules</p>
+              </div>
+
+              {/* Settings forms */}
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-6 max-w-3xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-bold text-slate-300">Business Name</label>
+                    <input
+                      type="text"
+                      value={settings.business_name}
+                      onChange={e => setSettings({ ...settings, business_name: e.target.value })}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-bold text-slate-300">Contact Number</label>
+                    <input
+                      type="text"
+                      value={settings.phone}
+                      onChange={e => setSettings({ ...settings, phone: e.target.value })}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-bold text-slate-300">Sedan Base Fare (₹)</label>
+                    <input
+                      type="number"
+                      value={settings.base_sedan}
+                      onChange={e => setSettings({ ...settings, base_sedan: parseInt(e.target.value) })}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    <label className="font-bold text-slate-300">SUV Base Fare (₹)</label>
+                    <input
+                      type="number"
+                      value={settings.base_suv}
+                      onChange={e => setSettings({ ...settings, base_suv: parseInt(e.target.value) })}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5 text-xs">
+                  <label className="font-bold text-slate-300">RAC Confirmed Template</label>
+                  <textarea
+                    rows={3}
+                    value={settings.template_confirmed}
+                    onChange={e => setSettings({ ...settings, template_confirmed: e.target.value })}
+                    className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 focus:outline-none focus:border-brand font-mono text-[10px] leading-relaxed"
+                  />
+                </div>
+
+                <button
+                  onClick={() => triggerToast('💾 Settings Saved successfully!')}
+                  className="px-4 py-2 bg-brand text-slate-950 font-bold rounded-lg text-xs hover:bg-brand-dark active:scale-95 transition-all"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ─── MODALS & DRAWERS ─────────────────────────────────────────────────── */}
+      
+      {/* 1. New Booking Slide-In Drawer */}
+      {showNewBooking && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex justify-end">
+          <div className="w-full max-w-md bg-slate-800 border-l border-slate-700 p-6 flex flex-col h-full overflow-y-auto text-xs space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+              <h2 className="font-sora text-sm font-bold text-slate-200">Create Reservation</h2>
+              <button onClick={() => setShowNewBooking(false)} className="text-slate-400 hover:text-slate-200">
+                <X size={18} />
+              </button>
+            </div>
+            
+            {/* Slide-in form fields */}
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                const form = e.currentTarget
+                const fd = new FormData(form)
+                handleCreateBooking({
+                  passenger_name: fd.get('name') as string,
+                  phone: fd.get('phone') as string,
+                  direction: fd.get('direction') as 'KI' | 'IK',
+                  travel_date: fd.get('date') as string,
+                  pickup_time: fd.get('time') as string,
+                  drop_name: fd.get('drop_point') === 'ind-apt' ? 'Indore Airport' : 'Indore Railway Station',
+                  vehicle_type: fd.get('vehicle_type') as 'sedan' | 'suv' | 'innova',
+                  base_fare: parseInt(fd.get('base_fare') as string) || 2200,
+                  advance_paid: parseInt(fd.get('advance') as string) || 0,
+                  driver_id: fd.get('driver') as string || undefined,
+                  agent_id: fd.get('agent') as string || undefined
+                })
+              }}
+              className="space-y-4 flex-1 flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Passenger Name</label>
+                  <input type="text" name="name" required className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Phone</label>
+                  <input type="tel" name="phone" required className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Route Direction</label>
+                    <select name="direction" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                      <option value="KI">Khargone → Indore</option>
+                      <option value="IK">Indore → Khargone</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Vehicle Type</label>
+                    <select name="vehicle_type" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                      <option value="sedan">Economy Sedan</option>
+                      <option value="suv">Premium SUV</option>
+                      <option value="innova">Innova</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Travel Date</label>
+                    <input type="date" name="date" required defaultValue={TODAY_DATE} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Pickup Time</label>
+                    <input type="time" name="time" required defaultValue="08:00" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Pickup/Drop Spot</label>
+                  <select name="drop_point" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                    <option value="ind-apt">Indore Airport</option>
+                    <option value="ind-rwy">Indore Railway Station</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Base Fare (₹)</label>
+                    <input type="number" name="base_fare" defaultValue="2200" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Advance Paid (₹)</label>
+                    <input type="number" name="advance" defaultValue="500" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Assign Driver</label>
+                    <select name="driver" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                      <option value="">None</option>
+                      {drivers.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-semibold text-slate-300">Assign Agent</label>
+                    <select name="agent" className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                      <option value="">None</option>
+                      {agents.map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-brand text-slate-950 font-bold rounded-lg hover:bg-brand-dark active:scale-95 transition-all mt-6 text-xs"
+              >
+                Create Reservation
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
-      {(modal === 'create' || modal === 'edit') && (
-        <Modal title={modal === 'create' ? 'Add New Agent' : 'Edit Agent'} onClose={() => setModal(null)}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <Field label="Full Name *">
-              <input value={form.name || ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Agent name" style={inputStyle} />
-            </Field>
-            <Field label="Phone *">
-              <input value={form.phone || ''} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="10-digit mobile" style={inputStyle} />
-            </Field>
-            <Field label="Email">
-              <input value={form.email || ''} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="agent@email.com" type="email" style={inputStyle} />
-            </Field>
-            <Field label="Area / Zone">
-              <input value={form.area || ''} onChange={e => setForm(p => ({ ...p, area: e.target.value }))} placeholder="e.g. Khargone City" style={inputStyle} />
-            </Field>
-            <Field label="Commission (%)">
-              <input value={form.commission_pct || ''} onChange={e => setForm(p => ({ ...p, commission_pct: Number(e.target.value) }))} placeholder="e.g. 10" type="number" min="0" max="50" style={inputStyle} />
-            </Field>
-            <Field label="Status">
-              <select value={form.status || 'active'} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} style={selectStyle}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+      {/* 2. Link Booking Modal */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 w-full max-w-sm space-y-4 text-xs">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+              <h3 className="font-sora font-bold text-slate-200">🔗 Link Reservation {showLinkModal.booking_ref}</h3>
+              <button onClick={() => setShowLinkModal(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="font-semibold text-slate-300 block">Select matching opposite ride</label>
+              <select
+                id="link-select-partner"
+                className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none"
+              >
+                {bookings
+                  .filter(b => b.status === 'waiting' && b.id !== showLinkModal.id && b.direction !== showLinkModal.direction && b.travel_date === showLinkModal.travel_date)
+                  .map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.booking_ref} - {b.passenger_name} ({b.travel_date} · {b.pickup_time})
+                    </option>
+                  ))}
               </select>
-            </Field>
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-            <button onClick={() => setModal(null)} style={{ flex: 1, padding: 11, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Cancel</button>
-            <button onClick={save} style={{ flex: 1, padding: 11, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#7C3AED', color:'#fff' }}>
-              {modal === 'create' ? '+ Create Agent' : '✓ Save Changes'}
+            </div>
+
+            <button
+              onClick={() => {
+                const el = document.getElementById('link-select-partner') as HTMLSelectElement
+                if (el?.value) {
+                  handleLinkBookings(showLinkModal.id, el.value)
+                } else {
+                  triggerToast('No valid match selected!', 'error')
+                }
+              }}
+              className="w-full py-2 bg-brand text-slate-950 font-bold rounded-lg hover:bg-brand-dark transition-colors"
+            >
+              Connect Rides
             </button>
           </div>
-        </Modal>
+        </div>
       )}
 
-      {modal === 'delete' && selected && (
-        <Modal title="Remove Agent" onClose={() => setModal(null)}>
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
-            <p style={{ fontSize: 15, color: '#374151' }}>Remove agent <strong>{selected.name}</strong>?</p>
-            <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 6 }}>They will be marked inactive.</p>
+      {/* 3. Booking Details Drawer (Slide-In) */}
+      {selectedBooking && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex justify-end">
+          <div className="w-full max-w-md bg-slate-800 border-l border-slate-700 p-6 flex flex-col h-full overflow-y-auto text-xs space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+              <h2 className="font-sora text-sm font-bold text-slate-200">Reservation Details</h2>
+              <button onClick={() => setSelectedBooking(null)} className="text-slate-400 hover:text-slate-200">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 4-column detail panel specs */}
+            <div className="space-y-4 flex-1">
+              
+              {/* Column 1: Route details */}
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-750">
+                <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block mb-2">1. Route & Schedule</span>
+                <div className="flex justify-between text-slate-200">
+                  <span>Direction:</span>
+                  <span className="font-semibold">{selectedBooking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Travel Date:</span>
+                  <span className="font-semibold">{selectedBooking.travel_date}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Pickup Time:</span>
+                  <span className="font-semibold">{selectedBooking.pickup_time}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Pickup Point:</span>
+                  <span className="font-semibold">{selectedBooking.drop_name}</span>
+                </div>
+              </div>
+
+              {/* Column 2: Passenger details */}
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-750">
+                <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block mb-2">2. Passenger Information</span>
+                <div className="flex justify-between text-slate-200">
+                  <span>Name:</span>
+                  <span className="font-semibold">{selectedBooking.passenger_name}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Contact Phone:</span>
+                  <span className="font-semibold">{selectedBooking.phone}</span>
+                </div>
+                {selectedBooking.email && (
+                  <div className="flex justify-between text-slate-200 mt-1">
+                    <span>Email:</span>
+                    <span className="font-semibold">{selectedBooking.email}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Column 3: Fare Breakdown */}
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-750">
+                <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block mb-2">3. Financial Ledger</span>
+                <div className="flex justify-between text-slate-200">
+                  <span>Base Fare:</span>
+                  <span>₹{selectedBooking.base_fare}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Night surcharge:</span>
+                  <span>₹{selectedBooking.night_extra}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Discount:</span>
+                  <span className="text-rose-400">-₹{selectedBooking.discount}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 font-bold border-t border-slate-700 pt-1.5 mt-1.5">
+                  <span>Total Fare:</span>
+                  <span className="text-brand">₹{selectedBooking.total_fare}</span>
+                </div>
+                <div className="flex justify-between text-slate-200 font-bold mt-1">
+                  <span>Advance Paid:</span>
+                  <span>₹{selectedBooking.advance_paid}</span>
+                </div>
+                <div className="flex justify-between text-emerald-400 font-bold mt-1">
+                  <span>Outstanding Balance:</span>
+                  <span>₹{selectedBooking.total_fare - selectedBooking.advance_paid}</span>
+                </div>
+              </div>
+
+              {/* Column 4: Driver / Agent Assignment details */}
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-750">
+                <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider block mb-2">4. Resource Assignment</span>
+                <div className="flex justify-between text-slate-200">
+                  <span>Assigned Driver:</span>
+                  <span className="font-semibold">
+                    {drivers.find(d => d.id === selectedBooking.driver_id)?.name || 'Unassigned'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-200 mt-1">
+                  <span>Booking Agent:</span>
+                  <span className="font-semibold">
+                    {agents.find(a => a.id === selectedBooking.agent_id)?.name || 'Direct Online'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-4 border-t border-slate-700">
+              <a
+                href={`https://wa.me/91${selectedBooking.phone}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-center rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Send size={12} />
+                <span>Text Customer (WhatsApp)</span>
+              </a>
+              {selectedBooking.status !== 'cancelled' && (
+                <button
+                  onClick={() => {
+                    handleCancelBooking(selectedBooking.id)
+                    setSelectedBooking(null)
+                  }}
+                  className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-slate-950 font-bold rounded-lg transition-colors"
+                >
+                  Cancel Booking Request
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={() => setModal(null)} style={{ flex: 1, padding: 11, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer', fontSize: 13, fontFamily:'Inter,sans-serif', background:'#F9FAFB', color:'#374151' }}>Keep</button>
-            <button onClick={del} style={{ flex: 1, padding: 11, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily:'Inter,sans-serif', background:'#DC2626', color:'#fff' }}>Remove Agent</button>
-          </div>
-        </Modal>
+        </div>
       )}
-    </div>
-  )
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ANALYTICS TAB
-// ─────────────────────────────────────────────────────────────────────────────
+      {/* 4. Driver Modal (Create / Edit) */}
+      {showDriverModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-sm space-y-4 text-xs">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+              <h3 className="font-sora font-bold text-slate-200">
+                {driverModalMode === 'create' ? 'Register Driver' : 'Edit Driver Profile'}
+              </h3>
+              <button onClick={() => setShowDriverModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
 
-function AnalyticsTab() {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true)
-      try {
-        const res = await fetch('/api/admin/bookings?limit=500')
-        const json = await res.json()
-        setBookings(json.bookings || [])
-      } catch { }
-      setLoading(false)
-    })()
-  }, [])
-
-  if (loading) return <LoadingSpinner />
-
-  const total   = bookings.length
-  const revenue = bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + (b.total_fare || 0), 0)
-  const avgFare = total ? Math.round(revenue / total) : 0
-
-  // Route stats
-  const ki = bookings.filter(b => b.direction === 'KI').length
-  const ik = bookings.filter(b => b.direction === 'IK').length
-  const routes = [
-    { label: 'Khargone → Indore', count: ki, color: '#FFC107', pct: total ? Math.round(ki/total*100) : 0 },
-    { label: 'Indore → Khargone', count: ik, color: '#3B82F6', pct: total ? Math.round(ik/total*100) : 0 },
-  ]
-
-  // Status breakdown
-  const statuses = ['waiting', 'confirmed', 'cancelled'].map(s => ({
-    label: s, count: bookings.filter(b => b.status === s).length,
-    color: STATUS_COLORS[s]?.color || '#000',
-    bg: STATUS_COLORS[s]?.bg || '#F3F4F6',
-  }))
-
-  // Revenue by day (last 7 days)
-  const days: Record<string, number> = {}
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i)
-    const key = d.toISOString().split('T')[0]
-    days[key] = 0
-  }
-  bookings.filter(b => b.status !== 'cancelled').forEach(b => {
-    if (days[b.travel_date] !== undefined) {
-      days[b.travel_date] += b.total_fare || 0
-    }
-  })
-  const dayEntries = Object.entries(days)
-  const maxRev = Math.max(...dayEntries.map(([, v]) => v), 1)
-
-  // Top routes by drop point
-  const dropCounts: Record<string, number> = {}
-  bookings.forEach(b => {
-    const k = (b as any).drop_name || 'Other'
-    dropCounts[k] = (dropCounts[k] || 0) + 1
-  })
-  const topDrops = Object.entries(dropCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  const maxDrop = Math.max(...topDrops.map(([, v]) => v), 1)
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>Analytics</h1>
-        <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>Insights based on all bookings data</p>
-      </div>
-
-      {/* Summary Cards */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-        <StatCard icon="🎟️" label="Total Bookings"   value={total}                                       color="#111" />
-        <StatCard icon="💰" label="Total Revenue"      value={`₹${revenue.toLocaleString('en-IN')}`}      color="#059669" />
-        <StatCard icon="📈" label="Average Fare"       value={`₹${avgFare.toLocaleString('en-IN')}`}      color="#7C3AED" />
-        <StatCard icon="✅" label="Completion Rate"    value={`${total ? Math.round(bookings.filter(b=>b.status==='confirmed').length/total*100) : 0}%`} color="#2563EB" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Revenue Chart */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 18 }}>📈 Revenue (Last 7 Days)</h2>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 140 }}>
-            {dayEntries.map(([date, rev]) => (
-              <div key={date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600 }}>
-                  {rev > 0 ? `₹${(rev/1000).toFixed(1)}k` : '—'}
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                const fd = new FormData(e.currentTarget)
+                handleSaveDriver({
+                  id: selectedDriver?.id,
+                  name: fd.get('name') as string,
+                  phone: fd.get('phone') as string,
+                  vehicle_model: fd.get('vehicle_model') as string,
+                  vehicle_number: fd.get('vehicle_number') as string,
+                  license_expiry: fd.get('license_expiry') as string,
+                  permit_expiry: fd.get('permit_expiry') as string
+                })
+              }}
+              className="space-y-4"
+            >
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-slate-300">Name</label>
+                <input type="text" name="name" required defaultValue={selectedDriver?.name} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-slate-300">Phone</label>
+                <input type="text" name="phone" required defaultValue={selectedDriver?.phone} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Vehicle Model</label>
+                  <input type="text" name="vehicle_model" required defaultValue={selectedDriver?.vehicle_model} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
                 </div>
-                <div style={{
-                  width: '100%', background: rev > 0 ? '#FFC107' : '#F3F4F6',
-                  borderRadius: '4px 4px 0 0',
-                  height: `${(rev / maxRev) * 100}px`,
-                  minHeight: 4,
-                  transition: 'height 0.3s ease',
-                }} />
-                <div style={{ fontSize: 9, color: '#9CA3AF', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Plate Number</label>
+                  <input type="text" name="vehicle_number" required defaultValue={selectedDriver?.vehicle_number} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
                 </div>
               </div>
-            ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">License Expiry</label>
+                  <input type="date" name="license_expiry" required defaultValue={selectedDriver?.license_expiry || TODAY_DATE} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Permit Expiry</label>
+                  <input type="date" name="permit_expiry" required defaultValue={selectedDriver?.permit_expiry || TODAY_DATE} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-brand text-slate-950 font-bold rounded-lg hover:bg-brand-dark transition-colors"
+              >
+                Save Profile
+              </button>
+            </form>
           </div>
         </div>
+      )}
 
-        {/* Route Distribution */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 18 }}>🗺️ Route Distribution</h2>
-          {routes.map(r => (
-            <div key={r.label} style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{r.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{r.count} ({r.pct}%)</span>
-              </div>
-              <div style={{ height: 8, background: '#F3F4F6', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${r.pct}%`, background: r.color, borderRadius: 4, transition: 'width 0.5s ease' }} />
-              </div>
+      {/* 5. Agent Modal (Create / Edit) */}
+      {showAgentModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-sm space-y-4 text-xs">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+              <h3 className="font-sora font-bold text-slate-200">
+                {agentModalMode === 'create' ? 'Add New Agent' : 'Edit Agent Information'}
+              </h3>
+              <button onClick={() => setShowAgentModal(false)}>
+                <X size={16} />
+              </button>
             </div>
-          ))}
 
-          <div style={{ marginTop: 20 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Status Breakdown</h3>
-            {statuses.map(s => (
-              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 12, color: '#374151', textTransform: 'capitalize' }}>{s.label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>{s.count}</span>
-                <span style={{ fontSize: 11, color: '#9CA3AF', minWidth: 36, textAlign: 'right' }}>
-                  {total ? Math.round(s.count/total*100) : 0}%
-                </span>
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                const fd = new FormData(e.currentTarget)
+                handleSaveAgent({
+                  id: selectedAgent?.id,
+                  name: fd.get('name') as string,
+                  phone: fd.get('phone') as string,
+                  email: fd.get('email') as string,
+                  area: fd.get('area') as string,
+                  commission_pct: parseInt(fd.get('commission') as string) || 10
+                })
+              }}
+              className="space-y-4"
+            >
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-slate-300">Name</label>
+                <input type="text" name="name" required defaultValue={selectedAgent?.name} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
               </div>
-            ))}
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-slate-300">Phone</label>
+                <input type="text" name="phone" required defaultValue={selectedAgent?.phone} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-slate-300">Email</label>
+                <input type="email" name="email" required defaultValue={selectedAgent?.email} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Assigned Area</label>
+                  <input type="text" name="area" required defaultValue={selectedAgent?.area} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Commission %</label>
+                  <input type="number" name="commission" required defaultValue={selectedAgent?.commission_pct} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-brand text-slate-950 font-bold rounded-lg hover:bg-brand-dark transition-colors"
+              >
+                Save Agent Profile
+              </button>
+            </form>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Top Drop Points */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 18 }}>📍 Top Drop Points</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {topDrops.map(([name, count]) => (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 120, fontSize: 13, color: '#374151', fontWeight: 500, flexShrink: 0 }}>{name}</div>
-              <div style={{ flex: 1, height: 8, background: '#F3F4F6', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${count/maxDrop*100}%`, background: '#FFC107', borderRadius: 4, transition: 'width 0.5s ease' }} />
-              </div>
-              <div style={{ width: 40, textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#111' }}>{count}</div>
+      {/* 6. Vehicle Modal (Create / Edit) */}
+      {showVehicleModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-sm space-y-4 text-xs">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+              <h3 className="font-sora font-bold text-slate-200">
+                {vehicleModalMode === 'create' ? 'Register Vehicle' : 'Modify Fleet Details'}
+              </h3>
+              <button onClick={() => setShowVehicleModal(false)}>
+                <X size={16} />
+              </button>
             </div>
-          ))}
-          {topDrops.length === 0 && <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: '20px 0' }}>No data yet</div>}
+
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                const fd = new FormData(e.currentTarget)
+                handleSaveVehicle({
+                  id: selectedVehicle?.id,
+                  make: fd.get('make') as string,
+                  model: fd.get('model') as string,
+                  plate: fd.get('plate') as string,
+                  type: fd.get('type') as 'sedan' | 'suv' | 'innova',
+                  driver_id: fd.get('driver') as string || undefined
+                })
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Make</label>
+                  <input type="text" name="make" required defaultValue={selectedVehicle?.make} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Model</label>
+                  <input type="text" name="model" required defaultValue={selectedVehicle?.model} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-slate-300">License Plate</label>
+                <input type="text" name="plate" required defaultValue={selectedVehicle?.plate} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Body Type</label>
+                  <select name="type" defaultValue={selectedVehicle?.type} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                    <option value="sedan">Sedan</option>
+                    <option value="suv">SUV</option>
+                    <option value="innova">Innova</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-semibold text-slate-300">Assign Driver</label>
+                  <select name="driver" defaultValue={selectedVehicle?.driver_id} className="bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 focus:outline-none">
+                    <option value="">None</option>
+                    {drivers.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-brand text-slate-950 font-bold rounded-lg hover:bg-brand-dark transition-colors"
+              >
+                Save Vehicle Info
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
-    </div>
-  )
-}
+      )}
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+      {/* ─── TOAST NOTIFICATION ────────────────────────────────────────────────── */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-800 border border-slate-700 px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 text-xs animate-bounce">
+          {toastType === 'success' ? (
+            <CheckCircle size={16} className="text-emerald-500" />
+          ) : (
+            <XCircle size={16} className="text-rose-500" />
+          )}
+          <span className="font-semibold text-slate-200">{toastMessage}</span>
+        </div>
+      )}
 
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{value}</div>
-    </div>
-  )
-}
-
-function LoadingSpinner() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 12 }}>
-      <div style={{
-        width: 24, height: 24, borderRadius: '50%',
-        border: '3px solid #F3F4F6', borderTopColor: '#FFC107',
-        animation: 'spin 0.7s linear infinite',
-      }} />
-      <span style={{ fontSize: 14, color: '#9CA3AF' }}>Loading…</span>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity:0; transform:translateY(6px);} to {opacity:1;transform:translateY(0);} }`}</style>
     </div>
   )
 }
