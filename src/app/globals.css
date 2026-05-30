@@ -1,10 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-
+@theme {
+  --font-sans: "DM Sans", sans-serif;
+  --font-sora: Sora, sans-serif;
+  --color-brand: #F5A623;
+  --color-brand-dark: #E0921B;
+  --color-brand-light: #F8B64C;
+  --color-slate-950: #080E1A;
+  --color-slate-900: #0F172A;
+  --color-slate-800: #1E293B;
+  --color-slate-750: #253347;
+  --color-slate-700: #334155;
+  --scale-98: 0.98;
+}
 
 :root {
   --bg:           #F5F5F5;
