@@ -14,14 +14,19 @@ module.exports = {
           light: '#F8B64C',
         },
         slate: {
+          750: '#253347',
           900: '#0F172A',
           800: '#1E293B',
           700: '#334155',
+          950: '#080E1A',
         }
       },
       fontFamily: {
         sans: ['"DM Sans"', 'sans-serif'],
         sora: ['Sora', 'sans-serif'],
+      },
+      scale: {
+        '98': '0.98',
       }
     },
   },

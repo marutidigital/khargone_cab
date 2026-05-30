@@ -246,6 +246,14 @@ export default function AdminDashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
 
+  // Refresh animation
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    triggerToast('📊 Dashboard refreshed!')
+    setTimeout(() => setIsRefreshing(false), 1000)
+  }
+
   // Auto Matching Settings
   const [matchThreshold, setMatchThreshold] = useState(80)
 
@@ -876,10 +884,10 @@ export default function AdminDashboard() {
                   <p className="text-xs text-slate-400 mt-1">Real-time status updates and early bird matching</p>
                 </div>
                 <button
-                  onClick={() => triggerToast('📊 Refreshing dashboard...')}
+                  onClick={handleRefresh}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors"
                 >
-                  <RefreshCw size={13} className="animate-spin" />
+                  <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
                   <span>Refresh</span>
                 </button>
               </div>
@@ -962,7 +970,7 @@ export default function AdminDashboard() {
                           
                           <button
                             onClick={() => handleLinkBookings(item.b1.id, item.b2.id)}
-                            className="w-full py-1 bg-brand hover:bg-brand-dark active:scale-98 text-slate-950 font-bold rounded text-[10px] transition-all"
+                            className="w-full py-1 bg-brand hover:bg-brand-dark active:scale-95 text-slate-950 font-bold rounded text-[10px] transition-all"
                           >
                             🔗 Auto-Link Rides
                           </button>
@@ -1692,21 +1700,33 @@ export default function AdminDashboard() {
                 <p className="text-xs text-slate-400 mt-1">Review advance collections, pending balances, and settle settlements</p>
               </div>
 
-              {/* Payments Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Total Revenue', val: '₹19,700', sub: 'Calculated fare total' },
-                  { label: 'Advance Collected', val: '₹4,000', sub: 'UPI payments' },
-                  { label: 'Balance Outstanding', val: '₹15,700', sub: 'Due in Cash/UPI' },
-                  { label: 'Estimated Driver Settlements', val: '₹9,800', sub: 'Assigned trip settlements' }
-                ].map((item, idx) => (
-                  <div key={idx} className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</span>
-                    <span className="font-sora text-lg font-extrabold text-brand mt-1">{item.val}</span>
-                    <span className="text-[9px] text-slate-400 mt-1">{item.sub}</span>
+              {/* Payments Summary Cards — calculated from live transaction data */}
+              {(() => {
+                const totalRevenue = bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + b.total_fare, 0)
+                const advanceCollected = transactions.filter(t => t.type === 'advance' || t.type === 'full').reduce((s, t) => s + t.amount, 0)
+                const balanceCollected = transactions.filter(t => t.type === 'balance' || t.type === 'full').reduce((s, t) => s + t.amount, 0)
+                const outstanding = totalRevenue - advanceCollected - balanceCollected
+                const driverSettlement = bookings.filter(b => b.status === 'confirmed' && b.driver_id).reduce((s, b) => {
+                  const rate = b.vehicle_type === 'sedan' ? 1200 : b.vehicle_type === 'suv' ? 1600 : 2000
+                  return s + rate
+                }, 0)
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Total Revenue', val: `₹${totalRevenue.toLocaleString('en-IN')}`, sub: 'All active bookings' },
+                      { label: 'Advance Collected', val: `₹${advanceCollected.toLocaleString('en-IN')}`, sub: 'Recorded advance payments' },
+                      { label: 'Balance Outstanding', val: `₹${Math.max(0, outstanding).toLocaleString('en-IN')}`, sub: 'Pending customer balance' },
+                      { label: 'Driver Settlements Due', val: `₹${driverSettlement.toLocaleString('en-IN')}`, sub: 'Estimated trip payouts' }
+                    ].map((item, idx) => (
+                      <div key={idx} className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</span>
+                        <span className="font-sora text-lg font-extrabold text-brand mt-1">{item.val}</span>
+                        <span className="text-[9px] text-slate-400 mt-1">{item.sub}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
 
               {/* Transactions Ledger */}
               <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-lg p-5 space-y-4">
