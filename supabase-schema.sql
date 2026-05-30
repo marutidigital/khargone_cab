@@ -121,3 +121,70 @@ begin
   return ref;
 end;
 $$ language plpgsql;
+
+-- ── DRIVERS TABLE ────────────────────────────
+create table if not exists public.drivers (
+  id               uuid primary key default uuid_generate_v4(),
+  name             text not null,
+  phone            text not null,
+  vehicle_type     text default 'sedan' check (vehicle_type in ('sedan','suv','innova')),
+  vehicle_number   text,
+  vehicle_model    text,
+  status           text default 'active' check (status in ('active','inactive')),
+  rating           numeric(2,1) default 4.5,
+  trips_completed  integer default 0,
+  created_at       timestamptz default now(),
+  updated_at       timestamptz default now()
+);
+
+alter table public.drivers enable row level security;
+
+create policy "drivers_service_all" on public.drivers
+  for all using (auth.role() = 'service_role');
+
+create policy "drivers_anon_read" on public.drivers
+  for select using (true);
+
+create index if not exists idx_drivers_status on public.drivers(status);
+create index if not exists idx_drivers_phone  on public.drivers(phone);
+
+create trigger drivers_updated_at
+  before update on public.drivers
+  for each row execute function update_updated_at();
+
+-- ── AGENTS TABLE ─────────────────────────────
+create table if not exists public.agents (
+  id               uuid primary key default uuid_generate_v4(),
+  name             text not null,
+  phone            text not null,
+  email            text,
+  area             text default 'Khargone',
+  commission_pct   integer default 10,
+  status           text default 'active' check (status in ('active','inactive')),
+  bookings_linked  integer default 0,
+  created_at       timestamptz default now(),
+  updated_at       timestamptz default now()
+);
+
+alter table public.agents enable row level security;
+
+create policy "agents_service_all" on public.agents
+  for all using (auth.role() = 'service_role');
+
+create policy "agents_anon_read" on public.agents
+  for select using (true);
+
+create index if not exists idx_agents_status on public.agents(status);
+create index if not exists idx_agents_phone  on public.agents(phone);
+
+create trigger agents_updated_at
+  before update on public.agents
+  for each row execute function update_updated_at();
+
+-- ── EXTEND BOOKINGS WITH DRIVER/AGENT COLUMNS ─
+alter table public.bookings
+  add column if not exists driver_id   uuid references public.drivers(id),
+  add column if not exists driver_name text,
+  add column if not exists agent_id    uuid references public.agents(id),
+  add column if not exists agent_name  text;
+
