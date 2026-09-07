@@ -15,9 +15,11 @@ export function DropList({ points, selected, onSelect }: Props) {
       {points.map(p => {
         const sel = selected === p.id
         return (
-          <div
+          <button
+            type="button"
             key={p.id}
             onClick={() => onSelect(p.id)}
+            aria-pressed={sel}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -29,6 +31,8 @@ export function DropList({ points, selected, onSelect }: Props) {
               cursor: 'pointer',
               transition: 'all 0.18s ease',
               boxShadow: sel ? '0 2px 10px rgba(255,193,7,0.12)' : 'none',
+              width: '100%',
+              textAlign: 'left',
             }}
             onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#CCC' }}
             onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = '#E8E8E8' }}
@@ -72,7 +76,7 @@ export function DropList({ points, selected, onSelect }: Props) {
             }}>
               {p.extra === 0 ? '+₹0' : `+₹${p.extra}`}
             </div>
-          </div>
+          </button>
         )
       })}
     </div>

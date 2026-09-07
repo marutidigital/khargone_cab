@@ -18,12 +18,12 @@ interface Props {
 
 export function StepBar({ current }: Props) {
   return (
-    <div style={{
+    <div className="step-bar" style={{
       background: '#fff',
       borderBottom: '1px solid var(--line)',
       padding: '0 40px',
     }}>
-      <div style={{
+      <div className="step-scroll" style={{
         display: 'flex',
         alignItems: 'center',
         height: 52,
@@ -34,8 +34,6 @@ export function StepBar({ current }: Props) {
         {STEPS.map((step, i) => {
           const done   = step.num < current
           const active = step.num === current
-          const future = step.num > current
-
           return (
             <div key={step.num} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               {/* Step item */}

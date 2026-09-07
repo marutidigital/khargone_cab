@@ -1,8 +1,19 @@
 // src/lib/whatsapp.ts
 
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!
-const ACCESS_TOKEN    = process.env.WHATSAPP_ACCESS_TOKEN!
-const API_URL = `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`
+function getWhatsAppConfig() {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
+  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION ?? 'v23.0'
+
+  if (!phoneNumberId || !accessToken) {
+    throw new Error('WhatsApp Cloud API is not configured')
+  }
+
+  return {
+    accessToken,
+    apiUrl: `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`,
+  }
+}
 
 interface TextMessage {
   to: string
@@ -10,10 +21,11 @@ interface TextMessage {
 }
 
 async function sendRaw(body: object) {
-  const res = await fetch(API_URL, {
+  const { apiUrl, accessToken } = getWhatsAppConfig()
+  const res = await fetch(apiUrl, {
     method:  'POST',
     headers: {
-      'Authorization': `Bearer ${ACCESS_TOKEN}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type':  'application/json',
     },
     body: JSON.stringify(body),

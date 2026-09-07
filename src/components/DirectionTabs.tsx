@@ -11,11 +11,11 @@ interface Props {
 
 export function DirectionTabs({ dir, onChange }: Props) {
   const isKI = dir === 'KI'
-  const from = isKI ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
-  const to   = isKI ? 'Khargone, Madhya Pradesh' : 'Indore, Madhya Pradesh'
+  const from = isKI ? 'Khargone, Madhya Pradesh' : 'Indore, Madhya Pradesh'
+  const to   = isKI ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
 
   return (
-    <div style={{
+    <div className="direction-route" style={{
       background: '#fff',
       border: '1px solid var(--line)',
       borderRadius: 12,
@@ -45,8 +45,11 @@ export function DirectionTabs({ dir, onChange }: Props) {
 
       {/* Swap Button */}
       <button
+        type="button"
         onClick={() => onChange(isKI ? 'IK' : 'KI')}
         title="Swap direction"
+        aria-label="Swap pickup and destination"
+        className="direction-swap"
         style={{
           width: 38,
           height: 38,

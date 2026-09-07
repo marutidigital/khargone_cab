@@ -21,13 +21,16 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceClient()
 
     if (body._action === 'delete') {
-      await supabase.from('agents').update({ status: 'inactive' }).eq('id', body.id)
+      const { error } = await supabase.from('agents').update({ status: 'inactive' }).eq('id', body.id)
+      if (error) throw error
       return NextResponse.json({ success: true })
     }
 
     if (body._action === 'update') {
-      const { _action, id, ...updates } = body
-      await supabase.from('agents').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id)
+      const { id, ...updates } = body
+      delete updates._action
+      const { error } = await supabase.from('agents').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) throw error
       return NextResponse.json({ success: true })
     }
 

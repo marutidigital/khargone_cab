@@ -13,6 +13,7 @@ interface Props {
 }
 
 export function BookForm({ disabled, loading, price, onSubmit }: Props) {
+  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
   const [name,  setName]  = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -137,27 +138,29 @@ export function BookForm({ disabled, loading, price, onSubmit }: Props) {
       </button>
 
       {/* WhatsApp alternative */}
-      <div style={{
-        textAlign: 'center',
-        fontSize: 12,
-        color: '#999',
-        marginTop: 4,
-      }}>
-        or{' '}
-        <a
-          href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '919999999999'}?text=Hi%2C%20I%20want%20to%20book%20a%20cab`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: '#16A34A',
-            fontWeight: 600,
-            textDecoration: 'underline',
-            textDecorationColor: 'rgba(22,163,74,0.3)',
-          }}
-        >
-          book via WhatsApp ↗
-        </a>
-      </div>
+      {whatsappNumber && (
+        <div style={{
+          textAlign: 'center',
+          fontSize: 12,
+          color: '#999',
+          marginTop: 4,
+        }}>
+          or{' '}
+          <a
+            href={`https://wa.me/${whatsappNumber}?text=Hi%2C%20I%20want%20to%20book%20a%20cab`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#16A34A',
+              fontWeight: 600,
+              textDecoration: 'underline',
+              textDecorationColor: 'rgba(22,163,74,0.3)',
+            }}
+          >
+            book via WhatsApp ↗
+          </a>
+        </div>
+      )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>

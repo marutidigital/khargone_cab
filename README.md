@@ -1,130 +1,74 @@
-# KC · Khargone Cabs
+# Khargone Cabs
 
-Shared cab booking web app for the Khargone ↔ Indore route.
+A focused booking and operations platform for one-way cabs between Khargone and Indore.
 
-**Stack:** Next.js 14 · Supabase · WhatsApp Cloud API · Gemini AI · Resend · Vercel
+The product goal, user journeys, current strengths, and improvement roadmap are documented in [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
----
+## Architecture
 
-## Quick Start
+- Next.js 16 App Router for the public booking UI, admin UI, APIs, and Meta webhook.
+- Supabase for bookings, customers, drivers, agents, and WhatsApp sessions.
+- Meta WhatsApp Cloud API for customer conversations and booking updates.
+- Gemini for the optional WhatsApp booking assistant.
+- Resend for optional email notifications.
+- A local JSON fallback under `data/` when Supabase credentials are absent/dummy.
 
-### 1. Clone & Install
+## Local setup
+
 ```bash
-git clone https://github.com/your-org/khargone-cabs.git
-cd khargone-cabs
+nvm use
 npm install
-```
-
-### 2. Set up Supabase
-1. Create a project at [supabase.com](https://supabase.com)
-2. Go to **SQL Editor** → paste and run `supabase-schema.sql`
-3. Copy your Project URL and keys from **Settings → API**
-
-### 3. Set up WhatsApp (Meta Business)
-1. Go to [developers.facebook.com](https://developers.facebook.com) → Create App → Business
-2. Add "WhatsApp" product to your app
-3. Set up a test phone number and get your **Phone Number ID** and **Access Token**
-4. Set webhook URL to: `https://your-domain.com/api/whatsapp`
-5. Subscribe to `messages` webhook field
-6. Set your `WHATSAPP_VERIFY_TOKEN` (any random string you choose)
-
-### 4. Set up Gemini AI
-1. Go to [aistudio.google.com](https://aistudio.google.com) → Get API key
-2. Copy your `GEMINI_API_KEY`
-
-### 5. Set up Resend
-1. Create account at [resend.com](https://resend.com)
-2. Add and verify your domain
-3. Create API key → copy `RESEND_API_KEY`
-4. Set `RESEND_FROM_EMAIL` to your verified domain email
-
-### 6. Configure Environment Variables
-```bash
 cp .env.local.example .env.local
-# Fill in all values in .env.local
-```
-
-### 7. Run Locally
-```bash
 npm run dev
-# Open http://localhost:3000
 ```
 
----
+Open:
 
-## Deploy to Vercel
+- Public app: `http://localhost:3000`
+- Admin subdomain: `http://admin.localhost:3000`
+- Integration readiness: `http://localhost:3000/api/health`
 
-### Option A: Vercel Dashboard (Easiest)
-1. Push code to GitHub
-2. Go to [vercel.com](https://vercel.com) → Import Project → select your repo
-3. Add all environment variables from `.env.local` in Vercel dashboard
-4. Deploy!
+Set `ADMIN_PASSWORD` to exercise admin Basic Auth locally. Production refuses admin access if the password is missing. Basic Auth is the first protective boundary; replace it with Supabase Auth and staff roles before onboarding multiple team members.
 
-### Option B: GitHub Actions (CI/CD)
-1. In Vercel: **Settings → General** → copy **Project ID** and **Org ID**
-2. In Vercel: **Settings → Tokens** → create a token
-3. In GitHub repo: **Settings → Secrets** → add:
-   - `VERCEL_TOKEN`
-   - `VERCEL_ORG_ID`
-   - `VERCEL_PROJECT_ID`
-4. Every push to `main` auto-deploys
+## WhatsApp Cloud API
 
----
+Configure the `WHATSAPP_*` values from `.env.local.example`. In the Meta developer dashboard:
 
-## App Structure
+1. Add the WhatsApp product and connect a business number.
+2. Set the callback URL to `https://<public-domain>/api/whatsapp`.
+3. Set the same verify token in Meta and `WHATSAPP_VERIFY_TOKEN`.
+4. Subscribe to the `messages` webhook field.
+5. Set `WHATSAPP_APP_SECRET`; production webhooks are rejected unless their Meta signature is valid.
+6. Keep `WHATSAPP_GRAPH_API_VERSION` explicit so API upgrades are intentional.
 
-```
-src/
-├── app/
-│   ├── page.tsx              # Main booking page
-│   ├── admin/page.tsx        # Admin dashboard (real-time)
-│   └── api/
-│       ├── bookings/route.ts # GET/POST bookings, matching logic
-│       └── whatsapp/route.ts # WhatsApp webhook + Gemini AI
-├── components/
-│   ├── Nav.tsx
-│   ├── DirectionTabs.tsx
-│   ├── DropList.tsx
-│   ├── DatePicker.tsx
-│   ├── TimePicker.tsx        # Clock dial time picker
-│   ├── PriceBox.tsx
-│   ├── BookForm.tsx
-│   ├── BookingCards.tsx
-│   ├── MatchPrompt.tsx
-│   └── Toast.tsx
-├── lib/
-│   ├── supabase.ts           # Supabase client
-│   ├── whatsapp.ts           # WhatsApp Cloud API
-│   ├── gemini.ts             # Gemini AI chat
-│   ├── email.ts              # Resend email
-│   └── constants.ts          # Pricing, routes, helpers
-└── types/index.ts
+For local webhook testing, expose port 3000 through a secure HTTPS tunnel and temporarily set `NEXT_PUBLIC_APP_URL` to that public origin.
+
+## Admin subdomain
+
+Point `admin.<domain>` and the public domain to the same deployment, then configure:
+
+```dotenv
+ADMIN_DOMAIN=admin.<domain>
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=<long-random-password>
 ```
 
----
+The Next.js proxy rewrites the admin subdomain root to `/admin` and protects the dashboard, `/api/admin/*`, `/api/drivers`, and `/api/agents`.
 
-## Features
+## Database
 
-- **Booking** — drop point, date (30-day scroll), time (clock dial), fare calc
-- **Matching** — auto-pairs KI ↔ IK bookings, instant confirmation
-- **WhatsApp** — AI chatbot (Gemini) handles bookings via WhatsApp
-- **Notifications** — WhatsApp + email on booking & match
-- **Admin** — real-time dashboard with stats
-- **Pricing** — early bird discounts, night surcharge, transparent breakdown
+Run `supabase-schema.sql` in a new Supabase project. The schema enables RLS and revokes direct `anon`/`authenticated` access to customer and operational tables. Browser traffic must go through validated server routes; never expose `SUPABASE_SERVICE_ROLE_KEY` to client code.
 
----
+New Supabase projects may require explicit Data API grants. The schema deliberately does not grant public roles because all access is server-side.
 
-## Admin Dashboard
+## Verification
 
-Visit `/admin` for the real-time admin view.
+```bash
+npm run lint
+npm run typecheck
+npm run build
+curl http://localhost:3000/api/health
+curl -I http://admin.localhost:3000
+```
 
-> **Note:** Add Supabase Auth or a simple password check before going live to protect the admin route.
-
----
-
-## WhatsApp Webhook Setup
-
-After deploying, set your webhook in Meta dashboard:
-- **Callback URL:** `https://your-domain.vercel.app/api/whatsapp`
-- **Verify Token:** same value as `WHATSAPP_VERIFY_TOKEN` in env
-- **Subscribed fields:** `messages`
+Bookings, drivers, and agents use live API-backed data. Vehicles, payments, reports, and settings remain clearly marked operational previews until their database tables and workflows are connected.

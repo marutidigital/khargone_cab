@@ -4,11 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 
-const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseService = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-// Detect if env keys are dummy or missing
-let useLocalFallback = !supabaseUrl || supabaseUrl.includes('dummy') || !supabaseService || supabaseService.includes('dummy');
+let serviceClient: ReturnType<typeof createClient> | null = null
 
 // Helper mock builder for server-side JSON database operations
 class MockBuilder {
@@ -30,6 +26,7 @@ class MockBuilder {
   }
 
   select(fields?: string) {
+    void fields
     return this
   }
 
@@ -151,7 +148,7 @@ class MockBuilder {
       // 3. Handle UPDATE
       if (this.updateData !== null) {
         const currentData = this.readData()
-        let updatedData = currentData.map(item => {
+        const updatedData = currentData.map(item => {
           let match = true
           for (const filter of this.filters) {
             if (item[filter.field] !== filter.value) {
@@ -227,19 +224,18 @@ class MockSupabaseClient {
 
 // Server client (service role — only used in API routes)
 export function createServiceClient(): any {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseService = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const useLocalFallback = !supabaseUrl || supabaseUrl.includes('dummy') || !supabaseService || supabaseService.includes('dummy')
+
   if (useLocalFallback) {
-    console.log('Using local JSON database fallback for service client.')
     return new MockSupabaseClient()
   }
 
-  try {
-    const client = createClient(supabaseUrl, supabaseService, {
+  if (!serviceClient) {
+    serviceClient = createClient(supabaseUrl, supabaseService, {
       auth: { persistSession: false }
     })
-    return client
-  } catch (err) {
-    console.warn('Failed to create Supabase service client, using local DB fallback:', err)
-    useLocalFallback = true
-    return new MockSupabaseClient()
   }
+  return serviceClient
 }

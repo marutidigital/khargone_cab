@@ -24,10 +24,10 @@ export function TripSummary({
   dateStr, timeSlot, timeLabel,
   price, onContinue, continueDisabled,
 }: Props) {
-  const from = dir === 'KI' ? (dropName ?? 'Indore') : 'Bus Stand Khargone'
-  const to   = dir === 'KI' ? 'Bus Stand Khargone' : (dropName ?? 'Indore')
-  const fromSub = dir === 'KI' ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
-  const toSub   = dir === 'KI' ? 'Khargone, Madhya Pradesh' : 'Indore, Madhya Pradesh'
+  const from = dir === 'KI' ? 'Bus Stand Khargone' : (dropName ?? 'Indore')
+  const to   = dir === 'KI' ? (dropName ?? 'Indore') : 'Bus Stand Khargone'
+  const fromSub = dir === 'KI' ? 'Khargone, Madhya Pradesh' : 'Indore, Madhya Pradesh'
+  const toSub   = dir === 'KI' ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
   const vehicleLabel = vehicle === 'sedan' ? 'Economy Sedan (5 Seater)' : 'Premium SUV (7 Seater)'
   const isNight = timeSlot === 'night'
 
@@ -102,7 +102,7 @@ export function TripSummary({
       <div style={{ padding: '14px 20px', borderBottom: '1px solid #F0F0F0' }}>
         <SummaryRow label="Vehicle" value={vehicleLabel} />
         <SummaryRow
-          label={dir === 'KI' ? "Pickup point" : "Drop point"}
+          label={dir === 'KI' ? "Drop point" : "Pickup point"}
           value={dropName ?? '—'}
           sub={dropExtra > 0 ? `+₹${dropExtra}` : undefined}
           subColor="#F59E0B"
@@ -122,7 +122,7 @@ export function TripSummary({
           <PriceRow label="Base fare"          value={`₹${price.base.toLocaleString('en-IN')}`} />
           {price.extra > 0 && (
             <PriceRow
-              label={dir === 'KI' ? "Pickup point charges" : "Drop point charges"}
+              label={dir === 'KI' ? "Drop point charges" : "Pickup point charges"}
               value={`+₹${price.extra.toLocaleString('en-IN')}`}
             />
           )}

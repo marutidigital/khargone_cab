@@ -1,7 +1,6 @@
 // src/lib/gemini.ts
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { WhatsAppMessage } from '@/types'
-import { POINTS, BASE_FARE, NIGHT_EXTRA, getDiscount } from './constants'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_gemini_key')
 
@@ -33,6 +32,15 @@ BOOKING FLOW:
 5. Ask name
 6. Ask 10-digit mobile number
 7. Confirm all details and output the JSON action
+
+The JSON must use this exact shape and machine-readable values:
+{"action":"book","data":{"direction":"KI","drop_point":"airport","travel_date":"2026-09-10","pickup_time":"09:00","passenger_name":"Customer Name","vehicle":"sedan"}}
+- direction: KI for Khargone→Indore, IK for Indore→Khargone
+- drop_point: rajendra, railway, or airport
+- travel_date: YYYY-MM-DD and 1–60 days in the future
+- pickup_time: 24-hour HH:MM
+- vehicle: sedan or suv (default to sedan if the customer has no preference)
+- Do not include a phone field; the verified WhatsApp sender number is added by the server.
 
 Keep messages SHORT — this is WhatsApp, not email.`
 

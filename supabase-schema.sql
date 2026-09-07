@@ -57,30 +57,12 @@ alter table public.clients enable row level security;
 alter table public.bookings enable row level security;
 alter table public.whatsapp_sessions enable row level security;
 
--- Allow anon read for bookings (for match display)
-create policy "bookings_anon_read" on public.bookings
-  for select using (true);
-
--- Allow anon insert (new bookings)
-create policy "bookings_anon_insert" on public.bookings
-  for insert with check (true);
-
--- Service role can do everything (API routes use service role)
-create policy "bookings_service_all" on public.bookings
-  for all using (auth.role() = 'service_role');
-
--- Allow anon read/insert for clients, service role full access
-create policy "clients_anon_read" on public.clients
-  for select using (true);
-
-create policy "clients_anon_insert" on public.clients
-  for insert with check (true);
-
-create policy "clients_service_all" on public.clients
-  for all using (auth.role() = 'service_role');
-
-create policy "sessions_service_all" on public.whatsapp_sessions
-  for all using (auth.role() = 'service_role');
+-- Customer data is intentionally not exposed to anon/authenticated users.
+-- The public website talks to validated Next.js route handlers, which use the
+-- server-only service role and therefore bypass RLS without a permissive policy.
+revoke all on table public.clients from anon, authenticated;
+revoke all on table public.bookings from anon, authenticated;
+revoke all on table public.whatsapp_sessions from anon, authenticated;
 
 -- ── INDEXES ─────────────────────────────────
 create index idx_clients_phone        on public.clients(phone);
@@ -139,11 +121,7 @@ create table if not exists public.drivers (
 
 alter table public.drivers enable row level security;
 
-create policy "drivers_service_all" on public.drivers
-  for all using (auth.role() = 'service_role');
-
-create policy "drivers_anon_read" on public.drivers
-  for select using (true);
+revoke all on table public.drivers from anon, authenticated;
 
 create index if not exists idx_drivers_status on public.drivers(status);
 create index if not exists idx_drivers_phone  on public.drivers(phone);
@@ -168,11 +146,7 @@ create table if not exists public.agents (
 
 alter table public.agents enable row level security;
 
-create policy "agents_service_all" on public.agents
-  for all using (auth.role() = 'service_role');
-
-create policy "agents_anon_read" on public.agents
-  for select using (true);
+revoke all on table public.agents from anon, authenticated;
 
 create index if not exists idx_agents_status on public.agents(status);
 create index if not exists idx_agents_phone  on public.agents(phone);
@@ -187,4 +161,3 @@ alter table public.bookings
   add column if not exists driver_name text,
   add column if not exists agent_id    uuid references public.agents(id),
   add column if not exists agent_name  text;
-

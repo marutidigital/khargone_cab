@@ -28,6 +28,7 @@ export interface Booking {
   phone: string
   email?: string
   status: BookingStatus
+  vehicle_type?: 'sedan' | 'suv' | 'innova'
   client_id?: string
   matched_with?: string
   whatsapp_sent: boolean

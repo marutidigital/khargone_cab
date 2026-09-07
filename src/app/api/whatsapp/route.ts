@@ -4,8 +4,18 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { sendTextMessage, formatIncomingMessage } from '@/lib/whatsapp'
 import { chatWithGemini, extractBookingAction } from '@/lib/gemini'
 import type { WhatsAppMessage } from '@/types'
+import { createHmac, timingSafeEqual } from 'crypto'
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN!
+function hasValidSignature(rawBody: string, signature: string | null) {
+  const secret = process.env.WHATSAPP_APP_SECRET
+  if (!secret) return process.env.NODE_ENV !== 'production'
+  if (!signature?.startsWith('sha256=')) return false
+
+  const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`
+  const actualBuffer = Buffer.from(signature)
+  const expectedBuffer = Buffer.from(expected)
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
+}
 
 // GET — webhook verification by Meta
 export async function GET(req: NextRequest) {
@@ -14,7 +24,8 @@ export async function GET(req: NextRequest) {
   const token     = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
 
-  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN
+  if (verifyToken && mode === 'subscribe' && token === verifyToken) {
     console.log('WhatsApp webhook verified')
     return new NextResponse(challenge, { status: 200 })
   }
@@ -24,7 +35,11 @@ export async function GET(req: NextRequest) {
 // POST — incoming messages
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const rawBody = await req.text()
+    if (!hasValidSignature(rawBody, req.headers.get('x-hub-signature-256'))) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+    const body = JSON.parse(rawBody)
     const msg  = formatIncomingMessage(body)
 
     // Always respond 200 to Meta first

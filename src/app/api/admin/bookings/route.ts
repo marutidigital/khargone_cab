@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status')
   const direction = searchParams.get('direction')
   const date = searchParams.get('date')
-  const limit = parseInt(searchParams.get('limit') || '200', 10)
+  const requestedLimit = Number.parseInt(searchParams.get('limit') || '200', 10)
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 500) : 200
 
   let query = supabase.from('bookings').select('*').order('created_at', { ascending: false }).limit(limit)
 
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const supabase = createServiceClient()
     const { _action, id, ...updates } = body
+    const updateBooking = async (bookingId: string, values: Record<string, unknown>) => {
+      const { error } = await supabase.from('bookings').update(values).eq('id', bookingId)
+      if (error) throw error
+    }
 
     if (_action === 'create') {
       // Generate a booking ref
@@ -65,49 +70,57 @@ export async function POST(req: NextRequest) {
     }
 
     if (_action === 'cancel') {
-      await supabase.from('bookings').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
+      await updateBooking(id, { status: 'cancelled', updated_at: new Date().toISOString() })
       return NextResponse.json({ success: true })
     }
 
     if (_action === 'assign_driver') {
-      await supabase.from('bookings').update({
+      await updateBooking(id, {
         driver_id: updates.driver_id,
         driver_name: updates.driver_name,
         status: updates.status || 'confirmed',
         updated_at: new Date().toISOString()
-      }).eq('id', id)
+      })
       return NextResponse.json({ success: true })
     }
 
     if (_action === 'assign_agent') {
-      await supabase.from('bookings').update({
+      await updateBooking(id, {
         agent_id: updates.agent_id,
         agent_name: updates.agent_name,
         updated_at: new Date().toISOString()
-      }).eq('id', id)
+      })
       return NextResponse.json({ success: true })
     }
 
     if (_action === 'link') {
-      await supabase.from('bookings').update({
+      await updateBooking(id, {
         matched_with: updates.matched_with,
         status: 'confirmed',
         updated_at: new Date().toISOString()
-      }).eq('id', id)
+      })
       // Also update the other booking
-      await supabase.from('bookings').update({
+      await updateBooking(updates.matched_with, {
         matched_with: id,
         status: 'confirmed',
         updated_at: new Date().toISOString()
-      }).eq('id', updates.matched_with)
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    if (_action === 'unlink') {
+      await updateBooking(id, { matched_with: null, status: 'waiting', updated_at: new Date().toISOString() })
+      if (updates.matched_with) {
+        await updateBooking(updates.matched_with, { matched_with: null, status: 'waiting', updated_at: new Date().toISOString() })
+      }
       return NextResponse.json({ success: true })
     }
 
     if (_action === 'update_status') {
-      await supabase.from('bookings').update({
+      await updateBooking(id, {
         status: updates.status,
         updated_at: new Date().toISOString()
-      }).eq('id', id)
+      })
       return NextResponse.json({ success: true })
     }
 

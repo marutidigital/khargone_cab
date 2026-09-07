@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, DragEvent, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useSyncExternalStore, DragEvent } from 'react'
 import { DM_Sans, Sora } from 'next/font/google'
 import {
   LayoutDashboard,
@@ -21,17 +21,14 @@ import {
   Trash2,
   Edit2,
   TrendingUp,
-  MapPin,
   ArrowRight,
   Eye,
   Info,
   DollarSign,
   AlertCircle,
   RefreshCw,
-  Check,
   X,
   Send,
-  ExternalLink,
   ChevronRight,
   Filter
 } from 'lucide-react'
@@ -142,85 +139,27 @@ interface Transaction {
 
 type TabType = 'dashboard' | 'bookings' | 'dispatch' | 'drivers' | 'agents' | 'vehicles' | 'matching' | 'payments' | 'reports' | 'settings' | 'booking-link'
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const INITIAL_DRIVERS: Driver[] = [
-  { id: 'drv-1', name: 'Rajesh Kumar', phone: '9876543210', vehicle_type: 'sedan', vehicle_number: 'MP-09-AB-1234', vehicle_model: 'Maruti Dzire', status: 'active', rating: 4.8, trips_completed: 248, license_expiry: '2027-05-15', permit_expiry: '2026-08-20', created_at: '2024-01-10' },
-  { id: 'drv-2', name: 'Suresh Jaiswal', phone: '9876543211', vehicle_type: 'suv', vehicle_number: 'MP-09-CD-5678', vehicle_model: 'Maruti Ertiga', status: 'on_trip', rating: 4.6, trips_completed: 187, license_expiry: '2026-03-10', permit_expiry: '2026-04-12', created_at: '2024-02-14' },
-  { id: 'drv-3', name: 'Mukesh Yadav', phone: '9876543212', vehicle_type: 'innova', vehicle_number: 'MP-09-EF-9012', vehicle_model: 'Toyota Innova', status: 'active', rating: 4.9, trips_completed: 312, license_expiry: '2025-12-01', permit_expiry: '2026-01-15', created_at: '2023-11-05' },
-  { id: 'drv-4', name: 'Vivek Gupta', phone: '9876543213', vehicle_type: 'sedan', vehicle_number: 'MP-09-GH-3456', vehicle_model: 'Hyundai Aura', status: 'inactive', rating: 4.2, trips_completed: 156, license_expiry: '2026-07-22', permit_expiry: '2026-06-18', created_at: '2024-03-20' }
-]
-
-const INITIAL_AGENTS: Agent[] = [
-  { id: 'agt-1', name: 'Anita Verma', phone: '8887777766', email: 'anita@kcabs.in', area: 'Khargone City', commission_pct: 10, status: 'active', bookings_linked: 45, total_payout: 9800, created_at: '2024-01-15' },
-  { id: 'agt-2', name: 'Ravi Sharma', phone: '9988776655', email: 'ravi@kcabs.in', area: 'Indore Central', commission_pct: 8, status: 'active', bookings_linked: 32, total_payout: 6400, created_at: '2024-02-01' },
-  { id: 'agt-3', name: 'Gopal Joshi', phone: '9123456789', email: 'gopal@kcabs.in', area: 'Ujjain Stn', commission_pct: 12, status: 'inactive', bookings_linked: 18, total_payout: 4200, created_at: '2024-03-10' }
-]
-
-const INITIAL_VEHICLES: Vehicle[] = [
-  { id: 'veh-1', make: 'Maruti', model: 'Dzire', plate: 'MP-09-AB-1234', type: 'sedan', capacity: 4, status: 'active', driver_id: 'drv-1' },
-  { id: 'veh-2', make: 'Maruti', model: 'Ertiga', plate: 'MP-09-CD-5678', type: 'suv', capacity: 6, status: 'active', driver_id: 'drv-2' },
-  { id: 'veh-3', make: 'Toyota', model: 'Innova', plate: 'MP-09-EF-9012', type: 'innova', capacity: 7, status: 'active', driver_id: 'drv-3' },
-  { id: 'veh-4', make: 'Hyundai', model: 'Aura', plate: 'MP-09-GH-3456', type: 'sedan', capacity: 4, status: 'active', driver_id: 'drv-4' }
-]
-
 const TODAY_DATE = new Date().toISOString().split('T')[0]
-const TOMORROW_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-
-const INITIAL_BOOKINGS: Booking[] = [
-  { id: 'b-1', booking_ref: 'KCB-4011', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '08:30', passenger_name: 'Harish Mandloi', phone: '9827011223', email: 'harish@gmail.com', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 100, night_extra: 0, total_fare: 2100, advance_paid: 500, status: 'confirmed', matched_with: 'b-2', driver_id: 'drv-1', agent_id: 'agt-1', created_at: '2026-05-28T10:00:00Z' },
-  { id: 'b-2', booking_ref: 'KCB-4012', direction: 'IK', travel_date: TODAY_DATE, pickup_time: '12:00', passenger_name: 'Priya Sharma', phone: '9407155667', email: 'priya@outlook.com', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 0, total_fare: 2200, advance_paid: 500, status: 'confirmed', matched_with: 'b-1', driver_id: 'drv-1', agent_id: 'agt-1', created_at: '2026-05-28T10:15:00Z' },
-  { id: 'b-3', booking_ref: 'KCB-4013', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '09:00', passenger_name: 'Sanjay Patidar', phone: '9926088990', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'suv', base_fare: 2800, discount: 200, night_extra: 0, total_fare: 2600, advance_paid: 1000, status: 'confirmed', matched_with: 'b-4', driver_id: 'drv-2', created_at: '2026-05-29T08:30:00Z' },
-  { id: 'b-4', booking_ref: 'KCB-4014', direction: 'IK', travel_date: TODAY_DATE, pickup_time: '14:30', passenger_name: 'Ramesh Gehlot', phone: '9893044556', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'suv', base_fare: 2800, discount: 0, night_extra: 0, total_fare: 2800, advance_paid: 0, status: 'confirmed', matched_with: 'b-3', driver_id: 'drv-2', created_at: '2026-05-29T08:45:00Z' },
-  { id: 'b-5', booking_ref: 'KCB-4015', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '15:00', passenger_name: 'Vikram Singh', phone: '9425033442', drop_point: 'ind-vij', drop_name: 'Vijay Nagar', vehicle_type: 'innova', base_fare: 3200, discount: 0, night_extra: 0, total_fare: 3200, advance_paid: 1000, status: 'waiting', created_at: '2026-05-29T14:00:00Z' },
-  { id: 'b-6', booking_ref: 'KCB-4016', direction: 'KI', travel_date: TOMORROW_DATE, pickup_time: '06:00', passenger_name: 'Anjali Gupta', phone: '9755012345', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 100, night_extra: 0, total_fare: 2100, advance_paid: 500, status: 'waiting', created_at: '2026-05-30T07:00:00Z' },
-  { id: 'b-7', booking_ref: 'KCB-4017', direction: 'IK', travel_date: TOMORROW_DATE, pickup_time: '10:30', passenger_name: 'Rajesh Solanki', phone: '9009099887', drop_point: 'ind-apt', drop_name: 'Indore Airport', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 0, total_fare: 2200, advance_paid: 2200, status: 'waiting', created_at: '2026-05-30T07:30:00Z' },
-  { id: 'b-8', booking_ref: 'KCB-4018', direction: 'KI', travel_date: TOMORROW_DATE, pickup_time: '23:30', passenger_name: 'Deepak Verma', phone: '9826011122', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 300, total_fare: 2500, advance_paid: 500, status: 'waiting', created_at: '2026-05-30T08:00:00Z' },
-  { id: 'b-9', booking_ref: 'KCB-4019', direction: 'IK', travel_date: TOMORROW_DATE, pickup_time: '04:00', passenger_name: 'Sunita Jain', phone: '9424077665', drop_point: 'ind-rwy', drop_name: 'Indore Railway Station', vehicle_type: 'sedan', base_fare: 2200, discount: 0, night_extra: 300, total_fare: 2500, advance_paid: 500, status: 'waiting', created_at: '2026-05-30T08:15:00Z' },
-  { id: 'b-10', booking_ref: 'KCB-4020', direction: 'KI', travel_date: TODAY_DATE, pickup_time: '18:00', passenger_name: 'Alok Mishra', phone: '9893011223', drop_point: 'ind-vij', drop_name: 'Vijay Nagar', vehicle_type: 'sedan', base_fare: 2200, discount: 100, night_extra: 0, total_fare: 2100, advance_paid: 0, status: 'cancelled', created_at: '2026-05-29T16:00:00Z' }
-]
-
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  { id: 't-1', date: TODAY_DATE, booking_ref: 'KCB-4011', passenger_name: 'Harish Mandloi', amount: 500, type: 'advance', method: 'UPI' },
-  { id: 't-2', date: TODAY_DATE, booking_ref: 'KCB-4012', passenger_name: 'Priya Sharma', amount: 500, type: 'advance', method: 'UPI' },
-  { id: 't-3', date: TODAY_DATE, booking_ref: 'KCB-4013', passenger_name: 'Sanjay Patidar', amount: 1000, type: 'advance', method: 'UPI' },
-  { id: 't-4', date: TODAY_DATE, booking_ref: 'KCB-4011', passenger_name: 'Harish Mandloi', amount: 1600, type: 'balance', method: 'Cash' },
-  { id: 't-5', date: TOMORROW_DATE, booking_ref: 'KCB-4017', passenger_name: 'Rajesh Solanki', amount: 2200, type: 'full', method: 'UPI' },
-  { id: 't-6', date: TOMORROW_DATE, booking_ref: 'KCB-4018', passenger_name: 'Deepak Verma', amount: 500, type: 'advance', method: 'UPI' }
-]
-
-const INITIAL_NOTIFICATIONS = [
-  { id: 'n-1', type: 'info', text: 'New booking KCB-4019 waiting for match', time: '10 mins ago', read: false },
-  { id: 'n-2', type: 'success', text: 'Auto Match Found: KCB-4011 matched with KCB-4012', time: '2 hours ago', read: false },
-  { id: 'n-3', type: 'warning', text: 'Driver Rajesh Kumar license expiring in 45 days', time: '1 day ago', read: true },
-  { id: 'n-4', type: 'warning', text: 'Vehicle MP-09-GH-3456 permit expiring in 18 days', time: '2 days ago', read: true }
-]
-
-const INITIAL_SETTINGS = {
-  business_name: 'Khargone Cabs Pvt Ltd',
-  phone: '98260 98260',
-  email: 'support@khargonecabs.com',
-  address: 'Bus Stand Road, Near Mandi, Khargone (M.P.)',
-  base_sedan: 2200,
-  base_suv: 2800,
-  base_innova: 3200,
-  night_charge: 300,
-  commission_agent: 10,
-  advance_req: 500,
-  rac_cancel_hrs: 48,
-  template_rac: 'Hello [Name], your cab request [ID] from [Route] on [Date] at [Time] is in waiting (RAC). We are matching a return trip. Support: [AdminPhone]',
-  template_confirmed: 'Great news [Name]! Your cab booking [ID] is confirmed. Cab: [CarModel] ([Plate]), Driver: [DriverName] ([Phone]). Balance due: ₹[Balance].',
-  template_reminder: 'Reminder [Name]: Your cab [ID] is scheduled for tomorrow at [Time] from [Route]. Driver detail: [DriverName] ([Phone]).'
+const SESSION_START_TIME = Date.now()
+const subscribeToHydration = () => () => undefined
+const EMPTY_SETTINGS = {
+  business_name: '', phone: '', email: '', address: '', base_sedan: 0,
+  base_suv: 0, base_innova: 0, night_charge: 0, commission_agent: 0,
+  advance_req: 0, rac_cancel_hrs: 0, template_rac: '',
+  template_confirmed: '', template_reminder: '',
 }
 
 export default function AdminDashboard() {
+  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
   // ─── States ─────────────────────────────────────────────────────────────────
-  const [bookings, setBookings] = useState<Booking[]>(INITIAL_BOOKINGS)
-  const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS)
-  const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS)
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES)
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS)
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS)
-  const [settings, setSettings] = useState(INITIAL_SETTINGS)
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [drivers, setDrivers] = useState<Driver[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [vehicles] = useState<Vehicle[]>([])
+  const [transactions] = useState<Transaction[]>([])
+  const [notifications, setNotifications] = useState<Array<{ id: string; type: string; text: string; time: string; read: boolean }>>([])
+  const [settings, setSettings] = useState(EMPTY_SETTINGS)
+  const [dataError, setDataError] = useState<string | null>(null)
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -246,21 +185,66 @@ export default function AdminDashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
 
+  const triggerToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(msg)
+    setToastType(type)
+    setTimeout(() => setToastMessage(null), 3000)
+  }, [])
+
   // Refresh animation
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const handleRefresh = () => {
+  const loadAdminData = useCallback(async (showSuccess = false) => {
     setIsRefreshing(true)
-    triggerToast('📊 Dashboard refreshed!')
-    setTimeout(() => setIsRefreshing(false), 1000)
-  }
+    setDataError(null)
+    try {
+      const [bookingsRes, driversRes, agentsRes] = await Promise.all([
+        fetch('/api/admin/bookings?limit=200', { cache: 'no-store' }),
+        fetch('/api/drivers', { cache: 'no-store' }),
+        fetch('/api/agents', { cache: 'no-store' }),
+      ])
+
+      if (!bookingsRes.ok || !driversRes.ok || !agentsRes.ok) {
+        throw new Error('One or more admin data services failed')
+      }
+
+      const [bookingsJson, driversJson, agentsJson] = await Promise.all([
+        bookingsRes.json(), driversRes.json(), agentsRes.json(),
+      ])
+
+      setBookings((bookingsJson.bookings ?? []).map((booking: Partial<Booking>) => ({
+        ...booking,
+        vehicle_type: booking.vehicle_type ?? 'sedan',
+        advance_paid: Number(booking.advance_paid ?? 0),
+      })) as Booking[])
+      setDrivers((driversJson.drivers ?? []).map((driver: Partial<Driver>) => ({
+        ...driver,
+        license_expiry: driver.license_expiry ?? '',
+        permit_expiry: driver.permit_expiry ?? '',
+      })) as Driver[])
+      setAgents((agentsJson.agents ?? []).map((agent: Partial<Agent>) => ({
+        ...agent,
+        total_payout: Number(agent.total_payout ?? 0),
+      })) as Agent[])
+
+      if (showSuccess) triggerToast('Dashboard refreshed from live data')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load admin data'
+      setDataError(message)
+      triggerToast(message, 'error')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [triggerToast])
+
+  const handleRefresh = () => void loadAdminData(true)
 
   // Auto Matching Settings
   const [matchThreshold, setMatchThreshold] = useState(80)
 
   // Hydration state
-  const [isMounted, setIsMounted] = useState(false)
+  const isMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false)
   useEffect(() => {
-    setIsMounted(true)
+    void loadAdminData()
     // Responsive Collapsing on small devices
     const handleResize = () => {
       if (window.innerWidth < 1024) {
@@ -269,17 +253,13 @@ export default function AdminDashboard() {
         setSidebarCollapsed(false)
       }
     }
-    handleResize()
+    const animationFrame = window.requestAnimationFrame(handleResize)
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  // ─── Toast Helper ───────────────────────────────────────────────────────────
-  const triggerToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToastMessage(msg)
-    setToastType(type)
-    setTimeout(() => setToastMessage(null), 3000)
-  }
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [loadAdminData])
 
   // ─── Drag and Drop State ─────────────────────────────────────────────────────
   const [draggedBookingId, setDraggedBookingId] = useState<string | null>(null)
@@ -340,14 +320,8 @@ export default function AdminDashboard() {
     return last7Days.map(date => {
       const dayBookings = bookings.filter(b => b.travel_date === date && b.status !== 'cancelled')
       const revenue = dayBookings.reduce((sum, b) => sum + b.total_fare, 0)
-      const cost = dayBookings.reduce((sum, b) => {
-        // Mock driver payouts / fuel costs
-        const rate = b.vehicle_type === 'sedan' ? 1200 : b.vehicle_type === 'suv' ? 1600 : 2000
-        return sum + rate
-      }, 0)
-      const profit = revenue - cost
       const displayDate = new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-      return { name: displayDate, revenue, cost, profit }
+      return { name: displayDate, revenue }
     })
   }, [bookings])
 
@@ -371,7 +345,7 @@ export default function AdminDashboard() {
     unmatchedKI.forEach(ki => {
       unmatchedIK.forEach(ik => {
         if (ki.travel_date === ik.travel_date) {
-          // Compute a mock match confidence score based on time difference and vehicle capacity
+          // Heuristic confidence based on pickup-time and vehicle compatibility.
           const timeDiffMin = Math.abs(
             (parseInt(ki.pickup_time.split(':')[0]) * 60 + parseInt(ki.pickup_time.split(':')[1])) -
             (parseInt(ik.pickup_time.split(':')[0]) * 60 + parseInt(ik.pickup_time.split(':')[1]))
@@ -387,52 +361,46 @@ export default function AdminDashboard() {
   }, [bookings])
 
   // ─── Actions ────────────────────────────────────────────────────────────────
-  const handleLinkBookings = (id1: string, id2: string) => {
-    setBookings(prev =>
-      prev.map(b => {
-        if (b.id === id1) return { ...b, status: 'confirmed', matched_with: id2 }
-        if (b.id === id2) return { ...b, status: 'confirmed', matched_with: id1 }
-        return b
-      })
-    )
+  const handleLinkBookings = async (id1: string, id2: string) => {
     const ref1 = bookings.find(b => b.id === id1)?.booking_ref
     const ref2 = bookings.find(b => b.id === id2)?.booking_ref
-    // Add transaction for balance collected or advance update
-    triggerToast(`🔗 Linked booking ${ref1} and ${ref2} successfully!`)
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _action: 'link', id: id1, matched_with: id2 }),
+    })
+    if (!res.ok) return triggerToast('Could not link bookings', 'error')
+    await loadAdminData()
+    triggerToast(`Linked booking ${ref1} and ${ref2} successfully`)
     setShowLinkModal(null)
   }
 
-  const handleUnlinkBooking = (id: string) => {
+  const handleUnlinkBooking = async (id: string) => {
     const current = bookings.find(b => b.id === id)
     if (!current || !current.matched_with) return
 
-    const partnerId = current.matched_with
-
-    setBookings(prev =>
-      prev.map(b => {
-        if (b.id === id) return { ...b, status: 'waiting', matched_with: undefined }
-        if (b.id === partnerId) return { ...b, status: 'waiting', matched_with: undefined }
-        return b
-      })
-    )
-    triggerToast('🔓 Bookings unlinked successfully.')
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _action: 'unlink', id, matched_with: current.matched_with }),
+    })
+    if (!res.ok) return triggerToast('Could not unlink bookings', 'error')
+    await loadAdminData()
+    triggerToast('Bookings unlinked successfully')
   }
 
-  const handleCancelBooking = (id: string) => {
+  const handleCancelBooking = async (id: string) => {
     const current = bookings.find(b => b.id === id)
     if (!current) return
 
-    if (current.matched_with) {
-      handleUnlinkBooking(id)
-    }
-
-    setBookings(prev =>
-      prev.map(b => (b.id === id ? { ...b, status: 'cancelled' } : b))
-    )
-    triggerToast(`❌ Booking ${current.booking_ref} marked as Cancelled.`)
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _action: 'cancel', id }),
+    })
+    if (!res.ok) return triggerToast('Could not cancel booking', 'error')
+    await loadAdminData()
+    triggerToast(`Booking ${current.booking_ref} marked as cancelled`)
   }
 
-  const handleBulkLink = () => {
+  const handleBulkLink = async () => {
     const threshold = matchThreshold
     const list = matchingSuggestions.filter(s => s.confidence >= threshold)
     if (list.length === 0) {
@@ -440,158 +408,78 @@ export default function AdminDashboard() {
       return
     }
 
-    let linkedCount = 0
-    let tempBookings = [...bookings]
-
-    list.forEach(({ b1, b2 }) => {
-      const latestB1 = tempBookings.find(b => b.id === b1.id)
-      const latestB2 = tempBookings.find(b => b.id === b2.id)
-
-      if (latestB1 && latestB2 && !latestB1.matched_with && !latestB2.matched_with) {
-        latestB1.status = 'confirmed'
-        latestB1.matched_with = b2.id
-        latestB2.status = 'confirmed'
-        latestB2.matched_with = b1.id
-        linkedCount++
-      }
+    const used = new Set<string>()
+    const pairs = list.filter(({ b1, b2 }) => {
+      if (used.has(b1.id) || used.has(b2.id)) return false
+      used.add(b1.id); used.add(b2.id); return true
     })
-
-    setBookings(tempBookings)
-    triggerToast(`⚡ Automatically paired ${linkedCount} couples!`)
+    const results = await Promise.all(pairs.map(({ b1, b2 }) => fetch('/api/admin/bookings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _action: 'link', id: b1.id, matched_with: b2.id }),
+    })))
+    await loadAdminData()
+    triggerToast(`Automatically paired ${results.filter(result => result.ok).length} booking pairs`)
   }
 
-  const handleCreateBooking = (data: Partial<Booking>) => {
-    const newId = `b-${bookings.length + 1}`
-    const ref = `KCB-${4020 + bookings.length}`
+  const handleCreateBooking = async (data: Partial<Booking>) => {
     const finalFare = (data.base_fare || 0) + (data.night_extra || 0) - (data.discount || 0)
-
-    const newB: Booking = {
-      id: newId,
-      booking_ref: ref,
-      direction: data.direction || 'KI',
-      travel_date: data.travel_date || TODAY_DATE,
-      pickup_time: data.pickup_time || '10:00',
-      passenger_name: data.passenger_name || 'Passenger Name',
-      phone: data.phone || '9999999999',
-      email: data.email,
-      drop_point: data.drop_point || 'ind-vij',
-      drop_name: data.drop_name || 'Vijay Nagar',
-      vehicle_type: data.vehicle_type || 'sedan',
-      base_fare: data.base_fare || 2200,
-      discount: data.discount || 0,
-      night_extra: data.night_extra || 0,
-      total_fare: finalFare,
-      advance_paid: data.advance_paid || 0,
-      status: 'waiting',
-      driver_id: data.driver_id,
-      agent_id: data.agent_id,
-      notes: data.notes,
-      created_at: new Date().toISOString()
-    }
-
-    setBookings(prev => [newB, ...prev])
-    // Create advance transaction if paid
-    if (newB.advance_paid > 0) {
-      setTransactions(prev => [
-        {
-          id: `t-${transactions.length + 1}`,
-          date: newB.travel_date,
-          booking_ref: newB.booking_ref,
-          passenger_name: newB.passenger_name,
-          amount: newB.advance_paid,
-          type: 'advance',
-          method: 'UPI'
-        },
-        ...prev
-      ])
-    }
-    triggerToast(`Booking ${ref} Created successfully!`)
+    const res = await fetch('/api/admin/bookings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, _action: 'create', total_fare: finalFare }),
+    })
+    const result = await res.json()
+    if (!res.ok) return triggerToast(result.error ?? 'Could not create booking', 'error')
+    await loadAdminData()
+    triggerToast(`Booking ${result.booking.booking_ref} created successfully`)
     setShowNewBooking(false)
   }
 
   // CRUD Helpers
-  const handleSaveDriver = (driver: Partial<Driver>) => {
-    if (driverModalMode === 'create') {
-      const newD: Driver = {
-        id: `drv-${drivers.length + 1}`,
-        name: driver.name || 'New Driver',
-        phone: driver.phone || '9000000000',
-        vehicle_type: driver.vehicle_type || 'sedan',
-        vehicle_number: driver.vehicle_number || 'MP-09-XX-0000',
-        vehicle_model: driver.vehicle_model || 'Model',
-        status: 'active',
-        rating: 5.0,
-        trips_completed: 0,
-        license_expiry: driver.license_expiry || TODAY_DATE,
-        permit_expiry: driver.permit_expiry || TODAY_DATE,
-        created_at: TODAY_DATE
-      }
-      setDrivers(prev => [...prev, newD])
-      triggerToast('Driver added successfully!')
-    } else {
-      setDrivers(prev => prev.map(d => (d.id === driver.id ? { ...d, ...driver } : d) as Driver))
-      triggerToast('Driver updated successfully!')
-    }
+  const handleSaveDriver = async (driver: Partial<Driver>) => {
+    const res = await fetch('/api/drivers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(driverModalMode === 'create' ? driver : { ...driver, _action: 'update' }),
+    })
+    if (!res.ok) return triggerToast('Could not save driver', 'error')
+    await loadAdminData()
+    triggerToast(`Driver ${driverModalMode === 'create' ? 'added' : 'updated'} successfully`)
     setShowDriverModal(false)
   }
 
-  const handleDeleteDriver = (id: string) => {
-    setDrivers(prev => prev.filter(d => d.id !== id))
-    triggerToast('Driver deleted.')
+  const handleDeleteDriver = async (id: string) => {
+    const res = await fetch('/api/drivers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _action: 'delete', id }) })
+    if (!res.ok) return triggerToast('Could not deactivate driver', 'error')
+    await loadAdminData()
+    triggerToast('Driver deactivated')
   }
 
-  const handleSaveAgent = (agent: Partial<Agent>) => {
-    if (agentModalMode === 'create') {
-      const newA: Agent = {
-        id: `agt-${agents.length + 1}`,
-        name: agent.name || 'New Agent',
-        phone: agent.phone || '9000000000',
-        email: agent.email || 'agent@kcabs.in',
-        area: agent.area || 'Area',
-        commission_pct: agent.commission_pct || 10,
-        status: 'active',
-        bookings_linked: 0,
-        total_payout: 0,
-        created_at: TODAY_DATE
-      }
-      setAgents(prev => [...prev, newA])
-      triggerToast('Agent added successfully!')
-    } else {
-      setAgents(prev => prev.map(a => (a.id === agent.id ? { ...a, ...agent } : a) as Agent))
-      triggerToast('Agent updated successfully!')
-    }
+  const handleSaveAgent = async (agent: Partial<Agent>) => {
+    const res = await fetch('/api/agents', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(agentModalMode === 'create' ? agent : { ...agent, _action: 'update' }),
+    })
+    if (!res.ok) return triggerToast('Could not save agent', 'error')
+    await loadAdminData()
+    triggerToast(`Agent ${agentModalMode === 'create' ? 'added' : 'updated'} successfully`)
     setShowAgentModal(false)
   }
 
-  const handleDeleteAgent = (id: string) => {
-    setAgents(prev => prev.filter(a => a.id !== id))
-    triggerToast('Agent deleted.')
+  const handleDeleteAgent = async (id: string) => {
+    const res = await fetch('/api/agents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _action: 'delete', id }) })
+    if (!res.ok) return triggerToast('Could not deactivate agent', 'error')
+    await loadAdminData()
+    triggerToast('Agent deactivated')
   }
 
   const handleSaveVehicle = (veh: Partial<Vehicle>) => {
-    if (vehicleModalMode === 'create') {
-      const newV: Vehicle = {
-        id: `veh-${vehicles.length + 1}`,
-        make: veh.make || 'Make',
-        model: veh.model || 'Model',
-        plate: veh.plate || 'Plate',
-        type: veh.type || 'sedan',
-        capacity: veh.type === 'sedan' ? 4 : veh.type === 'suv' ? 6 : 7,
-        status: 'active',
-        driver_id: veh.driver_id
-      }
-      setVehicles(prev => [...prev, newV])
-      triggerToast('Vehicle registered successfully!')
-    } else {
-      setVehicles(prev => prev.map(v => (v.id === veh.id ? { ...v, ...veh } : v) as Vehicle))
-      triggerToast('Vehicle updated successfully!')
-    }
+    void veh
+    triggerToast('Vehicle storage is not connected yet; no temporary record was created', 'error')
     setShowVehicleModal(false)
   }
 
   const handleDeleteVehicle = (id: string) => {
-    setVehicles(prev => prev.filter(v => v.id !== id))
-    triggerToast('Vehicle deleted.')
+    void id
+    triggerToast('Vehicle storage is not connected yet', 'error')
   }
 
   // ─── Drag and Drop Handlers ──────────────────────────────────────────────────
@@ -809,15 +697,17 @@ export default function AdminDashboard() {
             </button>
 
             {/* Quick WhatsApp Link */}
-            <a
-              href={`https://wa.me/91${settings.phone.replace(/\s+/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
-            >
-              <Send size={12} />
-              <span>WhatsApp Cloud</span>
-            </a>
+            {whatsappNumber && (
+              <a
+                href={`https://wa.me/${whatsappNumber}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-slate-950 font-bold rounded-lg text-xs transition-all"
+              >
+                <Send size={12} />
+                <span>WhatsApp Cloud</span>
+              </a>
+            )}
 
             {/* Notification Bell */}
             <div className="relative">
@@ -873,6 +763,12 @@ export default function AdminDashboard() {
 
         {/* ─── PAGE MAIN VIEW ─────────────────────────────────────────────────── */}
         <main className="flex-1 p-6 space-y-6 overflow-x-hidden">
+          {dataError && (
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <span>{dataError}. No sample records are being shown.</span>
+              <button onClick={handleRefresh} className="font-semibold text-red-100 underline">Retry</button>
+            </div>
+          )}
           
           {/* TAB 1: DASHBOARD */}
           {activeTab === 'dashboard' && (
@@ -895,11 +791,11 @@ export default function AdminDashboard() {
               {/* Stat Cards */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {[
-                  { label: "Today's Bookings", val: stats.todayCount, sub: "+4 vs yesterday", color: 'border-brand text-brand', icon: Calendar },
-                  { label: "Today's Revenue", val: `₹${stats.todayRevenue.toLocaleString('en-IN')}`, sub: "+12.4% vs last week", color: 'border-emerald-500 text-emerald-400', icon: DollarSign },
+                  { label: "Today's Bookings", val: stats.todayCount, sub: "Live booking records", color: 'border-brand text-brand', icon: Calendar },
+                  { label: "Today's Revenue", val: `₹${stats.todayRevenue.toLocaleString('en-IN')}`, sub: "Confirmed bookings", color: 'border-emerald-500 text-emerald-400', icon: DollarSign },
                   { label: "Unmatched (RAC)", val: stats.unmatchedCount, sub: "Pending pairs", color: 'border-amber-500 text-amber-500', icon: AlertCircle },
                   { label: "Active Trips", val: stats.activeTripsCount, sub: "Currently moving", color: 'border-sky-500 text-sky-400', icon: Car },
-                  { label: "Month Revenue", val: `₹${(stats.totalRevenue / 1000).toFixed(1)}k`, sub: "18% of target met", color: 'border-purple-500 text-purple-400', icon: TrendingUp }
+                  { label: "Recorded Revenue", val: `₹${(stats.totalRevenue / 1000).toFixed(1)}k`, sub: "All non-cancelled bookings", color: 'border-purple-500 text-purple-400', icon: TrendingUp }
                 ].map((s, idx) => {
                   const Icon = s.icon
                   return (
@@ -938,7 +834,7 @@ export default function AdminDashboard() {
                     {matchingSuggestions.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                         <CheckCircle size={28} className="text-emerald-500 mb-2" />
-                        <span className="text-xs">No pending matches. All bookings matched!</span>
+                        <span className="text-xs">No matching suggestions are available.</span>
                       </div>
                     ) : (
                       matchingSuggestions.slice(0, 3).map((item, idx) => (
@@ -1062,8 +958,8 @@ export default function AdminDashboard() {
                 <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h2 className="font-sora text-sm font-bold text-slate-200">📈 Revenue & Profit Analysis</h2>
-                      <p className="text-[10px] text-slate-400">Weekly sales vs vehicle settlement payout</p>
+                      <h2 className="font-sora text-sm font-bold text-slate-200">Revenue Analysis</h2>
+                      <p className="text-[10px] text-slate-400">Weekly booked revenue</p>
                     </div>
                   </div>
                   <div className="h-56 w-full">
@@ -1075,17 +971,12 @@ export default function AdminDashboard() {
                               <stop offset="5%" stopColor="#F5A623" stopOpacity={0.2}/>
                               <stop offset="95%" stopColor="#F5A623" stopOpacity={0}/>
                             </linearGradient>
-                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#22C55E" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
-                            </linearGradient>
                           </defs>
                           <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} />
                           <YAxis stroke="#94A3B8" fontSize={9} />
                           <Tooltip contentStyle={{ backgroundColor: '#1E293B', borderColor: '#334155', color: '#F8FAFC', borderRadius: '8px' }} />
                           <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
                           <Area type="monotone" dataKey="revenue" name="Total Revenue" stroke="#F5A623" fillOpacity={1} fill="url(#colorRev)" />
-                          <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#22C55E" fillOpacity={1} fill="url(#colorProfit)" />
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
@@ -1272,13 +1163,13 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Visual Map Mockup */}
+                {/* Route overview */}
                 <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <span className="font-sora font-bold text-xs">Route Map: Khargone ↔ Indore</span>
                     <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                       <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                      <span>Live GPS Pins</span>
+                      <span>Route overview</span>
                     </span>
                   </div>
 
@@ -1301,20 +1192,7 @@ export default function AdminDashboard() {
                       <span className="text-[8px] text-slate-500 block">Km 150</span>
                     </div>
 
-                    {/* Active Pins (Mocked positions along route) */}
-                    <div className="absolute left-[30%] top-1/2 -translate-y-7 text-center">
-                      <div className="w-6 h-6 rounded-full bg-emerald-600 text-slate-950 font-bold flex items-center justify-center text-[10px] mx-auto border-2 border-slate-900 cursor-pointer shadow-lg hover:scale-110 transition-transform">
-                        RK
-                      </div>
-                      <span className="text-[8px] text-slate-400 block mt-1">Dzire (Sedan)</span>
-                    </div>
-
-                    <div className="absolute right-[25%] top-1/2 -translate-y-7 text-center">
-                      <div className="w-6 h-6 rounded-full bg-sky-500 text-slate-950 font-bold flex items-center justify-center text-[10px] mx-auto border-2 border-slate-900 cursor-pointer shadow-lg hover:scale-110 transition-transform">
-                        SJ
-                      </div>
-                      <span className="text-[8px] text-slate-400 block mt-1">Ertiga (SUV)</span>
-                    </div>
+                    <span className="text-[10px] text-slate-500 mt-12">GPS tracking is not connected</span>
                   </div>
                 </div>
 
@@ -1338,20 +1216,12 @@ export default function AdminDashboard() {
                             <div className="space-y-1.5">
                               <div className="flex justify-between text-[10px] text-slate-400">
                                 <span>Booking: <strong>{activeB.booking_ref}</strong></span>
-                                <span>ETA: 45 mins</span>
+                                <span>ETA unavailable</span>
                               </div>
                               <div className="text-[10px] text-slate-200">
                                 {activeB.passenger_name} ({activeB.phone})
                               </div>
-                              <button
-                                onClick={() => {
-                                  setBookings(prev => prev.map(b => (b.id === activeB.id ? { ...b, status: 'confirmed', matched_with: undefined } : b))) // mockup complete
-                                  triggerToast(`Trip completed for driver ${drv.name}`)
-                                }}
-                                className="w-full py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded text-[10px] transition-colors"
-                              >
-                                Mark Trip Completed
-                              </button>
+                              <div className="text-[10px] text-slate-500">Trip completion tracking is not connected</div>
                             </div>
                           ) : (
                             <span className="text-[10px] text-slate-500 block">Idle - Awaiting pairing dispatch</span>
@@ -1386,7 +1256,7 @@ export default function AdminDashboard() {
               {/* Drivers Card Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {drivers.map(drv => {
-                  const isLicenseExpiring = new Date(drv.license_expiry).getTime() - Date.now() < 30 * 86400000 * 3 // warning if < 90 days
+                  const isLicenseExpiring = new Date(drv.license_expiry).getTime() - SESSION_START_TIME < 30 * 86400000 * 3 // warning if < 90 days
                   return (
                     <div key={drv.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-xl transition-all duration-150 relative">
                       {isLicenseExpiring && (

@@ -1,7 +1,7 @@
 'use client'
 // src/components/DatePicker.tsx
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface SelDate {
@@ -14,6 +14,7 @@ interface Props {
   selected:     SelDate | null
   onSelect:     (d: SelDate) => void
   waitingDates?: string[]
+  baseFare:     number
 }
 
 const DAY_NAMES  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -23,7 +24,6 @@ const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT'
 function getPriceTier(daysAhead: number) {
   if (daysAhead >= 4) return {
     discount: 300,
-    label:    '₹300 OFF',
     bg:       '#DCFCE7',
     text:     '#15803D',
     border:   '#86EFAC',
@@ -33,7 +33,6 @@ function getPriceTier(daysAhead: number) {
   }
   if (daysAhead === 3) return {
     discount: 200,
-    label:    '₹200 OFF',
     bg:       '#FEF9C3',
     text:     '#854D0E',
     border:   '#FDE047',
@@ -43,7 +42,6 @@ function getPriceTier(daysAhead: number) {
   }
   if (daysAhead === 2) return {
     discount: 100,
-    label:    '₹100 OFF',
     bg:       '#F3E8FF',
     text:     '#6B21A8',
     border:   '#C084FC',
@@ -53,7 +51,6 @@ function getPriceTier(daysAhead: number) {
   }
   return {
     discount: 0,
-    label:    'No Disc.',
     bg:       '#F3F4F6',
     text:     '#6B7280',
     border:   '#E5E7EB',
@@ -63,7 +60,7 @@ function getPriceTier(daysAhead: number) {
   }
 }
 
-export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
+export function DatePicker({ selected, onSelect, waitingDates = [], baseFare }: Props) {
   const today = useMemo(() => {
     const d = new Date(); d.setHours(0,0,0,0); return d
   }, [])
@@ -83,7 +80,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
   }, [today])
 
   const stripRef  = useRef<HTMLDivElement>(null)
-  const selectedRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef<HTMLButtonElement>(null)
 
   // Scroll selected into view on mount/change
   useEffect(() => {
@@ -117,10 +114,10 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
         </span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
-            { label: '₹300 OFF', bg: '#DCFCE7', text: '#15803D', dot: '#22C55E' },
-            { label: '₹200 OFF', bg: '#FEF9C3', text: '#854D0E', dot: '#EAB308' },
-            { label: '₹100 OFF', bg: '#F3E8FF', text: '#6B21A8', dot: '#A855F7' },
-            { label: 'No Disc.',  bg: '#F3F4F6', text: '#6B7280', dot: '#9CA3AF' },
+            { label: `₹${(baseFare - 300).toLocaleString('en-IN')}`, bg: '#DCFCE7', text: '#15803D', dot: '#22C55E' },
+            { label: `₹${(baseFare - 200).toLocaleString('en-IN')}`, bg: '#FEF9C3', text: '#854D0E', dot: '#EAB308' },
+            { label: `₹${(baseFare - 100).toLocaleString('en-IN')}`, bg: '#F3E8FF', text: '#6B21A8', dot: '#A855F7' },
+            { label: `₹${baseFare.toLocaleString('en-IN')}`, bg: '#F3F4F6', text: '#6B7280', dot: '#9CA3AF' },
           ].map(item => (
             <div key={item.label} style={{
               display: 'flex', alignItems: 'center', gap: 4,
@@ -176,14 +173,18 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
 
           {days.map(({ date, str, daysAhead }) => {
             const tier    = getPriceTier(daysAhead)
+            const dateFare = baseFare - tier.discount
             const isSel   = selected?.str === str
             const hasWait = waitingDates.includes(str)
 
             return (
-              <div
+              <button
+                type="button"
                 key={str}
                 ref={isSel ? selectedRef : undefined}
                 onClick={() => onSelect({ date, str, daysAhead })}
+                aria-pressed={isSel}
+                aria-label={`${DAY_NAMES[date.getDay()]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}, ₹${dateFare.toLocaleString('en-IN')}${hasWait ? ', matching ride available' : ''}`}
                 style={{
                   flexShrink: 0,
                   width: 68,
@@ -204,6 +205,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
                   animation: isSel ? 'popIn 0.2s ease-out' : undefined,
                   position: 'relative',
                   userSelect: 'none',
+                  textAlign: 'center',
                 }}
                 onMouseEnter={e => {
                   if (!isSel) {
@@ -254,7 +256,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
                   {MONTH_NAMES[date.getMonth()]}
                 </span>
 
-                {/* Discount badge */}
+                {/* Payable fare for this date */}
                 <div style={{
                   background: isSel ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.70)',
                   borderRadius: 20,
@@ -278,7 +280,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
                     color: isSel ? '#fff' : tier.text,
                     whiteSpace: 'nowrap',
                   }}>
-                    {tier.label}
+                    ₹{dateFare.toLocaleString('en-IN')}
                   </span>
                 </div>
 
@@ -292,7 +294,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
                     border: '1.5px solid #fff',
                   }} />
                 )}
-              </div>
+              </button>
             )
           })}
         </div>
@@ -316,6 +318,7 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
       {/* Selected date info bar */}
       {selected && (() => {
         const tier = getPriceTier(selected.daysAhead)
+        const selectedFare = baseFare - tier.discount
         return (
           <div style={{
             borderTop: '1px solid #F0F0F0',
@@ -327,19 +330,15 @@ export function DatePicker({ selected, onSelect, waitingDates = [] }: Props) {
             <span style={{ fontSize: 12, color: '#555', fontWeight: 500 }}>
               {selected.date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
-            {tier.discount > 0 ? (
-              <span style={{
-                fontSize: 11, fontWeight: 700,
-                color: tier.text,
-                background: tier.bg,
-                padding: '3px 10px', borderRadius: 20,
-                border: `1px solid ${tier.border}`,
-              }}>
-                Early Bird: −₹{tier.discount}
-              </span>
-            ) : (
-              <span style={{ fontSize: 11, color: '#AAA', fontWeight: 500 }}>Standard fare</span>
-            )}
+            <span style={{
+              fontSize: 11, fontWeight: 700,
+              color: tier.text,
+              background: tier.bg,
+              padding: '3px 10px', borderRadius: 20,
+              border: `1px solid ${tier.border}`,
+            }}>
+              Date fare: ₹{selectedFare.toLocaleString('en-IN')}
+            </span>
           </div>
         )
       })()}

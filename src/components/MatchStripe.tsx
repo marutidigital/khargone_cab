@@ -2,7 +2,7 @@
 
 import React from 'react'
 import type { Booking } from '@/types'
-import { CheckCircle, Clock, Zap } from 'lucide-react'
+import { CheckCircle, Zap } from 'lucide-react'
 
 interface Props {
   bookings: Booking[]

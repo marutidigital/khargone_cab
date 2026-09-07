@@ -49,10 +49,12 @@ export function TimePicker({ value, onChange }: Props) {
           const active  = activeSlot === key
           const isNightSlot = key === 'night'
           return (
-            <div
+            <button
+              type="button"
               key={key}
               id={`time-slot-${key}`}
               onClick={() => selectSlot(key)}
+              aria-pressed={active}
               style={{
                 background: active
                   ? (isNightSlot ? '#FFF8E1' : '#FFFDE7')
@@ -65,6 +67,8 @@ export function TimePicker({ value, onChange }: Props) {
                 cursor: 'pointer',
                 transition: 'all 0.18s ease',
                 boxShadow: active ? '0 2px 10px rgba(255,193,7,0.12)' : 'none',
+                width: '100%',
+                textAlign: 'left',
               }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = '#CCC' }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = '#E8E8E8' }}
@@ -98,7 +102,7 @@ export function TimePicker({ value, onChange }: Props) {
               <div style={{ fontSize: 12, color: '#888', letterSpacing: '0.01em' }}>
                 {SLOT_RANGES[key]}
               </div>
-            </div>
+            </button>
           )
         })}
       </div>

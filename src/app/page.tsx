@@ -16,8 +16,7 @@ import { TripSummary }       from '@/components/TripSummary'
 import { BookForm }          from '@/components/BookForm'
 import { FooterTicker }      from '@/components/FooterTicker'
 import { Toast }             from '@/components/Toast'
-import { supabase }          from '@/lib/supabase'
-import { POINTS, calcPrice, isNightHour, TIME_SLOTS } from '@/lib/constants'
+import { BASE_FARE, POINTS, calcPrice, isNightHour, TIME_SLOTS } from '@/lib/constants'
 import type { Direction, DropOption, Booking } from '@/types'
 import type { VehicleType }  from '@/components/VehicleSelector'
 
@@ -39,8 +38,8 @@ export default function Home() {
   const [selDrop,   setSelDrop]   = useState<DropOption | null>(null)
   const [selDate,   setSelDate]   = useState<{ date: Date; str: string; daysAhead: number } | null>(null)
   const [pickupTime, setPickupTime] = useState<{ h: number; m: number } | null>(null)
-  const [bookings,  setBookings]  = useState<Booking[]>([])
   const [waitingOpp,setWaitingOpp]= useState<Booking[]>([])
+  const [serviceError, setServiceError] = useState(false)
   const [toast,     setToast]     = useState<{ msg: string; type?: 'success' | 'error' } | null>(null)
   const [loading,   setLoading]   = useState(false)
   const [showForm,  setShowForm]  = useState(false)
@@ -52,28 +51,21 @@ export default function Home() {
     setTimeout(() => setToast(null), 3200)
   }
 
-  const fetchBookings = useCallback(async () => {
-    try {
-      const res = await fetch('/api/bookings?limit=20')
-      const json = await res.json()
-      if (json.bookings) setBookings(json.bookings as Booking[])
-    } catch (e) {
-      console.error('Failed to fetch bookings:', e)
-    }
-  }, [])
-
   const fetchWaitingOpposite = useCallback(async () => {
     const opp = dir === 'KI' ? 'IK' : 'KI'
     try {
       const res = await fetch(`/api/bookings?direction=${opp}&status=waiting&limit=5`)
+      if (!res.ok) throw new Error(`Booking service returned ${res.status}`)
       const json = await res.json()
       if (json.bookings) setWaitingOpp(json.bookings as Booking[])
+      setServiceError(false)
     } catch (e) {
       console.error('Failed to fetch waiting opposite bookings:', e)
+      setWaitingOpp([])
+      setServiceError(true)
     }
   }, [dir])
 
-  useEffect(() => { fetchBookings() },        [fetchBookings])
   useEffect(() => { fetchWaitingOpposite() },  [fetchWaitingOpposite])
 
   const handleDirChange = (d: Direction) => {
@@ -161,7 +153,10 @@ export default function Home() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error?.message ?? 'Booking failed')
+      if (!res.ok) {
+        const message = typeof json.error === 'string' ? json.error : json.error?.message
+        throw new Error(message ?? 'Booking service is temporarily unavailable')
+      }
 
       showToast(
         json.matched ? '✓ Booking confirmed — match found!' : 'Booking placed — waiting for match',
@@ -169,7 +164,6 @@ export default function Home() {
       )
       setSuccessBooking({ booking: json.booking, matched: json.matched })
       setSelDrop(null); setSelDate(null); setPickupTime(null); setShowForm(false)
-      await fetchBookings()
       await fetchWaitingOpposite()
     } catch (e: any) {
       showToast(e.message ?? 'Something went wrong', 'error')
@@ -201,11 +195,14 @@ export default function Home() {
             <div style={{
               width: 64, height: 64,
               borderRadius: '50%',
-              background: '#FFF9C4',
+              background: successBooking.matched ? '#DCFCE7' : '#FFF9C4',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 20px',
             }}>
-              <Clock size={32} color="#F59E0B" strokeWidth={2.5} />
+              {successBooking.matched
+                ? <CheckCircle2 size={32} color="#16A34A" strokeWidth={2.5} />
+                : <Clock size={32} color="#F59E0B" strokeWidth={2.5} />
+              }
             </div>
 
             {/* Title */}
@@ -216,7 +213,7 @@ export default function Home() {
               letterSpacing: '-0.02em',
               marginBottom: 10,
             }}>
-              Booking Received!
+              {successBooking.matched ? 'Booking Confirmed!' : 'Booking Received!'}
             </h1>
 
             {/* Message */}
@@ -227,11 +224,14 @@ export default function Home() {
               marginBottom: 20,
               padding: '0 10px',
             }}>
-              <span style={{ fontWeight: 600, color: '#D97706', display: 'block', marginBottom: 8 }}>
-                Your ride is under waiting list.
+              <span style={{ fontWeight: 600, color: successBooking.matched ? '#15803D' : '#D97706', display: 'block', marginBottom: 8 }}>
+                {successBooking.matched ? 'A matching ride was found.' : 'Your ride is on the waiting list.'}
               </span>
               <span style={{ color: '#666', fontSize: 13 }}>
-                Once confirmed, we will share all the details to you.
+                {successBooking.matched
+                  ? 'We will share the driver and cab details with you.'
+                  : 'We will notify you as soon as a matching ride is confirmed.'
+                }
               </span>
             </div>
 
@@ -250,8 +250,8 @@ export default function Home() {
               justifyContent: 'center',
             }}>
               <Image
-                src={successBooking.booking.base_fare >= 2600 ? '/premium_suv.png' : '/economy_sedan.png'}
-                alt={successBooking.booking.base_fare >= 2600 ? 'Premium SUV' : 'Economy Sedan'}
+                src={successBooking.booking.vehicle_type === 'suv' ? '/premium_suv.png' : '/economy_sedan.png'}
+                alt={successBooking.booking.vehicle_type === 'suv' ? 'Premium SUV' : 'Economy Sedan'}
                 fill
                 style={{ objectFit: 'contain', padding: '12px' }}
                 sizes="500px"
@@ -286,13 +286,13 @@ export default function Home() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 12, color: '#888' }}>Vehicle Type</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
-                  {successBooking.booking.base_fare >= 2600 ? 'Premium SUV (7 Seater)' : 'Economy Sedan (5 Seater)'}
+                  {successBooking.booking.vehicle_type === 'suv' ? 'Premium SUV (7 Seater)' : 'Economy Sedan (5 Seater)'}
                 </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 12, color: '#888' }}>
-                  {successBooking.booking.direction === 'KI' ? 'Pickup point' : 'Drop point'}
+                  {successBooking.booking.direction === 'KI' ? 'Drop point' : 'Pickup point'}
                 </span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{successBooking.booking.drop_name}</span>
               </div>
@@ -328,17 +328,21 @@ export default function Home() {
 
             {/* Status notice */}
             <div style={{
-              background: '#FFFBEB',
-              border: '1px solid #FDE68A',
+              background: successBooking.matched ? '#F0FDF4' : '#FFFBEB',
+              border: `1px solid ${successBooking.matched ? '#BBF7D0' : '#FDE68A'}`,
               borderRadius: 8,
               padding: '12px 16px',
               fontSize: 12,
-              color: '#B45309',
+              color: successBooking.matched ? '#166534' : '#B45309',
               lineHeight: 1.5,
               marginBottom: 30,
               textAlign: 'left',
             }}>
-              ⌛ <strong>Waiting List Status:</strong> We are actively matching your ride. We will share the driver and cab details via SMS/WhatsApp once confirmed.
+              {successBooking.matched ? (
+                <>✓ <strong>Confirmed:</strong> Your opposite-direction ride match is secured. Driver details will follow via WhatsApp.</>
+              ) : (
+                <>⌛ <strong>Waiting List:</strong> We are actively matching your ride. Driver details will be shared via WhatsApp once confirmed.</>
+              )}
             </div>
 
             {/* Back Button */}
@@ -389,6 +393,7 @@ export default function Home() {
 
       {/* Main grid */}
       <div
+        id="booking"
         className="booking-grid"
         style={{
           display: 'grid',
@@ -403,6 +408,16 @@ export default function Home() {
         {/* ── LEFT COLUMN ─────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
 
+          {serviceError && (
+            <div className="service-alert" role="alert">
+              <div>
+                <strong>Live booking availability is temporarily unavailable.</strong>
+                <span>Your selections are safe. Please retry before placing the booking.</span>
+              </div>
+              <button type="button" onClick={() => void fetchWaitingOpposite()}>Retry</button>
+            </div>
+          )}
+
           {/* 1. Route */}
           <Section num="1." title="Select your route">
             <DirectionTabs dir={dir} onChange={handleDirChange} />
@@ -416,7 +431,7 @@ export default function Home() {
           </Section>
 
           {/* 3. Drop Point */}
-          <Section num="3." title={dir === 'KI' ? 'Choose your pickup point in Indore' : 'Choose your drop point in Indore'}>
+          <Section num="3." title={dir === 'KI' ? 'Choose your drop point in Indore' : 'Choose your pickup point in Indore'}>
             <DropList
               points={POINTS[dir]}
               selected={selDrop?.id ?? null}
@@ -431,6 +446,7 @@ export default function Home() {
                 selected={selDate}
                 onSelect={setSelDate}
                 waitingDates={waitingOpp.map(b => b.travel_date)}
+                baseFare={BASE_FARE + vehicleExtra + (selDrop?.extra ?? 0)}
               />
             </Section>
 

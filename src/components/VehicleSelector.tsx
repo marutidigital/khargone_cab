@@ -70,13 +70,15 @@ interface Props {
 export function VehicleSelector({ selected, onSelect }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="vehicle-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         {VEHICLES.map(v => {
           const sel = selected === v.id
           return (
-            <div
+            <button
+              type="button"
               key={v.id}
               onClick={() => onSelect(v.id)}
+              aria-pressed={sel}
               style={{
                 background: '#fff',
                 border: sel ? '2px solid #FFC107' : '1.5px solid #E8E8E8',
@@ -88,6 +90,8 @@ export function VehicleSelector({ selected, onSelect }: Props) {
                   ? '0 6px 24px rgba(255,193,7,0.18)'
                   : '0 2px 8px rgba(0,0,0,0.05)',
                 position: 'relative',
+                textAlign: 'left',
+                width: '100%',
               }}
               onMouseEnter={e => { if (!sel) { e.currentTarget.style.borderColor = '#BDBDBD'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.09)' } }}
               onMouseLeave={e => { if (!sel) { e.currentTarget.style.borderColor = '#E8E8E8'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)' } }}
@@ -147,8 +151,8 @@ export function VehicleSelector({ selected, onSelect }: Props) {
                   alt={v.name}
                   fill
                   style={{ objectFit: 'contain', objectPosition: 'center' }}
-                  sizes="240px"
-                  priority
+                  sizes="(max-width: 640px) calc(100vw - 60px), 240px"
+                  loading="eager"
                 />
               </div>
 
@@ -202,7 +206,7 @@ export function VehicleSelector({ selected, onSelect }: Props) {
                   )}
                 </div>
               </div>
-            </div>
+            </button>
           )
         })}
       </div>
