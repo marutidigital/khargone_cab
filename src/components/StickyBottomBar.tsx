@@ -23,6 +23,7 @@ export function StickyBottomBar({
   isLoading,
   onContinue,
 }: Props) {
+  const isFinalStep = currentStep === totalSteps
   if (isFinalStep) return null
 
   let buttonLabel = 'Continue'
