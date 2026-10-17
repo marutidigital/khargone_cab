@@ -208,37 +208,65 @@ revoke execute on function public.update_updated_at() from public, anon, authent
 revoke execute on function public.generate_booking_ref() from public, anon, authenticated;
 grant execute on function public.generate_booking_ref() to service_role;
 
--- Hanscab Test Phase Leads & Admins
-create table if not exists public.admins (
-  user_id uuid primary key references auth.users(id) on delete cascade
-);
+-- Hanscab Production Test Schema
+create table if not exists public.admins (user_id uuid primary key references auth.users(id) on delete cascade);
+
+create table if not exists public.app_config (key text primary key, value jsonb not null);
 
 create table if not exists public.leads (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
-  name text,
-  phone text not null,
+  booking_code text unique,
+  name text, phone text not null,
   direction text not null check (direction in ('K2I','I2K')),
-  vehicle text,
-  point text,
-  pickup_at timestamptz,
-  passengers int,
-  price int,
-  stage text not null default 'pay_clicked',
-  notes text
+  vehicle text check (vehicle in ('sedan','suv')),
+  point text, pickup_at timestamptz, passengers int,
+  base_fare int, vehicle_extra int, point_extra int, night_extra int, price int,
+  stage text not null default 'pay_clicked'
+    check (stage in ('pay_clicked','contacted','replied','confirmed','completed','no_response','cancelled')),
+  source text, is_known boolean not null default false,
+  consent_whatsapp boolean not null default false,
+  contacted_at timestamptz, notes text
 );
 
-alter table public.leads enable row level security;
-alter table public.admins enable row level security;
+create table if not exists public.lead_events (
+  id bigint generated always as identity primary key,
+  created_at timestamptz default now(),
+  session_id text, event text not null, source text, meta jsonb default '{}'
+);
 
-create policy "anyone can add lead" on public.leads for insert
-  to anon, authenticated with check (stage = 'pay_clicked');
-create policy "admin reads leads" on public.leads for select to authenticated
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
-create policy "admin updates leads" on public.leads for update to authenticated
-  using (exists (select 1 from public.admins where user_id = auth.uid()));
-create policy "admin reads admins" on public.admins for select to authenticated
-  using (user_id = auth.uid());
+create index if not exists leads_pickup_idx on public.leads (pickup_at);
+create index if not exists leads_stage_idx on public.leads (stage);
+create index if not exists leads_created_idx on public.leads (created_at);
+
+alter table public.admins enable row level security;
+alter table public.app_config enable row level security;
+alter table public.leads enable row level security;
+alter table public.lead_events enable row level security;
+
+create or replace function public.is_admin() returns boolean
+language sql security definer set search_path = public stable
+as $$ select exists (select 1 from public.admins where user_id = auth.uid()) $$;
+
+-- Drop existing policies if they exist before recreating
+drop policy if exists "public reads pricing" on public.app_config;
+drop policy if exists "admin writes config" on public.app_config;
+drop policy if exists "anyone adds lead" on public.leads;
+drop policy if exists "anyone can add lead" on public.leads;
+drop policy if exists "admin reads leads" on public.leads;
+drop policy if exists "admin updates leads" on public.leads;
+drop policy if exists "anyone logs events" on public.lead_events;
+drop policy if exists "admin reads events" on public.lead_events;
+drop policy if exists "admin reads admins" on public.admins;
+
+create policy "public reads pricing" on public.app_config for select to anon, authenticated using (key = 'pricing');
+create policy "admin writes config" on public.app_config for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "anyone adds lead" on public.leads for insert to anon, authenticated with check (stage = 'pay_clicked');
+create policy "admin reads leads" on public.leads for select to authenticated using (public.is_admin());
+create policy "admin updates leads" on public.leads for update to authenticated using (public.is_admin());
+create policy "anyone logs events" on public.lead_events for insert to anon, authenticated with check (true);
+create policy "admin reads events" on public.lead_events for select to authenticated using (public.is_admin());
+create policy "admin reads admins" on public.admins for select to authenticated using (public.is_admin() or user_id = auth.uid());
 
 commit;
 

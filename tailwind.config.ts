@@ -9,20 +9,24 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+      },
       colors: {
-        brand: '#F5B841',
-        gold: {
-          DEFAULT: '#F5B841',
-          hover: '#E5A630',
-          light: '#FFF8E7',
-          dark: '#C88B18',
+        amber: {
+          400: '#FBBF24',
+          500: '#F59E0B',
+          600: '#D97706',
         },
-        navy: {
-          DEFAULT: '#0B1220',
-          card: '#111A2E',
-          border: '#1E293B',
-          light: '#162238',
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' },
         },
+      },
+      animation: {
+        marquee: 'marquee 35s linear infinite',
       },
     },
   },

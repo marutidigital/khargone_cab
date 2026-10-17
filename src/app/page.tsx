@@ -1,444 +1,561 @@
 'use client'
 // src/app/page.tsx
+// Hanscab - Single Continuous Scrolling Page (Khargone <-> Indore Private Cabs)
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Nav } from '@/components/Nav'
-import { OffersStrip } from '@/components/OffersStrip'
-import { WizardProgress, WIZARD_STEPS } from '@/components/WizardProgress'
-import { StepRoute } from '@/components/wizard/StepRoute'
-import { StepVehicle } from '@/components/wizard/StepVehicle'
-import { StepPoint } from '@/components/wizard/StepPoint'
-import { StepDateTime, SelectedDate, SelectedTime } from '@/components/wizard/StepDateTime'
-import { StepPassenger, PassengerInfo } from '@/components/wizard/StepPassenger'
-import { StepReviewConfirm } from '@/components/wizard/StepReviewConfirm'
-import { StickyBottomBar } from '@/components/StickyBottomBar'
+import { BookingStepper } from '@/components/BookingStepper'
+import { SectionRoute } from '@/components/booking/SectionRoute'
+import { SectionVehicle } from '@/components/booking/SectionVehicle'
+import { SectionDropPoint } from '@/components/booking/SectionDropPoint'
+import { SectionDate, DateTileItem } from '@/components/booking/SectionDate'
+import { SectionTimeSlot, ExactTimeOption } from '@/components/booking/SectionTimeSlot'
+import { SectionPassenger, PassengerFormData } from '@/components/booking/SectionPassenger'
+import { TripSummaryCard } from '@/components/booking/TripSummaryCard'
+import { PaymentConfirmationSheet } from '@/components/booking/PaymentConfirmationSheet'
+import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
-import { Toast } from '@/components/Toast'
-import type { Direction, DropPoint, VehicleType, Booking } from '@/types'
-import { PRICING_CONFIG, computeBookingPrice, LivePriceBreakdown, formatRs } from '@/config/pricing'
-import { logBookingEvent } from '@/lib/tracking'
-import { CheckCircle2, MessageCircle, Clock, ShieldCheck, ArrowRight, RotateCcw } from 'lucide-react'
-import Image from 'next/image'
+import { PRICING_CONFIG, computeFare, formatRs, DetailedFareBreakdown } from '@/config/pricing'
+import { initUTMTracking, getStoredSource, logEvent } from '@/lib/tracking'
+import { ShieldCheck, ArrowRight, CheckCircle2, ChevronUp } from 'lucide-react'
+
+// Helper to get today's date formatted as YYYY-MM-DD in Asia/Kolkata
+function getTodayKolkata(): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  return formatter.format(new Date())
+}
 
 export default function Home() {
-  // Wizard Step (1 to 6)
-  const [currentStep, setCurrentStep] = useState<number>(1)
-  const [completedMaxStep, setCompletedMaxStep] = useState<number>(1)
+  // 1. Core Booking State
+  const [direction, setDirection] = useState<'K2I' | 'I2K'>('K2I')
+  const [vehicle, setVehicle] = useState<'sedan' | 'suv'>('sedan')
+  const [pointId, setPointId] = useState<string>('rajendra')
 
-  // Booking Form State
-  const [direction, setDirection] = useState<Direction>('KI')
-  const [vehicle, setVehicle] = useState<VehicleType>('sedan')
-  const [pointId, setPointId] = useState<DropPoint>('rajendra')
-  const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null)
-  const [selectedTime, setSelectedTime] = useState<SelectedTime | null>(null)
-  const [passenger, setPassenger] = useState<PassengerInfo>({
+  // Date state (Asia/Kolkata runtime)
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(getTodayKolkata)
+  const [selectedDateItem, setSelectedDateItem] = useState<DateTileItem | null>(null)
+
+  // Time slot state
+  const [selectedTimeStr, setSelectedTimeStr] = useState<string | null>(null)
+  const [selectedTimeOpt, setSelectedTimeOpt] = useState<ExactTimeOption | null>(null)
+
+  // Passenger Form
+  const [passenger, setPassenger] = useState<PassengerFormData>({
     name: '',
     phone: '',
-    email: '',
     passengers: 1,
     consent: true,
+    address: '',
   })
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; consent?: string; time?: string }>({})
 
-  // Submission & UI States
+  // UI & Submission state
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
-  const [toast, setToast] = useState<{ msg: string; type?: 'success' | 'error' } | null>(null)
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3500)
-  }
+  // Confirmed booking state (for PaymentConfirmationSheet)
+  const [confirmedBooking, setConfirmedBooking] = useState<{
+    bookingCode: string
+    name: string
+    phone: string
+    direction: 'K2I' | 'I2K'
+    pointName: string
+    vehicleName: string
+    pickupDateStr: string
+    pickupTimeLabel: string
+    passengers: number
+    breakdown: DetailedFareBreakdown
+    whatsappUrl: string
+    isDuplicate?: boolean
+  } | null>(null)
 
-  // 1. Initial Page View Tracking
+  // 2. Track initial page view & UTM parameters
   useEffect(() => {
-    logBookingEvent({ event: 'page_view' })
+    initUTMTracking()
+    logEvent({ event: 'page_view' })
   }, [])
 
-  // 2. Live Pricing Calculation (Always reactive to user selections)
-  const livePrice: LivePriceBreakdown = useMemo(() => {
-    const daysAhead = selectedDate ? selectedDate.daysAhead : 0
-    const hour = selectedTime ? selectedTime.hour : 10
+  // 3. Resolve configs & values
+  const selectedPoint = useMemo(() => {
+    return PRICING_CONFIG.points.find((p) => p.id === pointId) || PRICING_CONFIG.points[0]
+  }, [pointId])
 
-    return computeBookingPrice({
-      vehicle,
-      pointId,
+  const selectedVehicleConfig = useMemo(() => {
+    return PRICING_CONFIG.vehicles[vehicle]
+  }, [vehicle])
+
+  const isToday = useMemo(() => {
+    return selectedDateStr === getTodayKolkata()
+  }, [selectedDateStr])
+
+  const daysAhead = useMemo(() => {
+    if (selectedDateItem) return selectedDateItem.daysAhead
+    const today = new Date(getTodayKolkata())
+    const sel = new Date(selectedDateStr)
+    const diff = Math.ceil((sel.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return Math.max(0, diff)
+  }, [selectedDateItem, selectedDateStr])
+
+  // Live price breakdown calculation
+  const fareBreakdown: DetailedFareBreakdown = useMemo(() => {
+    return computeFare({
       direction,
+      vehicle,
+      pointIdOrName: selectedPoint.name,
       daysAhead,
-      hour,
+      hour: selectedTimeOpt ? selectedTimeOpt.hour : 10,
+      isNight: selectedTimeOpt ? selectedTimeOpt.isNight : false,
     })
-  }, [vehicle, pointId, direction, selectedDate, selectedTime])
+  }, [direction, vehicle, selectedPoint.name, daysAhead, selectedTimeOpt])
 
-  // Track max completed step for non-linear step back navigation
-  const advanceToStep = useCallback((step: number) => {
-    setCurrentStep(step)
-    setCompletedMaxStep((prev) => Math.max(prev, step))
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
-
-  // Validation rules for each step
-  const canContinue = useMemo(() => {
-    switch (currentStep) {
-      case 1:
-        return !!direction
-      case 2:
-        return !!vehicle
-      case 3:
-        return !!pointId
-      case 4:
-        return !!selectedDate && !!selectedTime
-      case 5:
-        return (
-          passenger.name.trim().length >= 2 &&
-          /^[6-9]\d{9}$/.test(passenger.phone) &&
-          passenger.consent
-        )
-      case 6:
-        return true
-      default:
-        return false
+  // Adjust passenger count if user switches from SUV (max 6) to Sedan (max 4)
+  const maxPax = vehicle === 'suv' ? 6 : 4
+  useEffect(() => {
+    if (passenger.passengers > maxPax) {
+      setPassenger((prev) => ({ ...prev, passengers: maxPax }))
     }
-  }, [currentStep, direction, vehicle, pointId, selectedDate, selectedTime, passenger])
+  }, [maxPax, passenger.passengers])
 
-  // Step transitions & Event tracking
-  const handleNext = () => {
-    if (!canContinue) return
+  // 4. Stepper calculation & Smooth Scrolling
+  const completedSteps = useMemo(() => {
+    const steps: number[] = [1, 2, 3] // Route, Vehicle, Point are always selected by default
+    if (selectedDateStr) steps.push(4)
+    if (selectedTimeOpt) steps.push(5)
+    if (
+      passenger.name.trim().length >= 2 &&
+      /^[6-9]\d{9}$/.test(passenger.phone) &&
+      passenger.consent
+    ) {
+      steps.push(6)
+    }
+    return steps
+  }, [selectedDateStr, selectedTimeOpt, passenger])
 
-    if (currentStep === 1) {
-      logBookingEvent({
-        event: 'route_selected',
-        direction,
-        price: livePrice.totalFare,
-      })
-      advanceToStep(2)
-    } else if (currentStep === 2) {
-      logBookingEvent({
-        event: 'vehicle_selected',
-        direction,
-        vehicle,
-        price: livePrice.totalFare,
-      })
-      advanceToStep(3)
-    } else if (currentStep === 3) {
-      advanceToStep(4)
-    } else if (currentStep === 4) {
-      if (selectedDate && selectedTime) {
-        logBookingEvent({
-          event: 'date_selected',
-          direction,
-          vehicle,
-          point: pointId,
-          travel_date: selectedDate.dateStr,
-          time_slot: selectedTime.timeStr,
-          price: livePrice.totalFare,
-        })
+  const currentStep = useMemo(() => {
+    if (!selectedTimeOpt) return 5
+    if (!passenger.name.trim() || !/^[6-9]\d{9}$/.test(passenger.phone)) return 6
+    return 6
+  }, [selectedTimeOpt, passenger])
+
+  const scrollToSection = (stepNum: number) => {
+    const ids: Record<number, string> = {
+      1: 'section-route',
+      2: 'section-vehicle',
+      3: 'section-point',
+      4: 'section-date',
+      5: 'section-time',
+      6: 'section-passenger',
+    }
+    const targetId = ids[stepNum]
+    if (targetId) {
+      const el = document.getElementById(targetId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
-      advanceToStep(5)
-    } else if (currentStep === 5) {
-      logBookingEvent({
-        event: 'details_filled',
-        direction,
-        vehicle,
-        point: pointId,
-        travel_date: selectedDate?.dateStr,
-        time_slot: selectedTime?.timeStr,
-        price: livePrice.totalFare,
-        name: passenger.name,
-        phone: passenger.consent ? passenger.phone : null,
-        consent: passenger.consent,
-      })
-      advanceToStep(6)
-      // Reaching step 6 is payment_screen_reached
-      logBookingEvent({
-        event: 'payment_screen_reached',
-        direction,
-        vehicle,
-        point: pointId,
-        travel_date: selectedDate?.dateStr,
-        time_slot: selectedTime?.timeStr,
-        price: livePrice.totalFare,
-        name: passenger.name,
-        phone: passenger.consent ? passenger.phone : null,
-        consent: passenger.consent,
-      })
-    } else if (currentStep === 6) {
-      handleFinalBookingSubmit()
     }
   }
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      advanceToStep(currentStep - 1)
+  // 5. Actions & Handlers
+  const handleSwapDirection = () => {
+    const nextDir = direction === 'K2I' ? 'I2K' : 'K2I'
+    setDirection(nextDir)
+    logEvent({
+      event: 'direction_selected',
+      meta: { direction: nextDir },
+    })
+  }
+
+  const handleSelectVehicle = (v: 'sedan' | 'suv') => {
+    setVehicle(v)
+    logEvent({
+      event: 'vehicle_selected',
+      meta: { vehicle: v },
+    })
+  }
+
+  const handleSelectPoint = (ptId: string) => {
+    setPointId(ptId)
+    const pt = PRICING_CONFIG.points.find((p) => p.id === ptId)
+    logEvent({
+      event: 'point_selected',
+      meta: { point: pt?.name || ptId },
+    })
+  }
+
+  const handleSelectDate = (item: DateTileItem) => {
+    setSelectedDateStr(item.dateStr)
+    setSelectedDateItem(item)
+    // If today changed, reset time if needed
+    logEvent({
+      event: 'date_selected',
+      meta: { date: item.dateStr, daysAhead: item.daysAhead },
+    })
+  }
+
+  const handleSelectTime = (opt: ExactTimeOption) => {
+    setSelectedTimeStr(opt.timeStr)
+    setSelectedTimeOpt(opt)
+    setErrors((prev) => ({ ...prev, time: undefined }))
+    logEvent({
+      event: 'time_selected',
+      meta: { time: opt.timeStr, hour: opt.hour },
+    })
+  }
+
+  const handlePassengerChange = (updated: Partial<PassengerFormData>) => {
+    setPassenger((prev) => ({ ...prev, ...updated }))
+    if (updated.name && updated.name.trim().length >= 2) {
+      setErrors((prev) => ({ ...prev, name: undefined }))
+    }
+    if (updated.phone && /^[6-9]\d{9}$/.test(updated.phone)) {
+      setErrors((prev) => ({ ...prev, phone: undefined }))
+    }
+    if (updated.consent !== undefined && updated.consent) {
+      setErrors((prev) => ({ ...prev, consent: undefined }))
     }
   }
 
-  // Final booking submission
-  const handleFinalBookingSubmit = async () => {
-    if (!selectedDate || !selectedTime) return
+  // 6. Advance Payment Submission (HONEST TEST-PHASE FLOW)
+  const isFormValid = useMemo(() => {
+    return (
+      !!selectedDateStr &&
+      !!selectedTimeOpt &&
+      passenger.name.trim().length >= 2 &&
+      /^[6-9]\d{9}$/.test(passenger.phone) &&
+      passenger.consent
+    )
+  }, [selectedDateStr, selectedTimeOpt, passenger])
+
+  const handlePayAdvance = async () => {
+    const newErrors: { name?: string; phone?: string; consent?: string; time?: string } = {}
+
+    if (!selectedTimeOpt) {
+      newErrors.time = 'Please choose a pickup time slot.'
+      scrollToSection(5)
+    }
+
+    if (!passenger.name.trim() || passenger.name.trim().length < 2) {
+      newErrors.name = 'Please enter your full name.'
+    }
+
+    if (!passenger.phone || !/^[6-9]\d{9}$/.test(passenger.phone)) {
+      newErrors.phone = 'Please enter a valid 10-digit Indian WhatsApp number.'
+    }
+
+    if (!passenger.consent) {
+      newErrors.consent = 'Please agree to be contacted on WhatsApp.'
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      if (newErrors.name || newErrors.phone || newErrors.consent) {
+        scrollToSection(6)
+      }
+      return
+    }
+
     setIsSubmitting(true)
+    setToastMessage(null)
 
     try {
-      const selectedPoint = PRICING_CONFIG.points.find((p) => p.id === pointId)
-      const res = await fetch('/api/bookings', {
+      // Build pickup ISO string with Asia/Kolkata offset (+05:30)
+      const pickupTime = selectedTimeOpt ? selectedTimeOpt.timeStr : '10:00'
+      const pickupAtIso = `${selectedDateStr}T${pickupTime}:00+05:30`
+
+      // 1. Log event & fire Meta Pixel lead event
+      await logEvent({
+        event: 'pay_clicked',
+        meta: {
+          direction,
+          vehicle,
+          point: selectedPoint.name,
+          pickup_at: pickupAtIso,
+          price: fareBreakdown.totalFare,
+          phone: passenger.phone,
+        },
+      })
+
+      // 2. Call server route handler /api/leads
+      const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          direction,
-          drop_point: pointId,
-          drop_name: selectedPoint?.name || pointId,
-          travel_date: selectedDate.dateStr,
-          pickup_time: selectedTime.timeStr,
-          passenger_name: passenger.name,
+          name: passenger.name.trim(),
           phone: passenger.phone,
-          email: passenger.email || undefined,
-          extra: selectedPoint?.extra || 0,
-          days_ahead: selectedDate.daysAhead,
+          direction,
           vehicle,
+          point: selectedPoint.name,
+          pickup_at: pickupAtIso,
+          passengers: passenger.passengers,
+          consent: passenger.consent,
+          source: getStoredSource(),
         }),
       })
 
-      const json = await res.json()
+      const data = await res.json()
+
       if (!res.ok) {
-        throw new Error(json.error?.message || json.error || 'Failed to save booking')
+        throw new Error(data.error || 'Failed to submit booking request.')
       }
 
-      setConfirmedBooking(json.booking)
-      showToast('Booking request received! We will WhatsApp you within 10 minutes.', 'success')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      // Close mobile sheet if open
+      setIsMobileModalOpen(false)
+
+      // Set confirmed booking to display honest Confirmation Sheet
+      setConfirmedBooking({
+        bookingCode: data.booking_code || 'HC-PENDING',
+        name: passenger.name.trim(),
+        phone: passenger.phone,
+        direction,
+        pointName: selectedPoint.name,
+        vehicleName: selectedVehicleConfig.title,
+        pickupDateStr: selectedDateStr,
+        pickupTimeLabel: selectedTimeOpt ? selectedTimeOpt.label12 : '10:00 AM',
+        passengers: passenger.passengers,
+        breakdown: fareBreakdown,
+        whatsappUrl: data.whatsapp_url,
+        isDuplicate: data.isDuplicate,
+      })
     } catch (err: any) {
-      showToast(err.message || 'Something went wrong. Please retry or contact WhatsApp.', 'error')
+      console.error('Submission failed:', err)
+      setToastMessage(err.message || 'Something went wrong. Please try again.')
+      setTimeout(() => setToastMessage(null), 5000)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleWhatsAppClick = (url: string) => {
-    logBookingEvent({
-      event: 'whatsapp_clicked',
-      direction,
-      vehicle,
-      point: pointId,
-      travel_date: selectedDate?.dateStr,
-      time_slot: selectedTime?.timeStr,
-      price: livePrice.totalFare,
-      name: passenger.name,
-      phone: passenger.consent ? passenger.phone : null,
-      consent: passenger.consent,
-    })
-  }
+  // Formatting date string for display in summary
+  const dateLabel = useMemo(() => {
+    if (selectedDateItem) {
+      return `${selectedDateItem.weekday}, ${selectedDateItem.dayNum} ${selectedDateItem.month}`
+    }
+    const d = new Date(selectedDateStr)
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }, [selectedDateItem, selectedDateStr])
 
-  // ── SUCCESS CONFIRMATION SCREEN ──
-  if (confirmedBooking) {
-    const isKI = confirmedBooking.direction === 'KI'
-    const vehicleCfg = PRICING_CONFIG.vehicles[confirmedBooking.vehicle_type === 'suv' ? 'suv' : 'sedan']
-    const pickupLoc = isKI ? PRICING_CONFIG.khargoneHub : confirmedBooking.drop_name
-    const dropLoc = isKI ? confirmedBooking.drop_name : PRICING_CONFIG.khargoneHub
-    const prefilledText = `Hi Hanscab, I placed booking reference *${confirmedBooking.booking_ref}* for ${confirmedBooking.travel_date}. Please share the Rs 500 UPI payment link.`
-    const waUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent(prefilledText)}`
+  const timeLabel = selectedTimeOpt ? selectedTimeOpt.label12 : null
 
-    return (
-      <div className="min-h-screen bg-[#0B1220] flex flex-col justify-between">
-        <Nav />
-
-        <main className="max-w-xl mx-auto px-4 py-8 sm:py-12 w-full animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 text-center">
-            {/* Top Icon */}
-            <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600 stroke-[2.5]" />
-            </div>
-
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-3 py-1 rounded-full">
-              Booking Request Received
-            </span>
-
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2 mb-2">
-              We&apos;ve Saved Your Booking!
-            </h1>
-
-            {/* Honest temporary payment message */}
-            <div className="bg-amber-50 border-2 border-[#F5B841] rounded-2xl p-4 my-5 text-left">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-[#B45309] flex-shrink-0 mt-0.5" />
-                <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
-                  <strong>Online payment is opening soon.</strong> We&apos;ve saved your booking request and will WhatsApp you within 10 minutes with a <strong>Rs 500 UPI link</strong> to confirm your car.
-                </div>
-              </div>
-            </div>
-
-            {/* Receipt Summary */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 text-left text-xs sm:text-sm space-y-2.5 mb-6">
-              <div className="flex justify-between pb-2 border-b border-slate-200">
-                <span className="text-slate-500">Booking Reference</span>
-                <span className="font-mono font-bold text-slate-900 bg-slate-200 px-2 py-0.5 rounded">
-                  {confirmedBooking.booking_ref}
-                </span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-500">Route</span>
-                <span className="font-semibold text-slate-900">
-                  {confirmedBooking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
-                </span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-500">Vehicle</span>
-                <span className="font-semibold text-slate-900">{vehicleCfg.name}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-500">Pickup Location</span>
-                <span className="font-semibold text-slate-900">{pickupLoc}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-500">Drop Location</span>
-                <span className="font-semibold text-slate-900">{dropLoc}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-500">Date & Pickup Time</span>
-                <span className="font-semibold text-slate-900">
-                  {confirmedBooking.travel_date} at {confirmedBooking.pickup_time}
-                </span>
-              </div>
-
-              <div className="flex justify-between pt-2.5 border-t border-slate-200 text-base font-extrabold text-slate-950">
-                <span>Total Fare</span>
-                <span className="text-lg font-black text-[#B45309]">
-                  {formatRs(confirmedBooking.total_fare)}
-                </span>
-              </div>
-            </div>
-
-            {/* Instant WhatsApp Confirmation Button */}
-            <div className="space-y-3">
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => handleWhatsAppClick(waUrl)}
-                className="w-full bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2.5 transition-all text-base min-h-[50px]"
-              >
-                <MessageCircle className="w-5 h-5 fill-current" />
-                <span>Send request on WhatsApp</span>
-              </a>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmedBooking(null)
-                  setCurrentStep(1)
-                }}
-                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 min-h-[44px]"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Book Another Ride</span>
-              </button>
-            </div>
-          </div>
-        </main>
-
-        <FooterTrust />
-      </div>
-    )
-  }
-
-  // ── MAIN WIZARD VIEW (ONE STEP PER SCREEN) ──
   return (
-    <div className="min-h-screen bg-[#0B1220] flex flex-col justify-between text-slate-100 selection:bg-[#F5B841]/30 pb-28">
+    <div className="min-h-screen bg-[#F4F4F5] flex flex-col font-sans text-slate-900 antialiased selection:bg-[#FBBF24] selection:text-slate-950">
       {/* 1. Header Navigation */}
       <Nav />
 
-      {/* 2. Top Horizontal Offers Strip */}
-      <OffersStrip />
+      {/* 2. Top Progress Stepper */}
+      <BookingStepper
+        currentStep={currentStep}
+        completedSteps={completedSteps}
+        onStepClick={scrollToSection}
+      />
 
-      {/* 3. Main Wizard Stage */}
-      <main className="max-w-xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 w-full flex-1">
-        {/* Progress Bar & Back Control */}
-        <WizardProgress
-          currentStep={currentStep}
-          onBack={handleBack}
-          onStepClick={advanceToStep}
-          completedMaxStep={completedMaxStep}
-        />
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed top-20 right-4 z-50 bg-rose-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
+          <span className="text-sm font-bold">{toastMessage}</span>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-white/80 hover:text-white text-xs underline font-bold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
-        {/* Wizard Card Stage (White Card on Dark Navy) */}
-        <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-2xl border border-slate-800/40 text-slate-900 transition-all duration-200">
-          {currentStep === 1 && (
-            <StepRoute
+      {/* 3. Main Continuous Booking Experience */}
+      <main id="booking-section" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Intro Subtitle */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span>Book Private Cab</span>
+              <span className="text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                Khargone ↔ Indore
+              </span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1">
+              Guaranteed private car for your family • No shared passengers • Doorstep pickup & drop
+            </p>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl self-start sm:self-auto">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>₹500 Advance • Rest in Car</span>
+          </div>
+        </div>
+
+        {/* 2-Column Responsive Layout */}
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+          {/* LEFT COLUMN: All 6 Sections in One Continuous Scrolling View */}
+          <div className="w-full lg:w-[65%] xl:w-[68%] space-y-6 sm:space-y-7">
+            {/* SECTION 1: Route */}
+            <div id="section-route" className="scroll-mt-24">
+              <SectionRoute
+                direction={direction}
+                selectedPointName={selectedPoint.name}
+                onSwapDirection={handleSwapDirection}
+              />
+            </div>
+
+            {/* SECTION 2: Vehicle */}
+            <div id="section-vehicle" className="scroll-mt-24">
+              <SectionVehicle
+                selectedVehicle={vehicle}
+                direction={direction}
+                onSelectVehicle={handleSelectVehicle}
+              />
+            </div>
+
+            {/* SECTION 3: Drop Point & Interactive Map */}
+            <div id="section-point" className="scroll-mt-24">
+              <SectionDropPoint
+                direction={direction}
+                selectedPointId={pointId}
+                onSelectPoint={handleSelectPoint}
+              />
+            </div>
+
+            {/* SECTION 4: Travel Date (45-Day runtime generator) */}
+            <div id="section-date" className="scroll-mt-24">
+              <SectionDate
+                direction={direction}
+                selectedDateStr={selectedDateStr}
+                onSelectDate={handleSelectDate}
+              />
+            </div>
+
+            {/* SECTION 5: Pickup Time Slot */}
+            <div id="section-time" className="scroll-mt-24">
+              <SectionTimeSlot
+                isToday={isToday}
+                direction={direction}
+                selectedTimeStr={selectedTimeStr}
+                onSelectTime={handleSelectTime}
+              />
+              {errors.time && (
+                <p className="text-xs font-bold text-rose-600 mt-2 px-1">
+                  ⚠️ {errors.time}
+                </p>
+              )}
+            </div>
+
+            {/* SECTION 6: Passenger Details */}
+            <div id="section-passenger" className="scroll-mt-24">
+              <SectionPassenger
+                maxPassengers={maxPax}
+                data={passenger}
+                onChange={handlePassengerChange}
+                errors={errors}
+              />
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN (DESKTOP): Sticky Trip Summary Card */}
+          <div className="hidden lg:block lg:w-[35%] xl:w-[32%] sticky top-20">
+            <TripSummaryCard
               direction={direction}
-              onChange={setDirection}
-              onNext={handleNext}
-            />
-          )}
-
-          {currentStep === 2 && (
-            <StepVehicle
-              selected={vehicle}
-              onSelect={setVehicle}
-              onNext={handleNext}
-            />
-          )}
-
-          {currentStep === 3 && (
-            <StepPoint
-              direction={direction}
-              selectedPointId={pointId}
-              onSelect={setPointId}
-              onNext={handleNext}
-            />
-          )}
-
-          {currentStep === 4 && (
-            <StepDateTime
-              selectedDate={selectedDate}
-              selectedTime={selectedTime}
-              onSelectDate={setSelectedDate}
-              onSelectTime={setSelectedTime}
-              onNext={handleNext}
-            />
-          )}
-
-          {currentStep === 5 && (
-            <StepPassenger
               vehicle={vehicle}
-              initialData={passenger}
-              onSave={setPassenger}
-              onNext={handleNext}
+              pointName={selectedPoint.name}
+              dateLabel={dateLabel}
+              timeLabel={timeLabel}
+              breakdown={fareBreakdown}
+              isValid={isFormValid}
+              isSubmitting={isSubmitting}
+              onPayAdvance={handlePayAdvance}
             />
-          )}
-
-          {currentStep === 6 && (
-            <StepReviewConfirm
-              direction={direction}
-              vehicle={vehicle}
-              pointId={pointId}
-              date={selectedDate!}
-              time={selectedTime!}
-              passenger={passenger}
-              priceBreakdown={livePrice}
-              onWhatsAppClick={handleWhatsAppClick}
-            />
-          )}
+          </div>
         </div>
       </main>
 
-      {/* 4. Sticky Bottom Bar with Live Total & 48px Tap Targets */}
-      <StickyBottomBar
-        currentStep={currentStep}
-        totalSteps={WIZARD_STEPS.length}
-        totalFare={livePrice.totalFare}
-        advanceDeposit={livePrice.advanceDeposit}
-        canContinue={canContinue}
-        isLoading={isSubmitting}
-        onContinue={handleNext}
-      />
+      {/* 4. Mobile Sticky Bottom Bar */}
+      <div className="lg:hidden sticky bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E5E7EB] px-4 py-3 shadow-lg">
+        <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
+          {/* Price summary tap to expand */}
+          <button
+            type="button"
+            onClick={() => setIsMobileModalOpen(true)}
+            className="flex flex-col text-left focus:outline-none cursor-pointer"
+          >
+            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
+              Total Fare <ChevronUp className="w-3 h-3 text-slate-400" />
+            </span>
+            <span className="text-lg font-black text-slate-900 leading-tight">
+              {formatRs(fareBreakdown.totalFare)}
+            </span>
+            <span className="text-[11px] font-bold text-emerald-700">
+              Pay ₹500 advance now
+            </span>
+          </button>
 
-      {/* 5. Trust & Policies Footer */}
+          {/* Action button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isFormValid) {
+                handlePayAdvance()
+              } else {
+                setIsMobileModalOpen(true)
+              }
+            }}
+            disabled={isSubmitting}
+            className="bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-black text-sm px-5 py-3 rounded-xl shadow-xs transition-all active:scale-98 min-h-[46px] flex items-center gap-2 cursor-pointer disabled:opacity-60"
+          >
+            <span>{isFormValid ? 'Pay ₹500 Advance' : 'View Summary & Pay'}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 5. Mobile Summary Bottom Sheet Modal */}
+      {isMobileModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl">
+            <TripSummaryCard
+              direction={direction}
+              vehicle={vehicle}
+              pointName={selectedPoint.name}
+              dateLabel={dateLabel}
+              timeLabel={timeLabel}
+              breakdown={fareBreakdown}
+              isValid={isFormValid}
+              isSubmitting={isSubmitting}
+              onPayAdvance={handlePayAdvance}
+              isMobileModal={true}
+              onCloseMobileModal={() => setIsMobileModalOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 6. Honest Payment Confirmation Modal (TEST PHASE FLOW) */}
+      {confirmedBooking && (
+        <PaymentConfirmationSheet
+          bookingCode={confirmedBooking.bookingCode}
+          name={confirmedBooking.name}
+          phone={confirmedBooking.phone}
+          direction={confirmedBooking.direction}
+          pointName={confirmedBooking.pointName}
+          vehicleName={confirmedBooking.vehicleName}
+          pickupDateStr={confirmedBooking.pickupDateStr}
+          pickupTimeLabel={confirmedBooking.pickupTimeLabel}
+          passengers={confirmedBooking.passengers}
+          breakdown={confirmedBooking.breakdown}
+          whatsappUrl={confirmedBooking.whatsappUrl}
+          isDuplicate={confirmedBooking.isDuplicate}
+          onClose={() => setConfirmedBooking(null)}
+        />
+      )}
+
+      {/* 7. Bottom Perks Marquee Bar */}
+      <FooterMarquee />
+
+      {/* 8. Trust & Legal Footer */}
       <FooterTrust />
-
-      {/* Toast notifications */}
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   )
 }

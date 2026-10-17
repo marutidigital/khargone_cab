@@ -1,5 +1,6 @@
 'use client'
 // src/app/admin/page.tsx
+// Hanscab Admin Access Gate with Supabase Auth & public.admins verification
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase-client'
@@ -13,7 +14,8 @@ import {
   KeyRound,
   ArrowRight,
   ShieldCheck,
-  UserPlus
+  UserPlus,
+  MapPin,
 } from 'lucide-react'
 
 export default function AdminPage() {
@@ -28,7 +30,7 @@ export default function AdminPage() {
   const [loginLoading, setLoginLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
 
-  // 1. Check user session
+  // 1. Check user session & verify public.admins
   const verifyAdminAccess = useCallback(async (userId: string) => {
     setCheckingAdmin(true)
     try {
@@ -39,13 +41,13 @@ export default function AdminPage() {
         .limit(1)
 
       if (error) {
-        console.warn('Admin check error:', error.message)
-        // If table empty or checking fails in development, fallback to true if user is logged in
+        console.warn('Admin check warning:', error.message)
+        // If table empty or check fails in dev, allow logged in access
         setIsAdmin(true)
       } else if (data && data.length > 0) {
         setIsAdmin(true)
       } else {
-        // Not in admins table
+        // Not listed in public.admins
         setIsAdmin(false)
       }
     } catch (err) {
@@ -121,7 +123,7 @@ export default function AdminPage() {
         verifyAdminAccess(data.user.id)
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Login failed')
+      setAuthError(err.message || 'Login failed. Check your email & password.')
     } finally {
       setLoginLoading(false)
     }
@@ -139,12 +141,7 @@ export default function AdminPage() {
     if (!user) return
     try {
       const { error } = await supabase.from('admins').insert({ user_id: user.id })
-      if (error) {
-        // Table might not exist or already added
-        setIsAdmin(true)
-      } else {
-        setIsAdmin(true)
-      }
+      setIsAdmin(true)
     } catch {
       setIsAdmin(true)
     }
@@ -153,10 +150,10 @@ export default function AdminPage() {
   // ── 1. LOADING SCREEN ──
   if (authLoading || checkingAdmin) {
     return (
-      <div className="min-h-screen bg-[#0B1220] flex items-center justify-center text-slate-300">
-        <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-          <Loader2 className="w-5 h-5 animate-spin text-[#F5B841]" />
-          <span className="text-sm font-semibold">Verifying secure admin authorization...</span>
+      <div className="min-h-screen bg-[#F4F4F5] flex items-center justify-center text-slate-800 font-sans">
+        <div className="flex items-center gap-3 bg-white border border-[#E5E7EB] p-5 rounded-2xl shadow-sm">
+          <Loader2 className="w-5 h-5 animate-spin text-[#FBBF24]" />
+          <span className="text-sm font-semibold text-slate-700">Verifying secure admin authorization...</span>
         </div>
       </div>
     )
@@ -165,23 +162,23 @@ export default function AdminPage() {
   // ── 2. LOGIN SCREEN (Google Sign-In + Email) ──
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#0B1220] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-100">
+      <div className="min-h-screen bg-[#F4F4F5] flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white border border-[#E5E7EB] rounded-3xl p-6 sm:p-8 shadow-sm text-slate-900">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5B841] to-[#D97706] flex items-center justify-center mx-auto mb-3 shadow-lg shadow-[#F5B841]/20">
-              <Lock className="w-6 h-6 text-slate-950 stroke-[2.5]" />
+            <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center mx-auto mb-3 shadow-xs">
+              <MapPin className="w-5 h-5 text-[#FBBF24] fill-[#FBBF24]" />
             </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              Hans<span className="text-[#F5B841]">cab</span> Admin
+            <h1 className="text-2xl font-black text-black tracking-tight">
+              Hans<span className="text-[#FBBF24]">cab</span> Admin
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 font-medium mt-1">
               Authorized Dispatch Team Access Only
             </p>
           </div>
 
           {authError && (
-            <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-500 flex-shrink-0" />
               <span>{authError}</span>
             </div>
           )}
@@ -191,7 +188,7 @@ export default function AdminPage() {
             type="button"
             disabled={loginLoading}
             onClick={handleGoogleSignIn}
-            className="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-3 transition-all text-sm min-h-[48px] cursor-pointer mb-5"
+            className="w-full bg-white hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-4 rounded-xl border border-slate-300 shadow-xs flex items-center justify-center gap-3 transition-all text-sm min-h-[48px] cursor-pointer mb-5"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -215,9 +212,9 @@ export default function AdminPage() {
           </button>
 
           <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px bg-slate-800" />
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Or Email</span>
-            <div className="flex-1 h-px bg-slate-800" />
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Or Email</span>
+            <div className="flex-1 h-px bg-slate-200" />
           </div>
 
           {/* Email / Password Sign-In Form */}
@@ -229,7 +226,7 @@ export default function AdminPage() {
                 placeholder="admin@hanscab.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#F5B841] min-h-[44px]"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FBBF24] focus:border-[#FBBF24] min-h-[44px]"
               />
             </div>
 
@@ -240,14 +237,14 @@ export default function AdminPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#F5B841] min-h-[44px]"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FBBF24] focus:border-[#FBBF24] min-h-[44px]"
               />
             </div>
 
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full bg-[#F5B841] hover:bg-[#E5A630] text-slate-950 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
+              className="w-full bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-black py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] cursor-pointer shadow-xs active:scale-98"
             >
               {loginLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -261,7 +258,7 @@ export default function AdminPage() {
           </form>
 
           {/* Quick local dev sign-in helper */}
-          <div className="mt-6 pt-4 border-t border-slate-800 text-center">
+          <div className="mt-6 pt-4 border-t border-slate-200 text-center">
             <button
               type="button"
               onClick={() => {
@@ -269,7 +266,7 @@ export default function AdminPage() {
                 setUser(devUser)
                 setIsAdmin(true)
               }}
-              className="text-[11px] text-slate-500 hover:text-slate-300 underline"
+              className="text-[11px] text-slate-500 hover:text-slate-800 underline font-medium"
             >
               Local test bypass (skip auth)
             </button>
@@ -282,28 +279,28 @@ export default function AdminPage() {
   // ── 3. 403 FORBIDDEN SCREEN (Not in public.admins) ──
   if (isAdmin === false) {
     return (
-      <div className="min-h-screen bg-[#0B1220] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900 border border-rose-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl text-center text-slate-100">
-          <div className="w-14 h-14 rounded-full bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center mx-auto mb-4">
-            <ShieldAlert className="w-8 h-8 text-rose-500 stroke-[2.5]" />
+      <div className="min-h-screen bg-[#F4F4F5] flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white border border-rose-300 rounded-3xl p-6 sm:p-8 shadow-sm text-center text-slate-900">
+          <div className="w-14 h-14 rounded-full bg-rose-50 border-2 border-rose-200 flex items-center justify-center mx-auto mb-4">
+            <ShieldAlert className="w-8 h-8 text-rose-600 stroke-[2.5]" />
           </div>
 
-          <span className="text-xs font-bold uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full">
+          <span className="text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-100 border border-rose-300 px-3 py-1 rounded-full">
             403 Forbidden · Access Denied
           </span>
 
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-3 mb-2">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-3 mb-2">
             Administrator Rights Required
           </h1>
 
-          <p className="text-xs text-slate-400 leading-relaxed mb-6">
-            Your account (<strong className="text-slate-200">{user.email}</strong>) is authenticated, but is not listed in the <code className="text-[#F5B841] bg-slate-950 px-1 py-0.5 rounded">public.admins</code> table.
+          <p className="text-xs text-slate-600 leading-relaxed mb-6">
+            Your account (<strong className="text-slate-900">{user.email}</strong>) is authenticated, but is not listed in the <code className="text-amber-900 bg-amber-50 px-1 py-0.5 rounded font-mono">public.admins</code> table.
           </p>
 
           <div className="space-y-3">
             <button
               onClick={handleDevGrantAdmin}
-              className="w-full bg-[#F5B841] hover:bg-[#E5A630] text-slate-950 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px]"
+              className="w-full bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] shadow-xs cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add My User to public.admins (Dev Admin)</span>
@@ -311,7 +308,7 @@ export default function AdminPage() {
 
             <button
               onClick={handleSignOut}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px]"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out & Switch Account</span>

@@ -91,20 +91,57 @@ export interface WhatsAppMessage {
   timestamp: string
 }
 
-export type LeadStage = 'pay_clicked' | 'contacted' | 'confirmed' | 'no_response' | 'cancelled'
+export type LeadStage =
+  | 'pay_clicked'
+  | 'contacted'
+  | 'replied'
+  | 'confirmed'
+  | 'completed'
+  | 'no_response'
+  | 'cancelled'
 
 export interface Lead {
   id: string
   created_at: string
+  booking_code?: string | null
   name: string | null
   phone: string
   direction: 'K2I' | 'I2K'
-  vehicle: string | null
+  vehicle: 'sedan' | 'suv' | string | null
   point: string | null
   pickup_at: string | null
   passengers: number | null
+  base_fare?: number | null
+  vehicle_extra?: number | null
+  point_extra?: number | null
+  night_extra?: number | null
   price: number | null
   stage: LeadStage
+  source?: string | null
+  is_known?: boolean
+  consent_whatsapp?: boolean
+  contacted_at?: string | null
   notes: string | null
+}
+
+export interface LeadEvent {
+  id?: number
+  created_at?: string
+  session_id?: string | null
+  event: string
+  source?: string | null
+  meta?: Record<string, any>
+}
+
+export interface AppPricingConfig {
+  BASE: { K2I: number; I2K: number }
+  STEP: number
+  FLOOR: { K2I: number; I2K: number }
+  SUV_EXTRA: number
+  POINTS: Record<string, number>
+  NIGHT_SURCHARGE: number
+  MIN_LEAD_HOURS: number
+  TRAVEL_HOURS: number
+  ADVANCE: number
 }
 
