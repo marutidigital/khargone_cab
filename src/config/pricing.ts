@@ -13,7 +13,7 @@ export interface VehicleConfig {
   badgeColor: string
   image: string
   upgradePrice?: number
-  baseFare?: number
+  baseFare: number
   features: string[]
 }
 
@@ -82,7 +82,15 @@ export const PRICING_CONFIG = {
   advanceDeposit: DEFAULT_PRICING_CONFIG.ADVANCE,
   nightSurcharge: DEFAULT_PRICING_CONFIG.NIGHT_SURCHARGE,
   indoreToKhargoneDiscount: 200,
+  sameDaySurcharge: 300,
+  nextDaySurcharge: 200,
   driverCallMinutesBefore: 45,
+  offers: {
+    referral: {
+      enabled: false,
+      discount: 100,
+    },
+  },
 
   vehicles: {
     sedan: {
