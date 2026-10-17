@@ -13,6 +13,7 @@ export interface VehicleConfig {
   badgeColor: string
   image: string
   upgradePrice?: number
+  baseFare?: number
   features: string[]
 }
 
@@ -95,6 +96,7 @@ export const PRICING_CONFIG = {
       badge: 'Recommended',
       badgeColor: 'amber',
       image: '/cars/sedan.webp',
+      baseFare: 1700,
       features: ['Up to 4 passengers', '2-3 luggage bags', 'AC comfortable seats'],
     },
     suv: {
@@ -108,6 +110,7 @@ export const PRICING_CONFIG = {
       badge: 'Best for Families',
       badgeColor: 'blue',
       upgradePrice: 600,
+      baseFare: 2300,
       image: '/cars/suv.webp',
       features: ['Up to 6 passengers', '4-5 bags', 'AC extra spacious'],
     },
@@ -257,3 +260,48 @@ export function computeFare(params: {
     balanceFare,
   }
 }
+
+export interface LivePriceBreakdown {
+  baseFare: number
+  vehicleExtra: number
+  pointExtra: number
+  directionDiscount: number
+  nightSurcharge: number
+  sameDaySurcharge: number
+  nextDaySurcharge: number
+  referralDiscount: number
+  advanceDeposit: number
+  balanceFare: number
+  totalFare: number
+}
+
+export function computeBookingPrice(params: {
+  vehicle: 'sedan' | 'suv'
+  pointId: string
+  direction: string
+  daysAhead: number
+  hour: number
+}): LivePriceBreakdown {
+  const breakdown = computeFare({
+    direction: params.direction as any,
+    vehicle: params.vehicle,
+    pointIdOrName: params.pointId,
+    daysAhead: params.daysAhead,
+    hour: params.hour,
+  })
+
+  return {
+    baseFare: breakdown.dateFare,
+    vehicleExtra: breakdown.vehicleExtra,
+    pointExtra: breakdown.pointExtra,
+    directionDiscount: params.direction === 'IK' || params.direction === 'I2K' ? 200 : 0,
+    nightSurcharge: breakdown.nightExtra,
+    sameDaySurcharge: 0,
+    nextDaySurcharge: 0,
+    referralDiscount: 0,
+    advanceDeposit: breakdown.advanceDeposit,
+    balanceFare: breakdown.balanceFare,
+    totalFare: breakdown.totalFare,
+  }
+}
+
