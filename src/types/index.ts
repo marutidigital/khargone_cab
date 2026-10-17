@@ -1,8 +1,9 @@
 // src/types/index.ts
 
 export type Direction = 'KI' | 'IK'
-export type DropPoint = 'rajendra' | 'railway' | 'airport'
+export type DropPoint = 'rajendra' | 'railway' | 'airport' | 'bhawarkua' | 'rajwada'
 export type BookingStatus = 'waiting' | 'confirmed' | 'cancelled'
+export type VehicleType = 'sedan' | 'suv'
 
 export interface DropOption {
   id: DropPoint
@@ -33,6 +34,7 @@ export interface Booking {
   matched_with?: string
   whatsapp_sent: boolean
   email_sent: boolean
+  advance_paid?: number
   created_at: string
   updated_at: string
 }
@@ -45,6 +47,7 @@ export interface BookingFormData {
   passenger_name: string
   phone: string
   email?: string
+  consent: boolean
 }
 
 export interface PriceBreakdown {
@@ -52,7 +55,34 @@ export interface PriceBreakdown {
   extra: number
   discount: number
   night_extra: number
+  same_day_extra?: number
+  next_day_extra?: number
   total: number
+}
+
+export type BookingEventType =
+  | 'page_view'
+  | 'route_selected'
+  | 'vehicle_selected'
+  | 'date_selected'
+  | 'details_filled'
+  | 'payment_screen_reached'
+  | 'whatsapp_clicked'
+
+export interface BookingEvent {
+  id: string
+  created_at: string
+  session_id: string
+  event: BookingEventType
+  direction?: Direction
+  vehicle?: VehicleType
+  point?: string
+  travel_date?: string
+  time_slot?: string
+  price?: number
+  phone?: string | null
+  name?: string | null
+  paid?: boolean
 }
 
 export interface WhatsAppMessage {
@@ -60,3 +90,21 @@ export interface WhatsAppMessage {
   content: string
   timestamp: string
 }
+
+export type LeadStage = 'pay_clicked' | 'contacted' | 'confirmed' | 'no_response' | 'cancelled'
+
+export interface Lead {
+  id: string
+  created_at: string
+  name: string | null
+  phone: string
+  direction: 'K2I' | 'I2K'
+  vehicle: string | null
+  point: string | null
+  pickup_at: string | null
+  passengers: number | null
+  price: number | null
+  stage: LeadStage
+  notes: string | null
+}
+

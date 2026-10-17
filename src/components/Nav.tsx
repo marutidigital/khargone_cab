@@ -2,61 +2,53 @@
 // src/components/Nav.tsx
 
 import Link from 'next/link'
-import { MapPin } from 'lucide-react'
+import { Shield, MessageCircle, Phone } from 'lucide-react'
+import { PRICING_CONFIG } from '@/config/pricing'
 
 export function Nav() {
+  const whatsappUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent('Hi Hanscab, I have a question about booking a cab between Khargone and Indore.')}`
+
   return (
-    <nav className="site-nav" style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 40px',
-      height: 64,
-      background: '#FFFFFF',
-      borderBottom: '1px solid var(--line)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 200,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    }}>
-      {/* Logo */}
-      <Link href="/" className="site-logo" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 34,
-          height: 34,
-          background: '#111',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <MapPin size={18} fill="#FFC107" color="#FFC107" />
-        </div>
-        <span className="site-logo-text" style={{ fontSize: 20, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>
-          Khargone<span style={{ color: '#FFC107' }}>_Cab</span>
-        </span>
-      </Link>
-
-      {/* Nav Links */}
-      <div className="site-nav-links" style={{ display: 'flex', alignItems: 'center', gap: 36 }}>
-        <Link href="/" style={{ fontSize: 14, fontWeight: 500, color: '#111', letterSpacing: '-0.01em' }}>Home</Link>
-        <Link href="/admin" style={{ fontSize: 14, fontWeight: 500, color: '#666', letterSpacing: '-0.01em' }}>Admin</Link>
-
-        <Link href="/#booking" style={{
-          background: '#FFC107',
-          color: '#000',
-          padding: '10px 26px',
-          borderRadius: 8,
-          fontWeight: 700,
-          fontSize: 14,
-          letterSpacing: '-0.01em',
-          boxShadow: '0 2px 8px rgba(255,193,7,0.35)',
-          transition: 'all 0.2s ease',
-        }}>
-          Book Now
+    <header className="sticky top-0 z-50 bg-[#0B1220]/95 backdrop-blur-md border-b border-slate-800/80 shadow-lg">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        {/* Brand Logo */}
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 text-white focus:outline-none focus:ring-2 focus:ring-[#F5B841] rounded-lg p-1"
+          aria-label="Hanscab Home"
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F5B841] to-[#D97706] flex items-center justify-center shadow-md shadow-[#F5B841]/20">
+            <span className="font-extrabold text-slate-950 text-xl tracking-tighter">H</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl font-extrabold tracking-tight text-white leading-none">
+              Hans<span className="text-[#F5B841]">cab</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+              Khargone ↔ Indore Private Cabs
+            </span>
+          </div>
         </Link>
+
+        {/* Right action: WhatsApp & Trust */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-300 font-medium bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/60">
+            <Shield className="w-3.5 h-3.5 text-[#F5B841]" />
+            <span>Private Cars Only</span>
+          </div>
+
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 min-h-[44px] min-w-[44px]"
+            aria-label="Contact Hanscab on WhatsApp"
+          >
+            <MessageCircle className="w-4 h-4 fill-current" />
+            <span className="hidden xs:inline">WhatsApp Help</span>
+          </a>
+        </div>
       </div>
-    </nav>
+    </header>
   )
 }

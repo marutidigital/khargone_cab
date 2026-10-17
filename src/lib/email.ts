@@ -24,8 +24,8 @@ function bookingEmailHtml(b: Booking, type: 'confirmation' | 'admin') {
 <body style="margin:0;padding:0;background:#0C0C0B;font-family:'Courier New',monospace;color:#F0EFE8;">
   <div style="max-width:480px;margin:0 auto;padding:24px 16px;">
     <div style="margin-bottom:24px;">
-      <span style="font-size:24px;font-weight:700;letter-spacing:-0.03em;">KC<span style="color:#C9A84C;">.</span></span>
-      <span style="font-size:10px;color:#6B6B65;letter-spacing:0.1em;text-transform:uppercase;margin-left:12px;">Khargone Cabs</span>
+      <span style="font-size:24px;font-weight:700;letter-spacing:-0.03em;">Hanscab<span style="color:#F5B841;">.</span></span>
+      <span style="font-size:10px;color:#6B6B65;letter-spacing:0.1em;text-transform:uppercase;margin-left:12px;">hanscab.in</span>
     </div>
 
     <div style="background:#141413;border-radius:12px;border:1px solid #232321;overflow:hidden;margin-bottom:16px;">
@@ -82,8 +82,8 @@ function bookingEmailHtml(b: Booking, type: 'confirmation' | 'admin') {
     </div>
 
     <div style="font-size:10px;color:#3D3D39;text-align:center;line-height:1.6;">
-      Full Dzire AC · 1–4 passengers · Driver: +₹15/km beyond Rajendra Nagar<br>
-      Khargone Cabs · khargonecabs.com
+      Private AC Cab · Khargone ↔ Indore<br>
+      Hanscab · hanscab.in
     </div>
   </div>
 </body>

@@ -9,7 +9,7 @@ import type { Booking } from '@/types'
 
 const BookingSchema = z.object({
   direction:      z.enum(['KI', 'IK']),
-  drop_point:     z.enum(['rajendra', 'railway', 'airport']),
+  drop_point:     z.enum(['rajendra', 'railway', 'airport', 'bhawarkua', 'rajwada']),
   drop_name:      z.string().min(2).optional(),
   travel_date:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
     value => {
@@ -23,7 +23,7 @@ const BookingSchema = z.object({
   phone:          z.string().regex(/^[6-9]\d{9}$/),
   email:          z.string().trim().email().optional().or(z.literal('')),
   extra:          z.number().int().min(0).optional(),
-  days_ahead:     z.number().int().min(1).max(60).optional(),
+  days_ahead:     z.number().int().min(0).max(60).optional(),
   vehicle:        z.enum(['sedan', 'suv']).optional(),
 })
 
@@ -79,14 +79,14 @@ export async function POST(req: NextRequest) {
     const daysAhead = Math.round(
       (Date.parse(`${d.travel_date}T00:00:00Z`) - Date.parse(`${indiaToday}T00:00:00Z`)) / 86_400_000
     )
-    if (daysAhead < 1 || daysAhead > 60) {
-      return NextResponse.json({ error: 'Travel date must be between 1 and 60 days from today' }, { status: 400 })
+    if (daysAhead < 0 || daysAhead > 60) {
+      return NextResponse.json({ error: 'Travel date must be between today and 60 days ahead' }, { status: 400 })
     }
 
     const [h] = d.pickup_time.split(':').map(Number)
     const isNight = isNightHour(h)
     const vehicleExtra = vehicle === 'suv' ? 600 : 0
-    const price   = calcPrice(point.extra, daysAhead, isNight, vehicleExtra)
+    const price = calcPrice(point.extra, daysAhead, isNight, vehicleExtra, d.direction)
 
     const supabase = createServiceClient()
 

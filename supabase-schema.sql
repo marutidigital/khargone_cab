@@ -53,7 +53,7 @@ create table if not exists public.bookings (
   id               uuid primary key default uuid_generate_v4(),
   booking_ref      text unique not null,
   direction        text not null check (direction in ('KI', 'IK')),
-  drop_point       text not null check (drop_point in ('rajendra', 'railway', 'airport')),
+  drop_point       text not null check (drop_point in ('rajendra', 'railway', 'airport', 'bhawarkua', 'rajwada')),
   drop_name        text not null,
   travel_date      date not null,
   pickup_time      time not null,
@@ -105,6 +105,23 @@ alter table public.bookings
   add column if not exists agent_id uuid references public.agents(id) on delete set null,
   add column if not exists agent_name text;
 
+-- Event tracking table for analytics & temporary payment screen monitoring
+create table if not exists public.booking_events (
+  id           uuid primary key default uuid_generate_v4(),
+  created_at   timestamptz not null default now(),
+  session_id   text not null,
+  event        text not null,
+  direction    text,
+  vehicle      text,
+  point        text,
+  travel_date  text,
+  time_slot    text,
+  price        integer,
+  phone        text,
+  name         text,
+  paid         boolean not null default false
+);
+
 -- All application data is server-only. The service role bypasses RLS, while
 -- browser roles cannot read or mutate customer or operational records directly.
 alter table public.clients enable row level security;
@@ -112,12 +129,17 @@ alter table public.drivers enable row level security;
 alter table public.agents enable row level security;
 alter table public.bookings enable row level security;
 alter table public.whatsapp_sessions enable row level security;
+alter table public.booking_events enable row level security;
 
 revoke all on table public.clients from anon, authenticated;
 revoke all on table public.drivers from anon, authenticated;
 revoke all on table public.agents from anon, authenticated;
 revoke all on table public.bookings from anon, authenticated;
 revoke all on table public.whatsapp_sessions from anon, authenticated;
+revoke all on table public.booking_events from anon, authenticated;
+
+grant all on table public.booking_events to service_role;
+grant select, insert on table public.booking_events to anon, authenticated;
 
 create index if not exists idx_clients_phone on public.clients(phone);
 create index if not exists idx_drivers_status on public.drivers(status);
@@ -186,4 +208,37 @@ revoke execute on function public.update_updated_at() from public, anon, authent
 revoke execute on function public.generate_booking_ref() from public, anon, authenticated;
 grant execute on function public.generate_booking_ref() to service_role;
 
+-- Hanscab Test Phase Leads & Admins
+create table if not exists public.admins (
+  user_id uuid primary key references auth.users(id) on delete cascade
+);
+
+create table if not exists public.leads (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz default now(),
+  name text,
+  phone text not null,
+  direction text not null check (direction in ('K2I','I2K')),
+  vehicle text,
+  point text,
+  pickup_at timestamptz,
+  passengers int,
+  price int,
+  stage text not null default 'pay_clicked',
+  notes text
+);
+
+alter table public.leads enable row level security;
+alter table public.admins enable row level security;
+
+create policy "anyone can add lead" on public.leads for insert
+  to anon, authenticated with check (stage = 'pay_clicked');
+create policy "admin reads leads" on public.leads for select to authenticated
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+create policy "admin updates leads" on public.leads for update to authenticated
+  using (exists (select 1 from public.admins where user_id = auth.uid()));
+create policy "admin reads admins" on public.admins for select to authenticated
+  using (user_id = auth.uid());
+
 commit;
+

@@ -1,51 +1,64 @@
 // src/lib/constants.ts
-
 import type { DropOption, Direction } from '@/types'
+import { PRICING_CONFIG, isNightTime, computeBookingPrice } from '@/config/pricing'
 
-export const BASE_FARE = 2000
-export const NIGHT_EXTRA = 300
+export const BASE_FARE = PRICING_CONFIG.vehicles.sedan.baseFare
+export const NIGHT_EXTRA = PRICING_CONFIG.nightSurcharge
 
 export const POINTS: Record<Direction, DropOption[]> = {
-  KI: [
-    { id: 'rajendra', name: 'Rajendra Nagar', sub: 'City drop · base fare', extra: 0 },
-    { id: 'railway',  name: 'Railway Station', sub: 'Indore Junction · +₹200', extra: 200 },
-    { id: 'airport',  name: 'Airport (IDR)',   sub: 'Devi Ahilya Airport · +₹300', extra: 300 },
-  ],
-  IK: [
-    { id: 'rajendra', name: 'Rajendra Nagar', sub: 'City pickup · base fare', extra: 0 },
-    { id: 'railway',  name: 'Railway Station', sub: 'Indore Junction · +₹200', extra: 200 },
-    { id: 'airport',  name: 'Airport (IDR)',   sub: 'Devi Ahilya Airport · +₹300', extra: 300 },
-  ],
+  KI: PRICING_CONFIG.points.map(p => ({
+    id: p.id,
+    name: p.name,
+    sub: p.sub,
+    extra: p.extra,
+  })),
+  IK: PRICING_CONFIG.points.map(p => ({
+    id: p.id,
+    name: p.name,
+    sub: p.sub,
+    extra: p.extra,
+  })),
 }
 
 export const TIME_SLOTS = {
-  morning:   { label: 'Morning',   range: '05:00–10:59', defaultH: 8,  defaultM: 0, minH: 5,  maxH: 10 },
-  afternoon: { label: 'Afternoon', range: '11:00–16:59', defaultH: 12, defaultM: 0, minH: 11, maxH: 16 },
-  evening:   { label: 'Evening',   range: '17:00–21:59', defaultH: 18, defaultM: 0, minH: 17, maxH: 21 },
-  night:     { label: 'Night',     range: '22:00–04:59', defaultH: 22, defaultM: 0, minH: 22, maxH: 28 },
-}
-
-export function getDiscount(daysAhead: number): number {
-  if (daysAhead >= 4) return 300
-  if (daysAhead === 3) return 200
-  if (daysAhead === 2) return 100
-  return 0
+  morning:   { label: 'Morning',   range: '05:00–11:30', defaultH: 8,  defaultM: 0, minH: 5,  maxH: 11 },
+  afternoon: { label: 'Afternoon', range: '12:00–16:30', defaultH: 12, defaultM: 0, minH: 12, maxH: 16 },
+  evening:   { label: 'Evening',   range: '17:00–21:30', defaultH: 18, defaultM: 0, minH: 17, maxH: 21 },
+  night:     { label: 'Night',     range: '22:00–04:30', defaultH: 22, defaultM: 0, minH: 22, maxH: 28 },
 }
 
 export function isNightHour(h: number): boolean {
-  return h >= 22 || h < 5
+  return isNightTime(h)
 }
 
-export function calcPrice(dropExtra: number, daysAhead: number, isNight: boolean, vehicleExtra: number = 0) {
-  const base     = BASE_FARE + vehicleExtra
-  const discount = getDiscount(daysAhead)
-  const night    = isNight ? NIGHT_EXTRA : 0
+export function calcPrice(
+  dropExtra: number,
+  daysAhead: number,
+  isNight: boolean,
+  vehicleExtra: number = 0,
+  direction: Direction = 'KI'
+) {
+  const isSUV = vehicleExtra > 0
+  const vehicle = isSUV ? 'suv' : 'sedan'
+  const point = PRICING_CONFIG.points.find(p => p.extra === dropExtra) || PRICING_CONFIG.points[0]
+  const hour = isNight ? 23 : 10
+
+  const res = computeBookingPrice({
+    vehicle,
+    pointId: point.id,
+    direction,
+    daysAhead,
+    hour,
+  })
+
   return {
-    base,
-    extra: dropExtra,
-    discount,
-    night_extra: night,
-    total: base + dropExtra - discount + night,
+    base: res.baseFare,
+    extra: res.pointExtra,
+    discount: res.directionDiscount + res.referralDiscount,
+    night_extra: res.nightSurcharge,
+    same_day_extra: res.sameDaySurcharge,
+    next_day_extra: res.nextDaySurcharge,
+    total: res.totalFare,
   }
 }
 
