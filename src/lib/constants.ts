@@ -1,6 +1,6 @@
 // src/lib/constants.ts
 import type { DropOption, Direction } from '@/types'
-import { PRICING_CONFIG, isNightTime, computeBookingPrice } from '@/config/pricing'
+import { PRICING_CONFIG, isNightTime, computeBookingPrice, getPointFare } from '@/config/pricing'
 
 export const BASE_FARE = PRICING_CONFIG.vehicles.sedan.baseFare
 export const NIGHT_EXTRA = PRICING_CONFIG.nightSurcharge
@@ -10,13 +10,13 @@ export const POINTS: Record<Direction, DropOption[]> = {
     id: p.id,
     name: p.name,
     sub: p.sub,
-    extra: p.extra,
+    extra: getPointFare(p.id),
   })),
   IK: PRICING_CONFIG.points.map(p => ({
     id: p.id,
     name: p.name,
     sub: p.sub,
-    extra: p.extra,
+    extra: getPointFare(p.id),
   })),
 }
 
@@ -32,7 +32,7 @@ export function isNightHour(h: number): boolean {
 }
 
 export function calcPrice(
-  dropExtra: number,
+  pointId: string,
   daysAhead: number,
   isNight: boolean,
   vehicleExtra: number = 0,
@@ -40,12 +40,11 @@ export function calcPrice(
 ) {
   const isSUV = vehicleExtra > 0
   const vehicle = isSUV ? 'suv' : 'sedan'
-  const point = PRICING_CONFIG.points.find(p => p.extra === dropExtra) || PRICING_CONFIG.points[0]
   const hour = isNight ? 23 : 10
 
   const res = computeBookingPrice({
     vehicle,
-    pointId: point.id,
+    pointId,
     direction,
     daysAhead,
     hour,
@@ -54,6 +53,11 @@ export function calcPrice(
   return {
     base: res.baseFare,
     extra: res.pointExtra,
+    distanceCharge: res.distanceCharge,
+    chargeableDistanceKm: res.chargeableDistanceKm,
+    routeDistanceKm: res.routeDistanceKm,
+    kmRate: res.kmRate,
+    tollEstimate: res.tollEstimate,
     discount: res.directionDiscount + res.referralDiscount,
     night_extra: res.nightSurcharge,
     same_day_extra: res.sameDaySurcharge,

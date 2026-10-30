@@ -1,6 +1,6 @@
 'use client'
 // src/components/Nav.tsx
-// White header with Hanscab logo (black circle with yellow pin icon), Home link, and yellow "Book Now" button
+// White header with MarutiCab logo (black circle with yellow pin icon), Home link, and yellow "Book Now" button
 
 import Link from 'next/link'
 import { MapPin, Phone } from 'lucide-react'
@@ -22,7 +22,7 @@ export function Nav() {
         <Link
           href="/"
           className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-[#FBBF24] rounded-lg p-1"
-          aria-label="Hanscab Home"
+          aria-label="MarutiCab Home"
         >
           {/* Black circle with yellow pin icon */}
           <div className="w-9 h-9 rounded-full bg-black flex items-center justify-center shadow-xs">
@@ -31,10 +31,10 @@ export function Nav() {
 
           <div className="flex items-baseline">
             <span className="text-2xl font-black text-black tracking-tight leading-none font-sans">
-              Hans
+              Maruti
             </span>
             <span className="text-2xl font-black text-[#FBBF24] tracking-tight leading-none font-sans">
-              cab
+              Cab
             </span>
           </div>
         </Link>

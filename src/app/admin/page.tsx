@@ -1,6 +1,6 @@
 'use client'
 // src/app/admin/page.tsx
-// Hanscab Admin Access Gate with Supabase Auth & public.admins verification
+// MarutiCab Admin Access Gate with Supabase Auth & public.admins verification
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase-client'
@@ -169,7 +169,7 @@ export default function AdminPage() {
               <MapPin className="w-5 h-5 text-[#FBBF24] fill-[#FBBF24]" />
             </div>
             <h1 className="text-2xl font-black text-black tracking-tight">
-              Hans<span className="text-[#FBBF24]">cab</span> Admin
+              Maruti<span className="text-[#FBBF24]">Cab</span> Admin
             </h1>
             <p className="text-xs text-slate-500 font-medium mt-1">
               Authorized Dispatch Team Access Only

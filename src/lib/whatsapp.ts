@@ -65,7 +65,7 @@ export async function sendBookingConfirmation(booking: {
   const statusIcon = booking.status === 'confirmed' ? '✅' : '⏳'
   const statusText = booking.status === 'confirmed' ? 'CONFIRMED' : 'WAITING FOR MATCH'
 
-  let msg = `*Hanscab (hanscab.in)*\n`
+  let msg = `*MarutiCab (hanscab.in)*\n`
   msg += `━━━━━━━━━━━━━━\n`
   msg += `${statusIcon} Booking ${statusText}\n\n`
   msg += `*Ref:* ${booking.booking_ref}\n`
@@ -84,7 +84,7 @@ export async function sendBookingConfirmation(booking: {
   }
 
   msg += `Questions? Reply to this message.\n`
-  msg += `_Hanscab — Reliable Private Cabs Khargone ↔ Indore_`
+  msg += `_MarutiCab — Reliable Private Cabs Khargone ↔ Indore_`
 
   return sendTextMessage({ to: booking.phone, text: msg })
 }
@@ -98,7 +98,7 @@ export async function sendMatchNotification(booking: {
   pickup_time: string
 }) {
   const dirLabel = booking.direction === 'KI' ? 'Khargone → Indore' : 'Indore → Khargone'
-  const msg = `*Hanscab* ✅\n\nGreat news, ${booking.passenger_name}!\n\nYour booking *${booking.booking_ref}* has been *CONFIRMED*!\n\n*Route:* ${dirLabel}\n*Date:* ${booking.travel_date} · ${booking.pickup_time}\n\nYour driver will call you 30 minutes before pickup. Reply with any questions.`
+  const msg = `*MarutiCab* ✅\n\nGreat news, ${booking.passenger_name}!\n\nYour booking *${booking.booking_ref}* has been *CONFIRMED*!\n\n*Route:* ${dirLabel}\n*Date:* ${booking.travel_date} · ${booking.pickup_time}\n\nYour driver will call you 30 minutes before pickup. Reply with any questions.`
   return sendTextMessage({ to: booking.phone, text: msg })
 }
 

@@ -91,7 +91,7 @@ export function AdminAuthLogin({ onSuccess }: Props) {
             <Lock className="w-6 h-6 text-slate-950 stroke-[2.5]" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">
-            Hans<span className="text-[#F5B841]">cab</span> Admin
+            Maruti<span className="text-[#F5B841]">Cab</span> Admin
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             Protected Operations & Dispatch Portal

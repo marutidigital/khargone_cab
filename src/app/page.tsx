@@ -1,6 +1,6 @@
 'use client'
 // src/app/page.tsx
-// Hanscab - Single Continuous Scrolling Page (Khargone <-> Indore Private Cabs)
+// MarutiCab - Single Continuous Scrolling Page (Khargone <-> Indore Private Cabs)
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Nav } from '@/components/Nav'
@@ -162,8 +162,8 @@ export default function Home() {
   }
 
   // 5. Actions & Handlers
-  const handleSwapDirection = () => {
-    const nextDir = direction === 'K2I' ? 'I2K' : 'K2I'
+  const handleSelectDirection = (nextDir: 'K2I' | 'I2K') => {
+    if (direction === nextDir) return
     setDirection(nextDir)
     logEvent({
       event: 'direction_selected',
@@ -368,9 +368,9 @@ export default function Home() {
       )}
 
       {/* 3. Main Continuous Booking Experience */}
-      <main id="booking-section" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main id="booking-section" className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 lg:px-10 py-8 sm:py-10">
         {/* Intro Subtitle */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
               <span>Book Private Cab</span>
@@ -390,15 +390,15 @@ export default function Home() {
         </div>
 
         {/* 2-Column Responsive Layout */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-9 items-start">
           {/* LEFT COLUMN: All 6 Sections in One Continuous Scrolling View */}
-          <div className="w-full lg:w-[65%] xl:w-[68%] space-y-6 sm:space-y-7">
+          <div className="w-full lg:w-[65%] xl:w-[68%] space-y-8 sm:space-y-9">
             {/* SECTION 1: Route */}
             <div id="section-route" className="scroll-mt-24">
               <SectionRoute
                 direction={direction}
                 selectedPointName={selectedPoint.name}
-                onSwapDirection={handleSwapDirection}
+                onSelectDirection={handleSelectDirection}
               />
             </div>
 
@@ -415,6 +415,8 @@ export default function Home() {
             <div id="section-point" className="scroll-mt-24">
               <SectionDropPoint
                 direction={direction}
+                vehicle={vehicle}
+                daysAhead={daysAhead}
                 selectedPointId={pointId}
                 onSelectPoint={handleSelectPoint}
               />
@@ -423,6 +425,8 @@ export default function Home() {
             {/* SECTION 4: Travel Date (45-Day runtime generator) */}
             <div id="section-date" className="scroll-mt-24">
               <SectionDate
+                pointId={pointId}
+                vehicle={vehicle}
                 direction={direction}
                 selectedDateStr={selectedDateStr}
                 onSelectDate={handleSelectDate}

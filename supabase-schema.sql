@@ -208,7 +208,7 @@ revoke execute on function public.update_updated_at() from public, anon, authent
 revoke execute on function public.generate_booking_ref() from public, anon, authenticated;
 grant execute on function public.generate_booking_ref() to service_role;
 
--- Hanscab Production Test Schema
+-- MarutiCab Production Test Schema
 create table if not exists public.admins (user_id uuid primary key references auth.users(id) on delete cascade);
 
 create table if not exists public.app_config (key text primary key, value jsonb not null);

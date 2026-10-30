@@ -15,7 +15,7 @@ import { PRICING_CONFIG } from '@/config/pricing'
 
 export function FooterTrust() {
   const whatsappUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent(
-    'Hi Hanscab, I need assistance with a cab booking.'
+    'Hi MarutiCab, I need assistance with a cab booking.'
   )}`
 
   return (
@@ -25,7 +25,7 @@ export function FooterTrust() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-1.5 bg-[#FBBF24]/20 border border-[#FBBF24]/40 px-3 py-1 rounded-full text-xs font-bold text-amber-950 mb-2">
             <Car className="w-3.5 h-3.5 text-amber-800" />
-            <span>Hanscab Verified Fleet</span>
+            <span>MarutiCab Verified Fleet</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             Clean Private Cars &amp; Trusted Local Drivers
@@ -95,7 +95,7 @@ export function FooterTrust() {
             <div>
               <div className="text-sm font-bold text-slate-900">100% Refund Guarantee</div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Full advance refund if Hanscab cannot confirm your car.
+                Full advance refund if MarutiCab cannot confirm your car.
               </p>
             </div>
           </div>
@@ -128,7 +128,7 @@ export function FooterTrust() {
         {/* Bottom Legal & Contact Row */}
         <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            &copy; {new Date().getFullYear()} Hanscab (hanscab.in). All rights reserved. Khargone ↔ Indore Private Cabs.
+            &copy; {new Date().getFullYear()} MarutiCab (hanscab.in). All rights reserved. Khargone ↔ Indore Private Cabs.
           </div>
 
           <div className="flex items-center gap-4 sm:gap-6 font-semibold">

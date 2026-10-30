@@ -53,6 +53,11 @@ export interface BookingFormData {
 export interface PriceBreakdown {
   base: number
   extra: number
+  distanceCharge: number
+  chargeableDistanceKm: number
+  routeDistanceKm: number
+  kmRate: number
+  tollEstimate: number
   discount: number
   night_extra: number
   same_day_extra?: number
@@ -139,6 +144,8 @@ export interface AppPricingConfig {
   FLOOR: { K2I: number; I2K: number }
   SUV_EXTRA: number
   POINTS: Record<string, number>
+  KM_CHARGE_PER_KM: number
+  TOLL_ESTIMATE: number
   NIGHT_SURCHARGE: number
   MIN_LEAD_HOURS: number
   TRAVEL_HOURS: number

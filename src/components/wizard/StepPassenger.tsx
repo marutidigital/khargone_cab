@@ -217,7 +217,7 @@ export function StepPassenger({ vehicle, initialData, onSave, onNext }: Props) {
             <span className="text-xs sm:text-sm text-slate-800 leading-snug">
               I agree to be contacted on WhatsApp about this booking.
               <span className="block text-[11px] text-slate-500 mt-0.5">
-                Hanscab never spams or shares your number with third parties.
+                MarutiCab never spams or shares your number with third parties.
               </span>
             </span>
           </label>

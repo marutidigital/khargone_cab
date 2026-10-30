@@ -132,10 +132,19 @@ export function TripSummaryCard({
 
       {/* Fare Breakdown */}
       <div className="p-5 space-y-2.5 text-xs bg-slate-50/50">
-        <div className="flex items-center justify-between text-slate-600">
-          <span>Standard fare</span>
-          <span>{formatRs(breakdown.standardFare)}</span>
+        <div className="flex items-center justify-between gap-3 text-slate-600">
+          <span className="min-w-0">Fare for {pointName} ({vehicleCfg.name})</span>
+          <span className="shrink-0">{formatRs(breakdown.standardFare + breakdown.vehicleExtra)}</span>
         </div>
+
+        <div className="flex items-center justify-between text-slate-500">
+          <span>Total route via Kasrawad &amp; Khalghat</span>
+          <span>{breakdown.routeDistanceKm.toFixed(1)} km</span>
+        </div>
+
+        <p className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900">
+          If you travel beyond your selected drop point, extra distance is ₹{breakdown.kmRate}/km. We’ll calculate it manually at your final destination and confirm the amount before collecting it.
+        </p>
 
         {breakdown.earlyDiscount > 0 && (
           <div className="flex items-center justify-between text-[#16A34A] font-semibold">
@@ -144,19 +153,7 @@ export function TripSummaryCard({
           </div>
         )}
 
-        {breakdown.vehicleExtra > 0 && (
-          <div className="flex items-center justify-between text-amber-900 font-semibold">
-            <span>Premium SUV upgrade</span>
-            <span>+{formatRs(breakdown.vehicleExtra)}</span>
-          </div>
-        )}
-
-        {breakdown.pointExtra > 0 && (
-          <div className="flex items-center justify-between text-amber-900 font-semibold">
-            <span>Drop point surcharge</span>
-            <span>+{formatRs(breakdown.pointExtra)}</span>
-          </div>
-        )}
+        <div className="text-[11px] text-slate-500">Tolls are included in the displayed fare.</div>
 
         {breakdown.nightExtra > 0 && (
           <div className="flex items-center justify-between text-amber-900 font-semibold">

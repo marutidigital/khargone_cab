@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { ShieldCheck, ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: 'Refund & Cancellation Policy - Hanscab',
-  description: 'Hanscab transparent 100% refund policy if your trip cannot be confirmed.',
+  title: 'Refund & Cancellation Policy - MarutiCab',
+  description: 'MarutiCab transparent 100% refund policy if your trip cannot be confirmed.',
 }
 
 export default function RefundPage() {
@@ -31,13 +31,13 @@ export default function RefundPage() {
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-3">
               Refund &amp; Cancellation Policy
             </h1>
-            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · Hanscab</p>
+            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · MarutiCab</p>
           </div>
 
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-sm text-emerald-950">
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
-              <strong>100% Full Refund Guarantee:</strong> If Hanscab cannot confirm your car or driver for any reason, you will receive a full 100% refund of your advance deposit without deductions.
+              <strong>100% Full Refund Guarantee:</strong> If MarutiCab cannot confirm your car or driver for any reason, you will receive a full 100% refund of your advance deposit without deductions.
             </div>
           </div>
 

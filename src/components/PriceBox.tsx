@@ -39,7 +39,10 @@ export function PriceBox({ price, dropName }: Props) {
         <div style={{ textAlign: 'right' }}>
           <PriceRow label={`Base (${dropName})`} value={`₹${price.base.toLocaleString('en-IN')}`} />
           {price.extra > 0 && (
-            <PriceRow label="Drop extra" value={`+₹${price.extra.toLocaleString('en-IN')}`} accent="gold" />
+            <PriceRow label="Point fee" value={`+₹${price.extra.toLocaleString('en-IN')}`} accent="gold" />
+          )}
+          {price.tollEstimate > 0 && (
+            <PriceRow label="Estimated tolls (included)" value={`₹${price.tollEstimate.toLocaleString('en-IN')}`} accent="gold" />
           )}
           {price.discount > 0 && (
             <PriceRow label="Early discount" value={`−₹${price.discount.toLocaleString('en-IN')}`} accent="green" />
@@ -59,7 +62,7 @@ export function PriceBox({ price, dropName }: Props) {
       }}>
         {price.night_extra > 0 && '₹300 night surcharge for pickups after 10 PM. '}
         {price.discount > 0 && `Early bird discount of ₹${price.discount} applied! `}
-        Driver extra for km beyond Rajendra Nagar: ₹15/km.
+        Route distance: {price.routeDistanceKm.toFixed(1)} km via Kasrawad and Khalghat. Tolls are included. Any travel beyond your selected drop point is ₹{price.kmRate}/km, calculated manually at the final destination.
       </div>
     </div>
   )

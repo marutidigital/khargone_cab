@@ -48,15 +48,15 @@ const VEHICLES: Vehicle[] = [
     badgeColor: '#1D4ED8',
     badgeBg: '#DBEAFE',
     name: 'Premium SUV',
-    seats: '7 Seater',
+    seats: '6 Seater',
     models: 'Ertiga · Carens · Innova',
     features: [
       { icon: <Users size={13} strokeWidth={2} />, text: 'Up to 6 Passengers' },
       { icon: <Briefcase size={13} strokeWidth={2} />, text: '4–5 Luggage Bags' },
       { icon: <Zap size={13} strokeWidth={2} />, text: 'AC · Extra Spacious' },
     ],
-    basePrice: 2300,
-    upgradeExtra: 600,
+    basePrice: 2200,
+    upgradeExtra: 500,
     image: '/premium_suv.png',
     imageBg: '#F4F5F6',
   },
@@ -190,7 +190,7 @@ export function VehicleSelector({ selected, onSelect }: Props) {
                   borderTop: '1px solid #F0F0F0',
                 }}>
                   <div>
-                    <span style={{ fontSize: 11, color: '#888' }}>Starting at </span>
+                    <span style={{ fontSize: 11, color: '#888' }}>Starting fare </span>
                     <span style={{ fontSize: 19, fontWeight: 800, color: '#111', letterSpacing: '-0.03em' }}>
                       ₹{v.basePrice.toLocaleString('en-IN')}
                     </span>
@@ -225,7 +225,7 @@ export function VehicleSelector({ selected, onSelect }: Props) {
       }}>
         {[
           'No Driver Allowance',
-          'No Toll',
+          'Tolls Included',
           'No Parking',
           'Everything Included in Your Fare',
         ].map(t => (

@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     if (existingLeads && existingLeads.length > 0) {
       const existing = existingLeads[0]
-      const prefilledText = `Hi Hanscab, I have already submitted booking request *${existing.booking_code || 'HC-CONFIRM'}* for ${pickup_at}. Please connect.`
+      const prefilledText = `Hi MarutiCab, I have already submitted booking request *${existing.booking_code || 'HC-CONFIRM'}* for ${pickup_at}. Please connect.`
       const waUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent(prefilledText)}`
 
       return NextResponse.json({
@@ -152,18 +152,38 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (configData && configData.value) {
-        pricingConfig = { ...DEFAULT_PRICING_CONFIG, ...configData.value }
+        const storedConfig = configData.value as Partial<PricingFormulaConfig>
+        pricingConfig = {
+          ...DEFAULT_PRICING_CONFIG,
+          ...storedConfig,
+          BASE: { K2I: 3000, I2K: 3000 },
+          STEP: 100,
+          FLOOR: { K2I: 1700, I2K: 1700 },
+          SUV_EXTRA: 500,
+          KM_CHARGE_PER_KM: 13,
+          POINTS: {
+            'Rajendra Nagar': 1700,
+            'Railway Station': 1900,
+            Airport: 2000,
+            Bhawarkua: 1800,
+            Rajwada: 2000,
+          },
+        }
       }
     } catch {
       // Use fallback DEFAULT_PRICING_CONFIG
     }
 
     // 8. Recompute price on SERVER (never trust client)
-    const today = new Date()
-    const daysAhead = Math.max(
-      0,
-      Math.ceil((pickupDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    )
+    const kolkataDate = (date: Date) => new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(date)
+    const todayParts = kolkataDate(new Date()).split('-').map(Number)
+    const pickupParts = kolkataDate(pickupDate).split('-').map(Number)
+    const daysAhead = Math.max(0, Math.round(
+      (Date.UTC(pickupParts[0], pickupParts[1] - 1, pickupParts[2]) -
+        Date.UTC(todayParts[0], todayParts[1] - 1, todayParts[2])) / 86_400_000
+    ))
     const pickupHour = pickupDate.getHours()
 
     const fareBreakdown = computeFare({
@@ -229,7 +249,7 @@ export async function POST(req: NextRequest) {
     // 12. Build WhatsApp Prefilled URL
     const routeLabel = dirNorm === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
     const waText = [
-      `*Hanscab Cab Request (${bookingCode})* 🚖`,
+      `*MarutiCab Cab Request (${bookingCode})* 🚖`,
       `• *Name:* ${sanitizedName || 'Guest'}`,
       `• *Phone:* +91 ${cleanedPhone}`,
       `• *Route:* ${routeLabel}`,
@@ -238,7 +258,7 @@ export async function POST(req: NextRequest) {
       `• *Pickup:* ${new Date(pickup_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`,
       `• *Total Price:* ${formatRs(fareBreakdown.totalFare)} (Advance: ${formatRs(fareBreakdown.advanceDeposit)}, Balance in car: ${formatRs(fareBreakdown.balanceFare)})`,
       ``,
-      `Hi Hanscab, please share the payment link and confirm my cab request.`,
+      `Hi MarutiCab, please share the payment link and confirm my cab request.`,
     ].join('\n')
 
     const whatsappUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent(waText)}`

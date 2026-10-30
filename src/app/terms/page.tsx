@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: 'Terms of Service - Hanscab',
-  description: 'Terms of Service and transparent travel conditions for Hanscab private car bookings.',
+  title: 'Terms of Service - MarutiCab',
+  description: 'Terms of Service and transparent travel conditions for MarutiCab private car bookings.',
 }
 
 export default function TermsPage() {
@@ -31,13 +31,13 @@ export default function TermsPage() {
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-3">
               Terms of Service
             </h1>
-            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · Hanscab (hanscab.in)</p>
+            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · MarutiCab (hanscab.in)</p>
           </div>
 
           <section className="space-y-4 text-sm leading-relaxed text-slate-600">
             <h2 className="text-base font-bold text-slate-900">1. Nature of Service</h2>
             <p>
-              Hanscab provides dedicated, private one-way and return cab bookings between Khargone and Indore. Every booking reserves the entire private car for your family or group without shared co-passengers.
+              MarutiCab provides dedicated, private one-way and return cab bookings between Khargone and Indore. Every booking reserves the entire private car for your family or group without shared co-passengers.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">2. All-Inclusive Pricing</h2>

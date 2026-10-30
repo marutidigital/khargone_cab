@@ -79,7 +79,7 @@ export function StepReviewConfirm({
   // Prefilled WhatsApp message
   const routeLabel = isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
   const prefilledText = [
-    `*Hanscab Cab Request* 🚖`,
+    `*MarutiCab Cab Request* 🚖`,
     `• *Name:* ${passenger.name}`,
     `• *Phone:* +91 ${passenger.phone}`,
     `• *Route:* ${routeLabel}`,
@@ -89,7 +89,7 @@ export function StepReviewConfirm({
     `• *Estimated Arrival:* about ${arrivalTime}`,
     `• *Total Price:* ${formatRs(priceBreakdown.totalFare)} (Advance: ${formatRs(priceBreakdown.advanceDeposit)}, Pay in car: ${formatRs(priceBreakdown.balanceFare)})`,
     ``,
-    `Hi Hanscab, please share the payment link and confirm my cab.`,
+    `Hi MarutiCab, please share the payment link and confirm my cab.`,
   ].join('\n')
 
   const whatsappUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent(prefilledText)}`
@@ -238,16 +238,15 @@ export function StepReviewConfirm({
         </div>
 
         <div className="flex justify-between text-sm text-slate-700">
-          <span>Base Highway Fare ({vehicleConfig.name})</span>
-          <span className="font-semibold text-slate-900">{formatRs(priceBreakdown.baseFare)}</span>
+          <span>Fare for {pointConfig.name} ({vehicleConfig.name})</span>
+          <span className="font-semibold text-slate-900">{formatRs(priceBreakdown.baseFare + priceBreakdown.vehicleExtra)}</span>
         </div>
 
-        {priceBreakdown.pointExtra > 0 && (
-          <div className="flex justify-between text-sm text-slate-700">
-            <span>{isKI ? 'Drop' : 'Pickup'} Point Charge ({pointConfig.name})</span>
-            <span className="font-semibold text-slate-900">+{formatRs(priceBreakdown.pointExtra)}</span>
-          </div>
-        )}
+        <p className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+          If you travel beyond your selected drop point, extra distance is ₹{priceBreakdown.kmRate}/km. We’ll calculate it manually at your final destination and confirm the amount before collecting it.
+        </p>
+
+        <div className="text-xs text-slate-500">Tolls are included in the displayed fare.</div>
 
         {priceBreakdown.sameDaySurcharge > 0 && (
           <div className="flex justify-between text-sm text-amber-800">

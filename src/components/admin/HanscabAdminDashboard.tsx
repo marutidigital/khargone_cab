@@ -1,6 +1,6 @@
 'use client'
 // src/components/admin/HanscabAdminDashboard.tsx
-// Hanscab Dispatch Dashboard - Light Theme with Cards, N-Tracker, Pairing Board, Directory, and CSV Export
+// MarutiCab Dispatch Dashboard - Light Theme with Cards, N-Tracker, Pairing Board, Directory, and CSV Export
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -303,7 +303,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight">
-                Hans<span className="text-[#FBBF24]">cab</span> Admin
+                Maruti<span className="text-[#FBBF24]">Cab</span> Admin
               </h1>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
                 Leads Dispatch
@@ -652,7 +652,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
                   filteredLeads.map((lead) => {
                     const cleanPhone = lead.phone.replace(/\D/g, '')
                     const callHref = `tel:+91${cleanPhone}`
-                    const waText = `Hi ${lead.name || 'Customer'}, Hanscab here regarding your ${lead.direction} trip request on ${lead.pickup_at?.split('T')[0] || 'date'}. Are you still looking to travel?`
+                    const waText = `Hi ${lead.name || 'Customer'}, MarutiCab here regarding your ${lead.direction} trip request on ${lead.pickup_at?.split('T')[0] || 'date'}. Are you still looking to travel?`
                     const waHref = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(waText)}`
 
                     const formattedCreated = new Date(lead.created_at).toLocaleTimeString('en-IN', {

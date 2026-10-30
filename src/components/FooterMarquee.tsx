@@ -4,7 +4,7 @@
 
 export function FooterMarquee() {
   const text =
-    'No Driver Allowance • No Toll Charges • No Parking Charges • Everything Included • Hanscab · Transparent · Reliable · Hassle-Free'
+    'No Driver Allowance • Tolls Included • No Parking Charges • Everything Included • MarutiCab · Transparent · Reliable · Hassle-Free'
 
   return (
     <div

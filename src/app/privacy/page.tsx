@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { ArrowLeft, Shield } from 'lucide-react'
 
 export const metadata = {
-  title: 'Privacy Policy - Hanscab',
-  description: 'Hanscab privacy policy regarding booking information and WhatsApp communications.',
+  title: 'Privacy Policy - MarutiCab',
+  description: 'MarutiCab privacy policy regarding booking information and WhatsApp communications.',
 }
 
 export default function PrivacyPage() {
@@ -31,12 +31,12 @@ export default function PrivacyPage() {
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-3">
               Privacy Policy
             </h1>
-            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · Hanscab (hanscab.in)</p>
+            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · MarutiCab (hanscab.in)</p>
           </div>
 
           <section className="space-y-4 text-sm leading-relaxed text-slate-600">
             <p>
-              At Hanscab, we respect your privacy and are committed to protecting your personal information. This Privacy Policy outlines what information we collect and how we use it to provide seamless private cab booking services between Khargone and Indore.
+              At MarutiCab, we respect your privacy and are committed to protecting your personal information. This Privacy Policy outlines what information we collect and how we use it to provide seamless private cab booking services between Khargone and Indore.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">1. Information We Collect</h2>

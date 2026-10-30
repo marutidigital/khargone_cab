@@ -18,7 +18,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
   const isSuv = selectedVehicle === 'suv'
 
   return (
-    <section className="bg-white border border-[#E5E7EB] rounded-2xl p-5 sm:p-6 shadow-xs">
+    <section className="bg-white border border-[#E5E7EB] rounded-3xl p-6 sm:p-8 shadow-xs">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-base font-black text-[#FBBF24]">2.</span>
         <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
@@ -31,7 +31,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
         {/* Card 1: Economy Sedan */}
         <div
           onClick={() => onSelectVehicle('sedan')}
-          className={`relative rounded-2xl p-4.5 border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+          className={`relative rounded-2xl p-4 border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
             isSedan
               ? 'border-[#FBBF24] bg-amber-50/20 shadow-sm ring-2 ring-[#FBBF24]/20'
               : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
@@ -91,8 +91,8 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
               </li>
             </ul>
 
-            <div className="pt-2.5 border-t border-slate-100 flex items-baseline justify-between">
-              <span className="text-xs text-slate-500">Starting at</span>
+            <div className="mt-2 pt-3 px-1 pb-1 border-t border-slate-100 flex items-baseline justify-between gap-3">
+              <span className="text-xs text-slate-500">Starting fare</span>
               <span className="text-lg font-black text-slate-900">
                 {formatRs(lowestStartingPrice)}
               </span>
@@ -103,7 +103,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
         {/* Card 2: Premium SUV */}
         <div
           onClick={() => onSelectVehicle('suv')}
-          className={`relative rounded-2xl p-4.5 border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+          className={`relative rounded-2xl p-4 border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
             isSuv
               ? 'border-[#FBBF24] bg-amber-50/20 shadow-sm ring-2 ring-[#FBBF24]/20'
               : 'border-[#E5E7EB] hover:border-slate-300 bg-white'
@@ -116,7 +116,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
                 Best for Families
               </span>
               <span className="bg-orange-100 text-orange-800 border border-orange-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                +Rs 600 upgrade
+                +Rs {PRICING_CONFIG.SUV_EXTRA} upgrade
               </span>
             </div>
 
@@ -147,7 +147,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <h3 className="text-base font-extrabold text-slate-900">Premium SUV</h3>
-              <span className="text-xs font-bold text-slate-500">7 Seater</span>
+              <span className="text-xs font-bold text-slate-500">6 Seater</span>
             </div>
 
             <p className="text-xs italic text-slate-500 mb-2.5">Ertiga · Carens · Innova</p>
@@ -167,8 +167,8 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
               </li>
             </ul>
 
-            <div className="pt-2.5 border-t border-slate-100 flex items-baseline justify-between">
-              <span className="text-xs text-slate-500">Starting at</span>
+            <div className="mt-2 pt-3 px-1 pb-1 border-t border-slate-100 flex items-baseline justify-between gap-3">
+              <span className="text-xs text-slate-500">Starting fare</span>
               <span className="text-lg font-black text-slate-900">
                 {formatRs(suvStartingPrice)}
               </span>
@@ -185,7 +185,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
         </div>
         <div className="flex items-center gap-1.5">
           <Check className="w-4 h-4 text-[#16A34A] stroke-[2.5]" />
-          <span>No Toll</span>
+          <span>Tolls Included</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Check className="w-4 h-4 text-[#16A34A] stroke-[2.5]" />

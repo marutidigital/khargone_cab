@@ -345,7 +345,7 @@ export function PaymentTrackingTab() {
                   const pointConfig = PRICING_CONFIG.points.find((p) => p.id === row.point)
                   const waChatUrl = row.phone
                     ? `https://wa.me/91${row.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                        `Hi ${row.name || 'Customer'}, Hanscab here regarding your cab booking for ${row.travel_date}. Would you like to confirm your car?`
+                        `Hi ${row.name || 'Customer'}, MarutiCab here regarding your cab booking for ${row.travel_date}. Would you like to confirm your car?`
                       )}`
                     : null
 

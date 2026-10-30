@@ -3,7 +3,7 @@
 
 import type { Direction, DropPoint } from '@/types'
 import { MapPin, CheckCircle2, Building, Plane, Train, Navigation } from 'lucide-react'
-import { PRICING_CONFIG, formatRs } from '@/config/pricing'
+import { PRICING_CONFIG, formatRs, getPointFare } from '@/config/pricing'
 
 interface Props {
   direction: Direction
@@ -46,6 +46,7 @@ export function StepPoint({ direction, selectedPointId, onSelect, onNext }: Prop
       <div className="space-y-3">
         {PRICING_CONFIG.points.map((p) => {
           const isSelected = selectedPointId === p.id
+          const fare = getPointFare(p.id)
 
           return (
             <button
@@ -75,6 +76,9 @@ export function StepPoint({ direction, selectedPointId, onSelect, onNext }: Prop
                   <div className="text-xs text-slate-500 truncate mt-0.5">
                     {p.sub}
                   </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    {p.routeDistanceKm.toFixed(1)} km route
+                  </div>
                 </div>
               </div>
 
@@ -82,12 +86,12 @@ export function StepPoint({ direction, selectedPointId, onSelect, onNext }: Prop
               <div className="flex items-center gap-3 flex-shrink-0">
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                    p.extra === 0
+                    fare === 0
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : 'bg-amber-50 text-amber-800 border-amber-200'
                   }`}
                 >
-                  {p.extra === 0 ? '+Rs 0 (Base)' : `+${formatRs(p.extra)}`}
+                  {`Fare ${formatRs(fare)}`}
                 </span>
 
                 <div
@@ -102,6 +106,10 @@ export function StepPoint({ direction, selectedPointId, onSelect, onNext }: Prop
           )
         })}
       </div>
+
+      <p className="text-xs text-slate-500">
+        Travel beyond your selected drop point is ₹{PRICING_CONFIG.KM_CHARGE_PER_KM}/km, calculated manually at the final destination and confirmed before collection.
+      </p>
 
       {/* Note about Khargone Hub */}
       <div className="bg-slate-100 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 flex items-center gap-2">

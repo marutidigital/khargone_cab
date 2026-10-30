@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
 
     const [h] = d.pickup_time.split(':').map(Number)
     const isNight = isNightHour(h)
-    const vehicleExtra = vehicle === 'suv' ? 600 : 0
-    const price = calcPrice(point.extra, daysAhead, isNight, vehicleExtra, d.direction)
+    const vehicleExtra = vehicle === 'suv' ? 500 : 0
+    const price = calcPrice(d.drop_point, daysAhead, isNight, vehicleExtra, d.direction)
 
     const supabase = createServiceClient()
 

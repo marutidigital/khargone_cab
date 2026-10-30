@@ -1,15 +1,14 @@
 'use client'
 // src/components/booking/SectionRoute.tsx
-import { CircleDot, MapPin, ArrowLeftRight } from 'lucide-react'
-import { PRICING_CONFIG } from '@/config/pricing'
+import { CircleDot, MapPin, ArrowRight } from 'lucide-react'
 
 interface Props {
   direction: 'K2I' | 'I2K'
   selectedPointName: string
-  onSwapDirection: () => void
+  onSelectDirection: (direction: 'K2I' | 'I2K') => void
 }
 
-export function SectionRoute({ direction, selectedPointName, onSwapDirection }: Props) {
+export function SectionRoute({ direction, selectedPointName, onSelectDirection }: Props) {
   const isK2I = direction === 'K2I'
 
   const fromTitle = isK2I ? 'Bus Stand Khargone' : selectedPointName || 'Indore'
@@ -19,12 +18,38 @@ export function SectionRoute({ direction, selectedPointName, onSwapDirection }: 
   const toSubtitle = isK2I ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
 
   return (
-    <section className="bg-white border border-[#E5E7EB] rounded-2xl p-5 sm:p-6 shadow-xs">
+    <section className="bg-white border border-[#E5E7EB] rounded-3xl p-6 sm:p-8 shadow-xs">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-base font-black text-[#FBBF24]">1.</span>
         <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
           Select your route
         </h2>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        {([
+          { value: 'I2K', label: 'Indore to Khargone' },
+          { value: 'K2I', label: 'Khargone to Indore' },
+        ] as const).map((route) => {
+          const isSelected = direction === route.value
+          return (
+            <button
+              key={route.value}
+              type="button"
+              onClick={() => onSelectDirection(route.value)}
+              aria-pressed={isSelected}
+              className={`flex items-center justify-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-extrabold transition-colors ${
+                isSelected
+                  ? 'border-[#FBBF24] bg-amber-50 text-slate-950'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-slate-900'
+              }`}
+            >
+              {route.label.split(' to ')[0]}
+              <ArrowRight className="h-4 w-4 shrink-0 text-amber-600" />
+              {route.label.split(' to ')[1]}
+            </button>
+          )
+        })}
       </div>
 
       <div className="relative flex flex-col md:flex-row items-center gap-3">
@@ -47,17 +72,6 @@ export function SectionRoute({ direction, selectedPointName, onSwapDirection }: 
             <span className="text-xs text-slate-500 truncate block">{fromSubtitle}</span>
           </div>
         </div>
-
-        {/* Circular Swap Button */}
-        <button
-          type="button"
-          onClick={onSwapDirection}
-          className="w-10 h-10 rounded-full bg-white border border-slate-300 hover:border-[#FBBF24] hover:bg-amber-50/60 shadow-sm flex items-center justify-center text-slate-700 hover:text-slate-950 transition-all flex-shrink-0 cursor-pointer active:scale-95 z-10 -my-2 md:my-0 md:-mx-2"
-          aria-label="Swap Route Direction"
-          title="Swap Route Direction"
-        >
-          <ArrowLeftRight className="w-4 h-4 text-slate-700" />
-        </button>
 
         {/* TO Field */}
         <div className="w-full flex-1 bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">

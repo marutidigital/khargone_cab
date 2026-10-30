@@ -36,7 +36,7 @@ export function SectionPassenger({ maxPassengers, data, onChange, errors }: Prop
   }
 
   return (
-    <section className="bg-white border border-[#E5E7EB] rounded-2xl p-5 sm:p-6 shadow-xs">
+    <section className="bg-white border border-[#E5E7EB] rounded-3xl p-6 sm:p-8 shadow-xs">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-base font-black text-[#FBBF24]">6.</span>
         <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">

@@ -4,7 +4,7 @@
 const ITEMS = [
   { bold: 'Khargone_Cab', text: ' · Transparent · Reliable · Hassle-Free' },
   { bold: '', text: 'No Driver Allowance' },
-  { bold: '', text: 'No Toll Charges' },
+  { bold: '', text: 'Tolls Included' },
   { bold: '', text: 'No Parking Charges' },
   { bold: '', text: 'Everything Included' },
 ]

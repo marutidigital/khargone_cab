@@ -28,7 +28,7 @@ export function TripSummary({
   const to   = dir === 'KI' ? (dropName ?? 'Indore') : 'Bus Stand Khargone'
   const fromSub = dir === 'KI' ? 'Khargone, Madhya Pradesh' : 'Indore, Madhya Pradesh'
   const toSub   = dir === 'KI' ? 'Indore, Madhya Pradesh' : 'Khargone, Madhya Pradesh'
-  const vehicleLabel = vehicle === 'sedan' ? 'Economy Sedan (5 Seater)' : 'Premium SUV (7 Seater)'
+  const vehicleLabel = vehicle === 'sedan' ? 'Economy Sedan (5 Seater)' : 'Premium SUV (6 Seater)'
   const isNight = timeSlot === 'night'
 
   return (
@@ -122,9 +122,12 @@ export function TripSummary({
           <PriceRow label="Base fare"          value={`₹${price.base.toLocaleString('en-IN')}`} />
           {price.extra > 0 && (
             <PriceRow
-              label={dir === 'KI' ? "Drop point charges" : "Pickup point charges"}
+              label={`${dir === 'KI' ? 'Drop' : 'Pickup'} point fee`}
               value={`+₹${price.extra.toLocaleString('en-IN')}`}
             />
+          )}
+          {price.tollEstimate > 0 && (
+            <PriceRow label="Estimated tolls (included)" value={`₹${price.tollEstimate.toLocaleString('en-IN')}`} />
           )}
           {price.discount > 0 && (
             <PriceRow label="Early discount"     value={`−₹${price.discount.toLocaleString('en-IN')}`} accent="green" />
@@ -132,6 +135,9 @@ export function TripSummary({
           {price.night_extra > 0 && (
             <PriceRow label="Night charges"      value={`+₹${price.night_extra.toLocaleString('en-IN')}`} accent="amber" />
           )}
+          <div style={{ fontSize: 11, lineHeight: 1.5, color: '#64748b', marginTop: 8 }}>
+            Travel beyond the selected drop point is ₹{price.kmRate}/km, calculated manually at the final destination.
+          </div>
 
           <div style={{
             display: 'flex',
