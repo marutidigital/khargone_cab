@@ -222,7 +222,7 @@ export default function Home() {
     }
   }
 
-  // 6. Advance Payment Submission (HONEST TEST-PHASE FLOW)
+  // 6. Booking request submission
   const isFormValid = useMemo(() => {
     return (
       !!selectedDateStr &&
@@ -233,7 +233,7 @@ export default function Home() {
     )
   }, [selectedDateStr, selectedTimeOpt, passenger])
 
-  const handlePayAdvance = async () => {
+  const handleBookingRequest = async () => {
     const newErrors: { name?: string; phone?: string; consent?: string; time?: string } = {}
 
     if (!selectedTimeOpt) {
@@ -271,7 +271,7 @@ export default function Home() {
 
       // 1. Log event & fire Meta Pixel lead event
       await logEvent({
-        event: 'pay_clicked',
+        event: 'booking_requested',
         meta: {
           direction,
           vehicle,
@@ -386,7 +386,7 @@ export default function Home() {
 
           <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl self-start sm:self-auto">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>₹500 Advance • Rest in Car</span>
+            <span>Booking request • Fare shown upfront</span>
           </div>
         </div>
 
@@ -472,7 +472,7 @@ export default function Home() {
               breakdown={fareBreakdown}
               isValid={isFormValid}
               isSubmitting={isSubmitting}
-              onPayAdvance={handlePayAdvance}
+              onBookCar={handleBookingRequest}
             />
           </div>
         </div>
@@ -493,9 +493,6 @@ export default function Home() {
             <span className="text-lg font-black text-slate-900 leading-tight">
               {formatRs(fareBreakdown.totalFare)}
             </span>
-            <span className="text-[11px] font-bold text-emerald-700">
-              Pay ₹500 advance now
-            </span>
           </button>
 
           {/* Action button */}
@@ -503,7 +500,7 @@ export default function Home() {
             type="button"
             onClick={() => {
               if (isFormValid) {
-                handlePayAdvance()
+                handleBookingRequest()
               } else {
                 setIsMobileModalOpen(true)
               }
@@ -511,7 +508,7 @@ export default function Home() {
             disabled={isSubmitting}
             className="bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-black text-sm px-5 py-3 rounded-xl shadow-xs transition-all active:scale-98 min-h-[46px] flex items-center gap-2 cursor-pointer disabled:opacity-60"
           >
-            <span>{isFormValid ? 'Pay ₹500 Advance' : 'View Summary & Pay'}</span>
+            <span>{isFormValid ? 'Book Your Car' : 'Complete booking details'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -530,7 +527,7 @@ export default function Home() {
               breakdown={fareBreakdown}
               isValid={isFormValid}
               isSubmitting={isSubmitting}
-              onPayAdvance={handlePayAdvance}
+              onBookCar={handleBookingRequest}
               isMobileModal={true}
               onCloseMobileModal={() => setIsMobileModalOpen(false)}
             />

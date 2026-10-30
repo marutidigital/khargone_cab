@@ -64,7 +64,7 @@ export interface TrackLeadEventPayload {
     | 'date_selected'
     | 'time_selected'
     | 'details_filled'
-    | 'pay_clicked'
+    | 'booking_requested'
     | 'whatsapp_clicked'
   source?: string
   meta?: Record<string, any>
@@ -78,13 +78,12 @@ export async function logEvent(payload: TrackLeadEventPayload): Promise<void> {
     const sessionId = getSessionId()
     const source = payload.source || getStoredSource()
 
-    // Meta Pixel trigger for 'pay_clicked'
-    if (payload.event === 'pay_clicked') {
+    // Meta Pixel trigger for a completed booking request.
+    if (payload.event === 'booking_requested') {
       try {
         if ((window as any).fbq) {
           ;(window as any).fbq('track', 'Lead', {
-            content_name: 'Cab Booking Advance Intent',
-            value: 500,
+            content_name: 'Cab Booking Request',
             currency: 'INR',
           })
         }

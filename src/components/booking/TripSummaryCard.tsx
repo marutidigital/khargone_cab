@@ -23,7 +23,7 @@ interface Props {
   breakdown: DetailedFareBreakdown
   isValid: boolean
   isSubmitting: boolean
-  onPayAdvance: () => void
+  onBookCar: () => void
   isMobileModal?: boolean
   onCloseMobileModal?: () => void
 }
@@ -37,7 +37,7 @@ export function TripSummaryCard({
   breakdown,
   isValid,
   isSubmitting,
-  onPayAdvance,
+  onBookCar,
   isMobileModal,
   onCloseMobileModal,
 }: Props) {
@@ -169,24 +169,6 @@ export function TripSummaryCard({
           </span>
         </div>
 
-        <div className="pt-2 border-t border-dashed border-slate-200 grid grid-cols-2 gap-2 text-center">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-            <span className="text-[10px] text-amber-800 font-bold block">
-              Advance to reserve
-            </span>
-            <span className="text-sm font-black text-amber-950">
-              {formatRs(breakdown.advanceDeposit)}
-            </span>
-          </div>
-          <div className="bg-slate-100 border border-slate-200 rounded-lg p-2">
-            <span className="text-[10px] text-slate-600 font-bold block">
-              Pay in the car
-            </span>
-            <span className="text-sm font-black text-slate-900">
-              {formatRs(breakdown.balanceFare)}
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* Button & 4 Trust Badges */}
@@ -194,7 +176,7 @@ export function TripSummaryCard({
         <button
           type="button"
           disabled={!isValid || isSubmitting}
-          onClick={onPayAdvance}
+          onClick={onBookCar}
           className={`w-full py-3.5 px-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all min-h-[48px] ${
             isValid && !isSubmitting
               ? 'bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 shadow-md shadow-amber-500/20 active:scale-98 cursor-pointer'
@@ -208,7 +190,7 @@ export function TripSummaryCard({
             </>
           ) : isValid ? (
             <>
-              <span>Pay {formatRs(breakdown.advanceDeposit)} advance</span>
+              <span>Book Your Car</span>
               <ArrowRight className="w-4 h-4 stroke-[3]" />
             </>
           ) : (

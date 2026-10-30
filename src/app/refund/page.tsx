@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { ShieldCheck, ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: 'Refund & Cancellation Policy - MarutiCab',
-  description: 'MarutiCab transparent 100% refund policy if your trip cannot be confirmed.',
+  title: 'Booking & Cancellation Policy - MarutiCab',
+  description: 'How MarutiCab booking requests, availability, cancellations, and changes work.',
 }
 
 export default function RefundPage() {
@@ -29,7 +29,7 @@ export default function RefundPage() {
               Transparent Assurance
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-3">
-              Refund &amp; Cancellation Policy
+              Booking &amp; Cancellation Policy
             </h1>
             <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · MarutiCab</p>
           </div>
@@ -37,19 +37,19 @@ export default function RefundPage() {
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-sm text-emerald-950">
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
-              <strong>100% Full Refund Guarantee:</strong> If MarutiCab cannot confirm your car or driver for any reason, you will receive a full 100% refund of your advance deposit without deductions.
+              Booking requests are saved without advance payment. Our team will contact you to confirm cab availability.
             </div>
           </div>
 
           <section className="space-y-3 text-sm leading-relaxed">
-            <h2 className="text-base font-bold text-slate-900">1. Advance Token Deposits</h2>
+            <h2 className="text-base font-bold text-slate-900">1. Booking Requests</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              To guarantee your private car reservation, an advance token deposit of Rs 500 is collected upon confirmation. The remaining balance fare is payable directly to your driver in cash or UPI at the time of your ride.
+              Submitting a request does not collect payment or guarantee a confirmed car. Our team will contact you after checking availability. If all cabs are booked, we will get in touch if a cancellation comes in or a new car is added to our fleet.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">2. Passenger Cancellations</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              If you cancel your booking more than 4 hours before the scheduled pickup time, your entire advance deposit is fully refunded or credited towards your next ride at your choice. For cancellations made within 2 hours of pickup, a nominal dispatch compensation of Rs 200 may be retained.
+              Please contact MarutiCab as soon as possible if you need to cancel a request or a confirmed trip. No payment is collected when you submit a request.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Trip Modifications</h2>
@@ -57,9 +57,9 @@ export default function RefundPage() {
               You may reschedule your pickup time or travel date with at least 3 hours advance notice via WhatsApp at no additional charge, subject to car availability.
             </p>
 
-            <h2 className="text-base font-bold text-slate-900 pt-2">4. Refund Processing Time</h2>
+            <h2 className="text-base font-bold text-slate-900 pt-2">4. Fare and Payment</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              Refunds are processed back to the original UPI ID or bank account within 2 to 4 business hours.
+              The website displays the total fare for the selected route, vehicle, date, and pickup point. Any distance beyond the selected drop point is calculated at Rs 13 per additional kilometre at the final destination.
             </p>
           </section>
         </div>

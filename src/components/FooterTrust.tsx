@@ -93,9 +93,9 @@ export function FooterTrust() {
               <RefreshCw className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
-              <div className="text-sm font-bold text-slate-900">100% Refund Guarantee</div>
+              <div className="text-sm font-bold text-slate-900">Availability Confirmation</div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Full advance refund if MarutiCab cannot confirm your car.
+                Our team checks every request and contacts you about your cab.
               </p>
             </div>
           </div>

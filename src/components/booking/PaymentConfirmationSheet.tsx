@@ -64,7 +64,7 @@ export function PaymentConfirmationSheet({
           </h2>
 
           <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
-            Online payment is opening soon. We&apos;ve saved your request and will connect you on WhatsApp.
+            Your request is saved. Our team will check cab availability and contact you. If all cabs are booked, we&apos;ll reach out if a cancellation comes in or a new car joins our fleet.
           </p>
         </div>
 
@@ -107,15 +107,6 @@ export function PaymentConfirmationSheet({
             </span>
           </div>
 
-          <div className="flex justify-between py-1 text-slate-700">
-            <span>Advance confirmation deposit</span>
-            <span className="font-bold text-amber-900">{formatRs(breakdown.advanceDeposit)}</span>
-          </div>
-
-          <div className="flex justify-between py-1 text-slate-700">
-            <span>Pay in car to driver</span>
-            <span className="font-bold text-slate-900">{formatRs(breakdown.balanceFare)}</span>
-          </div>
         </div>
 
         {/* Chat on WhatsApp Button */}
