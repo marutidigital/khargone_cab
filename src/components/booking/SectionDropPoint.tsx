@@ -7,11 +7,12 @@ interface Props {
   direction: 'K2I' | 'I2K'
   vehicle: 'sedan' | 'suv'
   daysAhead: number
+  travelDate: string
   selectedPointId: string
   onSelectPoint: (pointId: string) => void
 }
 
-export function SectionDropPoint({ direction, vehicle, daysAhead, selectedPointId, onSelectPoint }: Props) {
+export function SectionDropPoint({ direction, vehicle, daysAhead, travelDate, selectedPointId, onSelectPoint }: Props) {
   const isK2I = direction === 'K2I'
   const sectionTitle = isK2I ? 'Choose your drop point' : 'Choose your pickup point in Indore'
 
@@ -27,7 +28,7 @@ export function SectionDropPoint({ direction, vehicle, daysAhead, selectedPointI
       <div className="space-y-3">
         {PRICING_CONFIG.points.map((pt) => {
           const isSelected = selectedPointId === pt.id
-          const fare = getPointFareForDate(pt.id, direction, daysAhead) + (vehicle === 'suv' ? PRICING_CONFIG.SUV_EXTRA : 0)
+          const fare = getPointFareForDate(pt.id, direction, daysAhead, undefined, travelDate) + (vehicle === 'suv' ? PRICING_CONFIG.SUV_EXTRA : 0)
           const pillColor =
             isSelected
               ? 'bg-amber-100 text-amber-900 border-amber-200'

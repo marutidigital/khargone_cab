@@ -182,18 +182,35 @@ export function getPointFare(
   return config.POINTS[getPointConfig(pointIdOrName).name] ?? 0
 }
 
-// Date fare formula
-// dateFare(dir, daysAhead) = max(FLOOR[dir], BASE[dir] - STEP * max(0, daysAhead - 1))
+// Calendar-specific prices use the quoted dates; days-ahead pricing is the fallback.
 export function calculateDateFare(
   direction: 'K2I' | 'I2K' | 'KI' | 'IK',
   daysAhead: number,
-  config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG
+  config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG,
+  travelDate?: string
 ): number {
   const dirKey = direction === 'IK' || direction === 'I2K' ? 'I2K' : 'K2I'
   const base = config.BASE[dirKey]
   const floor = config.FLOOR[dirKey]
-  // Same-day and next-day bookings use the urgent rate. From two days ahead,
-  // the fare steps down by ₹100/day until it reaches the configured floor.
+
+  // Keep the quoted November fares attached to their calendar dates.
+  if (travelDate) {
+    const calendarFares: Record<string, number> = {
+      '2026-10-31': 3000,
+      '2026-11-01': 2300,
+      '2026-11-02': 2200,
+      '2026-11-03': 2100,
+      '2026-11-04': 2000,
+      '2026-11-05': 1900,
+      '2026-11-06': 1800,
+      '2026-11-07': 1700,
+    }
+    if (calendarFares[travelDate] !== undefined) return calendarFares[travelDate]
+    if (travelDate > '2026-11-07') return floor
+  }
+
+  // For dates outside the quoted calendar, keep same-day and next-day at the
+  // urgent rate, then step down to the configured floor.
   if (daysAhead <= 1) return base
   const firstReducedDayFare = base - config.STEP * 6
   const discountSteps = Math.max(0, daysAhead - 2)
@@ -205,10 +222,11 @@ export function getPointFareForDate(
   pointIdOrName: string,
   direction: 'K2I' | 'I2K' | 'KI' | 'IK',
   daysAhead: number,
-  config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG
+  config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG,
+  travelDate?: string
 ): number {
   const dirKey = direction === 'IK' || direction === 'I2K' ? 'I2K' : 'K2I'
-  const routeBase = calculateDateFare(dirKey, daysAhead, config)
+  const routeBase = calculateDateFare(dirKey, daysAhead, config, travelDate)
   const locationPremium = Math.max(0, getPointFare(pointIdOrName, config) - config.FLOOR[dirKey])
   return routeBase + locationPremium
 }
@@ -247,6 +265,7 @@ export function computeFare(params: {
   vehicle: 'sedan' | 'suv'
   pointIdOrName: string
   daysAhead: number
+  travelDate?: string
   hour?: number
   isNight?: boolean
   customConfig?: PricingFormulaConfig
@@ -254,7 +273,7 @@ export function computeFare(params: {
   const config = params.customConfig || DEFAULT_PRICING_CONFIG
   const dirKey = params.direction === 'IK' || params.direction === 'I2K' ? 'I2K' : 'K2I'
   const selectedPoint = getPointConfig(params.pointIdOrName)
-  const standardFare = getPointFareForDate(selectedPoint.id, dirKey, params.daysAhead, config)
+  const standardFare = getPointFareForDate(selectedPoint.id, dirKey, params.daysAhead, config, params.travelDate)
   const dateFare = standardFare
   const earlyDiscount = 0
   const vehicleExtra = params.vehicle === 'suv' ? config.SUV_EXTRA : 0
@@ -320,6 +339,7 @@ export function computeBookingPrice(params: {
   pointId: string
   direction: string
   daysAhead: number
+  travelDate?: string
   hour: number
 }): LivePriceBreakdown {
   const breakdown = computeFare({
@@ -327,6 +347,7 @@ export function computeBookingPrice(params: {
     vehicle: params.vehicle,
     pointIdOrName: params.pointId,
     daysAhead: params.daysAhead,
+    travelDate: params.travelDate,
     hour: params.hour,
   })
 

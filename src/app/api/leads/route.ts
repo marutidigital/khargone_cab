@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
       vehicle: vehNorm,
       pointIdOrName: point || 'Rajendra Nagar',
       daysAhead,
+      travelDate: kolkataDate(pickupDate),
       hour: pickupHour,
       customConfig: pricingConfig,
     })

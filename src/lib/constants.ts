@@ -36,7 +36,8 @@ export function calcPrice(
   daysAhead: number,
   isNight: boolean,
   vehicleExtra: number = 0,
-  direction: Direction = 'KI'
+  direction: Direction = 'KI',
+  travelDate?: string
 ) {
   const isSUV = vehicleExtra > 0
   const vehicle = isSUV ? 'suv' : 'sedan'
@@ -47,6 +48,7 @@ export function calcPrice(
     pointId,
     direction,
     daysAhead,
+    travelDate,
     hour,
   })
 

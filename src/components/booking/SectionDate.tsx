@@ -62,7 +62,7 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
       const dayNum = String(target.getDate())
       const month = target.toLocaleDateString('en-US', { month: 'short' })
 
-      const price = getPointFareForDate(pointId, direction, i) + (vehicle === 'suv' ? PRICING_CONFIG.SUV_EXTRA : 0)
+      const price = getPointFareForDate(pointId, direction, i, undefined, dateStr) + (vehicle === 'suv' ? PRICING_CONFIG.SUV_EXTRA : 0)
 
       list.push({
         dateStr,
@@ -164,7 +164,7 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
       </div>
 
       <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-slate-500">Earlier dates cost more; fares reduce by Rs 100/day to the base fare.</span>
+        <span className="text-slate-500">Select a travel date to see its fare.</span>
 
         <span className="text-[11px] text-slate-500">
           Selected: <strong className="text-slate-900">{activeItem.weekday}, {activeItem.dayNum} {activeItem.month}</strong>

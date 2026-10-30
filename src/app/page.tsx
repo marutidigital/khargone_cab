@@ -109,10 +109,11 @@ export default function Home() {
       vehicle,
       pointIdOrName: selectedPoint.name,
       daysAhead,
+      travelDate: selectedDateStr,
       hour: selectedTimeOpt ? selectedTimeOpt.hour : 10,
       isNight: selectedTimeOpt ? selectedTimeOpt.isNight : false,
     })
-  }, [direction, vehicle, selectedPoint.name, daysAhead, selectedTimeOpt])
+  }, [direction, vehicle, selectedPoint.name, daysAhead, selectedDateStr, selectedTimeOpt])
 
   // Adjust passenger count if user switches from SUV (max 6) to Sedan (max 4)
   const maxPax = vehicle === 'suv' ? 6 : 4
@@ -417,6 +418,7 @@ export default function Home() {
                 direction={direction}
                 vehicle={vehicle}
                 daysAhead={daysAhead}
+                travelDate={selectedDateStr}
                 selectedPointId={pointId}
                 onSelectPoint={handleSelectPoint}
               />
