@@ -3,16 +3,18 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://maruticab.in'),
   title: 'MarutiCab · Private Cab Khargone ↔ Indore',
-  description: 'Book private cab between Khargone and Indore. Transparent pricing, no hidden charges. Economy Sedan & Premium SUV available.',
+  description: 'Book a private Economy Sedan between Khargone and Indore with clear fares and fixed pickup times.',
   keywords: 'private cab Khargone Indore, family car, Khargone to Indore taxi, book cab online',
   openGraph: {
     title: 'MarutiCab · Private Cab Khargone ↔ Indore',
     description: 'Book a private cab Khargone ↔ Indore. Transparent pricing, no hidden charges.',
     type: 'website',
-    url: 'https://hanscab.in',
+    url: 'https://maruticab.in',
     siteName: 'MarutiCab',
   },
+  alternates: { canonical: '/' },
 }
 
 export const viewport: Viewport = {

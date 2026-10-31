@@ -88,6 +88,8 @@ export async function POST(req: NextRequest) {
           finalReply = bookJson.matched
             ? `✅ *Booking Confirmed!*\n\nRef: *${b.booking_ref}*\nA match was found — your cab is confirmed.\n\nDate: ${b.travel_date} · ${b.pickup_time}\nAmount: ₹${b.total_fare.toLocaleString('en-IN')}\n\nDriver details will be shared 2 hrs before pickup.`
             : `⏳ *Booking Placed!*\n\nRef: *${b.booking_ref}*\nWaiting for a passenger from the opposite direction. You'll be notified when matched.\n\nDate: ${b.travel_date} · ${b.pickup_time}\nAmount: ₹${b.total_fare.toLocaleString('en-IN')}`
+        } else {
+          finalReply = `To complete your MarutiCab booking and pay the refundable Rs 500 booking amount, continue securely here: https://maruticab.in. Your exact pickup time and final fare will be shown before payment.`
         }
       } catch (e) {
         console.error('WhatsApp booking action error:', e)

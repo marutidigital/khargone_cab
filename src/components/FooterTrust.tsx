@@ -12,6 +12,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import { PRICING_CONFIG } from '@/config/pricing'
+import { BOOKING_CONFIG } from '@/lib/config'
 
 export function FooterTrust() {
   const whatsappUrl = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent(
@@ -36,7 +37,7 @@ export function FooterTrust() {
         </div>
 
         {/* Fleet & Driver Showcase */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div className={`grid grid-cols-1 ${BOOKING_CONFIG.enableSuv ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4 mb-10`}>
           {/* Card 1: Dzire Sedan */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center">
             <div className="w-full h-32 relative bg-white rounded-xl overflow-hidden mb-3 flex items-center justify-center border border-slate-200">
@@ -56,7 +57,7 @@ export function FooterTrust() {
           </div>
 
           {/* Card 2: Ertiga / Innova SUV */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center">
+          {BOOKING_CONFIG.enableSuv && <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center">
             <div className="w-full h-32 relative bg-white rounded-xl overflow-hidden mb-3 flex items-center justify-center border border-slate-200">
               <Image
                 src="/cars/suv.webp"
@@ -71,7 +72,7 @@ export function FooterTrust() {
             <p className="text-xs text-slate-500 mt-2">
               Extra legroom and roof carrier, ideal for family airport drops and luggage.
             </p>
-          </div>
+          </div>}
 
           {/* Card 3: Verified Drivers */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center justify-center">
@@ -107,7 +108,7 @@ export function FooterTrust() {
             <div>
               <div className="text-sm font-bold text-slate-900">No Hidden Costs</div>
               <p className="text-xs text-slate-500 mt-0.5">
-                All tolls, driver allowance, and parking charges included.
+                Tolls included. No driver allowance or parking charges.
               </p>
             </div>
           </div>
@@ -128,7 +129,7 @@ export function FooterTrust() {
         {/* Bottom Legal & Contact Row */}
         <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            &copy; {new Date().getFullYear()} MarutiCab (hanscab.in). All rights reserved. Khargone ↔ Indore Private Cabs.
+            &copy; {new Date().getFullYear()} MarutiCab (maruticab.in). All rights reserved. Khargone ↔ Indore Private Cabs.
           </div>
 
           <div className="flex items-center gap-4 sm:gap-6 font-semibold">

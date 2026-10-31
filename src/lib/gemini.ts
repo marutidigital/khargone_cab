@@ -5,10 +5,10 @@ import { PRICING_CONFIG, formatRs } from '@/config/pricing'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_gemini_key')
 
-const SYSTEM_PROMPT = `You are the booking assistant for MarutiCab (hanscab.in). You help customers book private cab rides between Khargone and Indore.
+const SYSTEM_PROMPT = `You are the booking assistant for MarutiCab (maruticab.in). You help customers book private cab rides between Khargone and Indore.
 
 ABOUT THE SERVICE:
-- Brand: MarutiCab (hanscab.in)
+- Brand: MarutiCab (maruticab.in)
 - Route: Khargone ↔ Indore (private cab, dedicated AC car)
 - Sedan (Dzire/Amaze, 4 passengers): point fare shown below
 - SUV (Ertiga/Innova, 6 passengers): Rs 600 above the selected sedan point fare

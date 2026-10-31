@@ -37,31 +37,32 @@ export default function RefundPage() {
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-sm text-emerald-950">
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
-              Booking requests are saved without advance payment. Our team will contact you to confirm cab availability.
+              Match Deal advance of Rs 500 is refundable if no compatible ride is found. Confirm Now bookings pay Rs 500 now and the remaining fare in the cab.
             </div>
           </div>
 
           <section className="space-y-3 text-sm leading-relaxed">
             <h2 className="text-base font-bold text-slate-900">1. Booking Requests</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              Submitting a request does not collect payment or guarantee a confirmed car. Our team will contact you after checking availability. If all cabs are booked, we will get in touch if a cancellation comes in or a new car is added to our fleet.
+              Your booking is active only after the Rs 500 payment is verified. A Match Deal confirms after an opposite-direction ride is found. Confirm Now guarantees a private cab at the exact pickup time.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">2. Passenger Cancellations</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              Please contact MarutiCab as soon as possible if you need to cancel a request or a confirmed trip. No payment is collected when you submit a request.
+              If no Match Deal is found by 24 hours before pickup, select a full refund or upgrade. If no option is selected within six hours, we request a full Rs 500 refund. Refunds go to the original payment method and usually take 5–7 working days. Contact MarutiCab promptly for other cancellations.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Trip Modifications</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              You may reschedule your pickup time or travel date with at least 3 hours advance notice via WhatsApp at no additional charge, subject to car availability.
+              The exact pickup time cannot be changed after payment. Contact support for changes; these depend on availability and may require a new booking.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">4. Fare and Payment</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              The website displays the total fare for the selected route, vehicle, date, and pickup point. Any distance beyond the selected drop point is calculated at Rs 13 per additional kilometre at the final destination.
+              The fare summary lists the base fare, drop-point difference, night surcharge, advance and balance. Tolls are included; no driver allowance or parking charge applies. Distance beyond the selected drop is charged at Rs 13/km, calculated at the final destination.
             </p>
           </section>
+          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> मैच नहीं मिलने पर ₹500 अग्रिम राशि वापस मिलेगी। रिफंड सामान्यतः 5–7 कार्यदिवस में मूल भुगतान माध्यम पर आता है।</p>
         </div>
       </main>
 

@@ -25,7 +25,7 @@ function bookingEmailHtml(b: Booking, type: 'confirmation' | 'admin') {
   <div style="max-width:480px;margin:0 auto;padding:24px 16px;">
     <div style="margin-bottom:24px;">
       <span style="font-size:24px;font-weight:700;letter-spacing:-0.03em;">MarutiCab<span style="color:#F5B841;">.</span></span>
-      <span style="font-size:10px;color:#6B6B65;letter-spacing:0.1em;text-transform:uppercase;margin-left:12px;">hanscab.in</span>
+      <span style="font-size:10px;color:#6B6B65;letter-spacing:0.1em;text-transform:uppercase;margin-left:12px;">maruticab.in</span>
     </div>
 
     <div style="background:#141413;border-radius:12px;border:1px solid #232321;overflow:hidden;margin-bottom:16px;">
@@ -83,7 +83,7 @@ function bookingEmailHtml(b: Booking, type: 'confirmation' | 'admin') {
 
     <div style="font-size:10px;color:#3D3D39;text-align:center;line-height:1.6;">
       Private AC Cab · Khargone ↔ Indore<br>
-      MarutiCab · hanscab.in
+      MarutiCab · maruticab.in
     </div>
   </div>
 </body>
