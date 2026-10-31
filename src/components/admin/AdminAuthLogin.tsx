@@ -79,7 +79,7 @@ export function AdminAuthLogin({ onSuccess }: Props) {
 
   // Fallback for development if Supabase project has no users created yet
   const handleDevBypass = () => {
-    onSuccess({ email: email || 'admin@hanscab.in', id: 'dev-admin-id' })
+    onSuccess({ email: email || 'admin@maruticab.in', id: 'dev-admin-id' })
   }
 
   return (
@@ -160,7 +160,7 @@ export function AdminAuthLogin({ onSuccess }: Props) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@hanscab.in"
+                placeholder="admin@maruticab.in"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#F5B841] transition-colors"
               />
             </div>

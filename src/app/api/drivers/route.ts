@@ -1,8 +1,11 @@
 // src/app/api/drivers/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
+import { authorizeAdminRequest } from '@/lib/admin-auth'
 
 export async function GET(req: NextRequest) {
+  const auth = await authorizeAdminRequest(req)
+  if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status })
   const supabase = createServiceClient()
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
@@ -17,6 +20,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeAdminRequest(req)
+    if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status })
     const body = await req.json()
     const supabase = createServiceClient()
 

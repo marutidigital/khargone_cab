@@ -1,6 +1,7 @@
 'use client'
 // src/components/booking/SectionPassenger.tsx
 import { User, Phone, MapPin, Users, Plus, Minus, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
 
 export interface PassengerFormData {
   name: string
@@ -164,7 +165,7 @@ export function SectionPassenger({ maxPassengers, data, onChange, errors }: Prop
               className="mt-1 w-4 h-4 rounded text-amber-500 focus:ring-[#FBBF24] border-slate-300 cursor-pointer"
             />
             <span className="text-xs text-slate-600 leading-relaxed">
-              I agree to be contacted on WhatsApp about this booking and receive driver details.
+              I agree to the <Link className="font-bold text-amber-900 underline" href="/terms">Terms</Link> and <Link className="font-bold text-amber-900 underline" href="/refund">Refund Policy</Link>. I agree to receive WhatsApp updates about this booking.
             </span>
           </label>
           {errors.consent && (

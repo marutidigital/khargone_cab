@@ -19,7 +19,7 @@ export function SectionDropPoint({ direction, vehicle, daysAhead, travelDate, se
   return (
     <section className="bg-white border border-[#E5E7EB] rounded-3xl p-6 sm:p-8 shadow-xs">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-base font-black text-[#FBBF24]">3.</span>
+        <span className="text-base font-black text-[#FBBF24]">2.</span>
         <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
           {sectionTitle}
         </h2>

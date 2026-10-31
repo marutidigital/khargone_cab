@@ -5,6 +5,7 @@ import Image from 'next/image'
 import {
   Users, Briefcase, Wind, Star, Zap, Shield, CheckCircle2
 } from 'lucide-react'
+import { BOOKING_CONFIG } from '@/lib/config'
 
 export type VehicleType = 'sedan' | 'suv'
 
@@ -71,7 +72,7 @@ export function VehicleSelector({ selected, onSelect }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="vehicle-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        {VEHICLES.map(v => {
+        {VEHICLES.filter((vehicle) => vehicle.id !== 'suv' || BOOKING_CONFIG.enableSuv).map(v => {
           const sel = selected === v.id
           return (
             <button

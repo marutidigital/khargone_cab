@@ -42,8 +42,7 @@ export default function AdminPage() {
 
       if (error) {
         console.warn('Admin check warning:', error.message)
-        // If table empty or check fails in dev, allow logged in access
-        setIsAdmin(true)
+        setIsAdmin(false)
       } else if (data && data.length > 0) {
         setIsAdmin(true)
       } else {
@@ -138,12 +137,13 @@ export default function AdminPage() {
 
   // Self-register as admin in dev
   const handleDevGrantAdmin = async () => {
-    if (!user) return
+    if (!user || process.env.NODE_ENV === 'production') return
     try {
       const { error } = await supabase.from('admins').insert({ user_id: user.id })
+      if (error) throw error
       setIsAdmin(true)
-    } catch {
-      setIsAdmin(true)
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Could not grant local admin access.')
     }
   }
 
@@ -223,7 +223,7 @@ export default function AdminPage() {
               <input
                 type="email"
                 required
-                placeholder="admin@hanscab.in"
+                placeholder="admin@maruticab.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FBBF24] focus:border-[#FBBF24] min-h-[44px]"
@@ -258,11 +258,11 @@ export default function AdminPage() {
           </form>
 
           {/* Quick local dev sign-in helper */}
-          <div className="mt-6 pt-4 border-t border-slate-200 text-center">
+          {process.env.NODE_ENV !== 'production' && <div className="mt-6 pt-4 border-t border-slate-200 text-center">
             <button
               type="button"
               onClick={() => {
-                const devUser = { id: 'dev-admin-user-id', email: 'admin@hanscab.in' }
+                const devUser = { id: 'dev-admin-user-id', email: 'admin@maruticab.in' }
                 setUser(devUser)
                 setIsAdmin(true)
               }}
@@ -270,7 +270,7 @@ export default function AdminPage() {
             >
               Local test bypass (skip auth)
             </button>
-          </div>
+          </div>}
         </div>
       </div>
     )
@@ -298,14 +298,13 @@ export default function AdminPage() {
           </p>
 
           <div className="space-y-3">
-            <button
+            {process.env.NODE_ENV !== 'production' && <button
               onClick={handleDevGrantAdmin}
               className="w-full bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] shadow-xs cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add My User to public.admins (Dev Admin)</span>
-            </button>
-
+            </button>}
             <button
               onClick={handleSignOut}
               className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"

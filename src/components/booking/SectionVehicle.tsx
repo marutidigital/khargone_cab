@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { Star, CheckCircle2, Check, ShieldCheck } from 'lucide-react'
 import { PRICING_CONFIG, formatRs, getStartingPrice } from '@/config/pricing'
+import { BOOKING_CONFIG } from '@/lib/config'
 
 interface Props {
   selectedVehicle: 'sedan' | 'suv'
@@ -27,7 +28,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
       </div>
 
       {/* Vehicle cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 ${BOOKING_CONFIG.enableSuv ? 'md:grid-cols-2' : ''} gap-4`}>
         {/* Card 1: Economy Sedan */}
         <div
           onClick={() => onSelectVehicle('sedan')}
@@ -101,7 +102,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
         </div>
 
         {/* Card 2: Premium SUV */}
-        <div
+        {BOOKING_CONFIG.enableSuv && <div
           onClick={() => onSelectVehicle('suv')}
           className={`relative rounded-2xl p-4 border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
             isSuv
@@ -174,7 +175,7 @@ export function SectionVehicle({ selectedVehicle, direction, onSelectVehicle }: 
               </span>
             </div>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Light green strip below cards */}

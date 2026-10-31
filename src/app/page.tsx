@@ -1,564 +1,128 @@
 'use client'
-// src/app/page.tsx
-// MarutiCab - Single Continuous Scrolling Page (Khargone <-> Indore Private Cabs)
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Script from 'next/script'
+import { useRouter } from 'next/navigation'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { Nav } from '@/components/Nav'
 import { BookingStepper } from '@/components/BookingStepper'
 import { SectionRoute } from '@/components/booking/SectionRoute'
-import { SectionVehicle } from '@/components/booking/SectionVehicle'
 import { SectionDropPoint } from '@/components/booking/SectionDropPoint'
-import { SectionDate, DateTileItem } from '@/components/booking/SectionDate'
-import { SectionTimeSlot, ExactTimeOption } from '@/components/booking/SectionTimeSlot'
-import { SectionPassenger, PassengerFormData } from '@/components/booking/SectionPassenger'
-import { TripSummaryCard } from '@/components/booking/TripSummaryCard'
-import { PaymentConfirmationSheet } from '@/components/booking/PaymentConfirmationSheet'
+import { SectionDate, type DateTileItem } from '@/components/booking/SectionDate'
+import { SectionTimeSlot, type ExactTimeOption } from '@/components/booking/SectionTimeSlot'
+import { SectionPassenger, type PassengerFormData } from '@/components/booking/SectionPassenger'
+import { BookingModeSelector } from '@/components/booking/BookingModeSelector'
+import { BookingPaymentPanel } from '@/components/booking/BookingPaymentPanel'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
-import { PRICING_CONFIG, computeFare, formatRs, DetailedFareBreakdown } from '@/config/pricing'
-import { initUTMTracking, getStoredSource, logEvent } from '@/lib/tracking'
-import { ShieldCheck, ArrowRight, CheckCircle2, ChevronUp } from 'lucide-react'
+import { PRICING_CONFIG, formatRs } from '@/config/pricing'
+import { BOOKING_CONFIG, calculateBookingFare, isMatchDealWithinWindow, type BookingMode } from '@/lib/config'
+import { initUTMTracking, logEvent } from '@/lib/tracking'
 
-// Helper to get today's date formatted as YYYY-MM-DD in Asia/Kolkata
-function getTodayKolkata(): string {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-  return formatter.format(new Date())
+declare global {
+  interface Window { Razorpay?: new (options: Record<string, unknown>) => { open: () => void } }
+}
+
+function todayInIndia() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
 export default function Home() {
-  // 1. Core Booking State
+  const router = useRouter()
   const [direction, setDirection] = useState<'K2I' | 'I2K'>('K2I')
-  const [vehicle, setVehicle] = useState<'sedan' | 'suv'>('sedan')
-  const [pointId, setPointId] = useState<string>('rajendra')
-
-  // Date state (Asia/Kolkata runtime)
-  const [selectedDateStr, setSelectedDateStr] = useState<string>(getTodayKolkata)
-  const [selectedDateItem, setSelectedDateItem] = useState<DateTileItem | null>(null)
-
-  // Time slot state
-  const [selectedTimeStr, setSelectedTimeStr] = useState<string | null>(null)
-  const [selectedTimeOpt, setSelectedTimeOpt] = useState<ExactTimeOption | null>(null)
-
-  // Passenger Form
-  const [passenger, setPassenger] = useState<PassengerFormData>({
-    name: '',
-    phone: '',
-    passengers: 1,
-    consent: true,
-    address: '',
-  })
-  const [errors, setErrors] = useState<{ name?: string; phone?: string; consent?: string; time?: string }>({})
-
-  // UI & Submission state
+  const [pointId, setPointId] = useState('rajendra')
+  const [date, setDate] = useState(todayInIndia)
+  const [mode, setMode] = useState<BookingMode>('guaranteed')
+  const [time, setTime] = useState<ExactTimeOption | null>(null)
+  const [passenger, setPassenger] = useState<PassengerFormData>({ name: '', phone: '', passengers: 1, consent: false, address: '' })
+  const [matchAvailability, setMatchAvailability] = useState<{ ready: boolean; count: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false)
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
+  const idempotencyKey = useRef('')
 
-  // Confirmed booking state (for PaymentConfirmationSheet)
-  const [confirmedBooking, setConfirmedBooking] = useState<{
-    bookingCode: string
-    name: string
-    phone: string
-    direction: 'K2I' | 'I2K'
-    pointName: string
-    vehicleName: string
-    pickupDateStr: string
-    pickupTimeLabel: string
-    passengers: number
-    breakdown: DetailedFareBreakdown
-    whatsappUrl: string
-    isDuplicate?: boolean
-  } | null>(null)
+  const point = PRICING_CONFIG.points.find((entry) => entry.id === pointId) || PRICING_CONFIG.points[0]
+  const fare = useMemo(() => calculateBookingFare({ mode, point: pointId as keyof typeof BOOKING_CONFIG.guaranteedFares, pickupTime: time?.timeStr || '10:00' }), [mode, pointId, time])
+  const dateLabel = useMemo(() => new Date(`${date}T00:00:00+05:30`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' }), [date])
+  const valid = Boolean(time && passenger.name.trim().length >= 2 && /^[6-9]\d{9}$/.test(passenger.phone) && passenger.consent)
+  const today = date === todayInIndia()
+  const matchAllowed = BOOKING_CONFIG.matchDepartures[direction].some((departure) => isMatchDealWithinWindow(date, departure))
 
-  // 2. Track initial page view & UTM parameters
+  useEffect(() => { initUTMTracking(); void logEvent({ event: 'page_view' }) }, [])
   useEffect(() => {
-    initUTMTracking()
-    logEvent({ event: 'page_view' })
-  }, [])
-
-  // 3. Resolve configs & values
-  const selectedPoint = useMemo(() => {
-    return PRICING_CONFIG.points.find((p) => p.id === pointId) || PRICING_CONFIG.points[0]
-  }, [pointId])
-
-  const selectedVehicleConfig = useMemo(() => {
-    return PRICING_CONFIG.vehicles[vehicle]
-  }, [vehicle])
-
-  const isToday = useMemo(() => {
-    return selectedDateStr === getTodayKolkata()
-  }, [selectedDateStr])
-
-  const daysAhead = useMemo(() => {
-    if (selectedDateItem) return selectedDateItem.daysAhead
-    const today = new Date(getTodayKolkata())
-    const sel = new Date(selectedDateStr)
-    const diff = Math.ceil((sel.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    return Math.max(0, diff)
-  }, [selectedDateItem, selectedDateStr])
-
-  // Live price breakdown calculation
-  const fareBreakdown: DetailedFareBreakdown = useMemo(() => {
-    return computeFare({
-      direction,
-      vehicle,
-      pointIdOrName: selectedPoint.name,
-      daysAhead,
-      travelDate: selectedDateStr,
-      hour: selectedTimeOpt ? selectedTimeOpt.hour : 10,
-      isNight: selectedTimeOpt ? selectedTimeOpt.isNight : false,
-    })
-  }, [direction, vehicle, selectedPoint.name, daysAhead, selectedDateStr, selectedTimeOpt])
-
-  // Adjust passenger count if user switches from SUV (max 6) to Sedan (max 4)
-  const maxPax = vehicle === 'suv' ? 6 : 4
+    setTime(null)
+    setMatchAvailability(null)
+  }, [date, direction, mode])
   useEffect(() => {
-    if (passenger.passengers > maxPax) {
-      setPassenger((prev) => ({ ...prev, passengers: maxPax }))
-    }
-  }, [maxPax, passenger.passengers])
+    if (mode !== 'match' || !time) return
+    const abort = new AbortController()
+    fetch(`/api/bookings/availability?direction=${direction}&date=${date}&time=${time.timeStr}`, { signal: abort.signal })
+      .then((response) => response.json())
+      .then((value) => setMatchAvailability({ ready: value.ready === true, count: Number(value.count) || 0 }))
+      .catch(() => setMatchAvailability({ ready: false, count: 0 }))
+    return () => abort.abort()
+  }, [date, direction, mode, time])
 
-  // 4. Stepper calculation & Smooth Scrolling
-  const completedSteps = useMemo(() => {
-    const steps: number[] = [1, 2, 3] // Route, Vehicle, Point are always selected by default
-    if (selectedDateStr) steps.push(4)
-    if (selectedTimeOpt) steps.push(5)
-    if (
-      passenger.name.trim().length >= 2 &&
-      /^[6-9]\d{9}$/.test(passenger.phone) &&
-      passenger.consent
-    ) {
-      steps.push(6)
-    }
-    return steps
-  }, [selectedDateStr, selectedTimeOpt, passenger])
-
-  const currentStep = useMemo(() => {
-    if (!selectedTimeOpt) return 5
-    if (!passenger.name.trim() || !/^[6-9]\d{9}$/.test(passenger.phone)) return 6
-    return 6
-  }, [selectedTimeOpt, passenger])
-
-  const scrollToSection = (stepNum: number) => {
-    const ids: Record<number, string> = {
-      1: 'section-route',
-      2: 'section-vehicle',
-      3: 'section-point',
-      4: 'section-date',
-      5: 'section-time',
-      6: 'section-passenger',
-    }
-    const targetId = ids[stepNum]
-    if (targetId) {
-      const el = document.getElementById(targetId)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    }
-  }
-
-  // 5. Actions & Handlers
-  const handleSelectDirection = (nextDir: 'K2I' | 'I2K') => {
-    if (direction === nextDir) return
-    setDirection(nextDir)
-    logEvent({
-      event: 'direction_selected',
-      meta: { direction: nextDir },
-    })
-  }
-
-  const handleSelectVehicle = (v: 'sedan' | 'suv') => {
-    setVehicle(v)
-    logEvent({
-      event: 'vehicle_selected',
-      meta: { vehicle: v },
-    })
-  }
-
-  const handleSelectPoint = (ptId: string) => {
-    setPointId(ptId)
-    const pt = PRICING_CONFIG.points.find((p) => p.id === ptId)
-    logEvent({
-      event: 'point_selected',
-      meta: { point: pt?.name || ptId },
-    })
-  }
-
-  const handleSelectDate = (item: DateTileItem) => {
-    setSelectedDateStr(item.dateStr)
-    setSelectedDateItem(item)
-    // If today changed, reset time if needed
-    logEvent({
-      event: 'date_selected',
-      meta: { date: item.dateStr, daysAhead: item.daysAhead },
-    })
-  }
-
-  const handleSelectTime = (opt: ExactTimeOption) => {
-    setSelectedTimeStr(opt.timeStr)
-    setSelectedTimeOpt(opt)
-    setErrors((prev) => ({ ...prev, time: undefined }))
-    logEvent({
-      event: 'time_selected',
-      meta: { time: opt.timeStr, hour: opt.hour },
-    })
-  }
-
-  const handlePassengerChange = (updated: Partial<PassengerFormData>) => {
-    setPassenger((prev) => ({ ...prev, ...updated }))
-    if (updated.name && updated.name.trim().length >= 2) {
-      setErrors((prev) => ({ ...prev, name: undefined }))
-    }
-    if (updated.phone && /^[6-9]\d{9}$/.test(updated.phone)) {
-      setErrors((prev) => ({ ...prev, phone: undefined }))
-    }
-    if (updated.consent !== undefined && updated.consent) {
-      setErrors((prev) => ({ ...prev, consent: undefined }))
-    }
-  }
-
-  // 6. Booking request submission
-  const isFormValid = useMemo(() => {
-    return (
-      !!selectedDateStr &&
-      !!selectedTimeOpt &&
-      passenger.name.trim().length >= 2 &&
-      /^[6-9]\d{9}$/.test(passenger.phone) &&
-      passenger.consent
-    )
-  }, [selectedDateStr, selectedTimeOpt, passenger])
-
-  const handleBookingRequest = async () => {
-    const newErrors: { name?: string; phone?: string; consent?: string; time?: string } = {}
-
-    if (!selectedTimeOpt) {
-      newErrors.time = 'Please choose a pickup time slot.'
-      scrollToSection(5)
-    }
-
-    if (!passenger.name.trim() || passenger.name.trim().length < 2) {
-      newErrors.name = 'Please enter your full name.'
-    }
-
-    if (!passenger.phone || !/^[6-9]\d{9}$/.test(passenger.phone)) {
-      newErrors.phone = 'Please enter a valid 10-digit Indian WhatsApp number.'
-    }
-
-    if (!passenger.consent) {
-      newErrors.consent = 'Please agree to be contacted on WhatsApp.'
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      if (newErrors.name || newErrors.phone || newErrors.consent) {
-        scrollToSection(6)
-      }
-      return
-    }
-
-    setIsSubmitting(true)
-    setToastMessage(null)
-
+  const selectDate = useCallback((item: DateTileItem) => { setDate(item.dateStr) }, [])
+  const submit = async () => {
+    if (!valid || !time) { setNotice('Complete the pickup time, passenger details, and consent before continuing.'); return }
+    if (!window.Razorpay) { setNotice('Secure checkout is loading. Please try again in a moment.'); return }
+    setIsSubmitting(true); setNotice('')
     try {
-      // Build pickup ISO string with Asia/Kolkata offset (+05:30)
-      const pickupTime = selectedTimeOpt ? selectedTimeOpt.timeStr : '10:00'
-      const pickupAtIso = `${selectedDateStr}T${pickupTime}:00+05:30`
-
-      // 1. Log event & fire Meta Pixel lead event
-      await logEvent({
-        event: 'booking_requested',
-        meta: {
-          direction,
-          vehicle,
-          point: selectedPoint.name,
-          pickup_at: pickupAtIso,
-          price: fareBreakdown.totalFare,
-          phone: passenger.phone,
+      if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID()
+      const response = await fetch('/api/bookings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction, mode, point: pointId, date, time: time.timeStr, name: passenger.name.trim(), phone: passenger.phone, passengers: passenger.passengers, address: passenger.address, consent: passenger.consent, idempotencyKey: idempotencyKey.current }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not create your booking.')
+      const publicToken = String(result.publicToken)
+      const checkout = new window.Razorpay({
+        key: result.keyId, amount: result.amount, currency: result.currency, name: 'MarutiCab', description: `${mode === 'match' ? 'Match Deal' : 'Confirm Now'} · ${dateLabel} · ${time.label12}`,
+        order_id: result.orderId, prefill: { name: passenger.name.trim(), contact: `+91${passenger.phone}` }, theme: { color: '#FBBF24' },
+        notes: { booking_ref: result.bookingRef },
+        handler: async (payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          const verified = await fetch('/api/razorpay/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payment, publicToken }) })
+          if (!verified.ok) { const body = await verified.json().catch(() => ({})); setNotice(body.error || 'Payment is syncing. Open your booking status shortly.'); return }
+          router.push(`/booking/${publicToken}`)
         },
+        modal: { ondismiss: () => setIsSubmitting(false) },
       })
-
-      // 2. Call server route handler /api/leads
-      const res = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: passenger.name.trim(),
-          phone: passenger.phone,
-          direction,
-          vehicle,
-          point: selectedPoint.name,
-          pickup_at: pickupAtIso,
-          passengers: passenger.passengers,
-          consent: passenger.consent,
-          source: getStoredSource(),
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit booking request.')
-      }
-
-      // Close mobile sheet if open
-      setIsMobileModalOpen(false)
-
-      // Set confirmed booking to display honest Confirmation Sheet
-      setConfirmedBooking({
-        bookingCode: data.booking_code || 'HC-PENDING',
-        name: passenger.name.trim(),
-        phone: passenger.phone,
-        direction,
-        pointName: selectedPoint.name,
-        vehicleName: selectedVehicleConfig.title,
-        pickupDateStr: selectedDateStr,
-        pickupTimeLabel: selectedTimeOpt ? selectedTimeOpt.label12 : '10:00 AM',
-        passengers: passenger.passengers,
-        breakdown: fareBreakdown,
-        whatsappUrl: data.whatsapp_url,
-        isDuplicate: data.isDuplicate,
-      })
-    } catch (err: any) {
-      console.error('Submission failed:', err)
-      setToastMessage(err.message || 'Something went wrong. Please try again.')
-      setTimeout(() => setToastMessage(null), 5000)
-    } finally {
+      checkout.open()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not start checkout.')
       setIsSubmitting(false)
     }
   }
 
-  // Formatting date string for display in summary
-  const dateLabel = useMemo(() => {
-    if (selectedDateItem) {
-      return `${selectedDateItem.weekday}, ${selectedDateItem.dayNum} ${selectedDateItem.month}`
-    }
-    const d = new Date(selectedDateStr)
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  }, [selectedDateItem, selectedDateStr])
+  const completed = [1, 2, ...(date ? [3] : []), ...(mode ? [4] : []), ...(time ? [5] : []), ...(valid ? [6] : [])]
+  const scrollToSection = (step: number) => document.getElementById(['', 'section-route', 'section-point', 'section-date', 'section-mode', 'section-time', 'section-passenger', 'section-payment'][step])?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  const timeLabel = selectedTimeOpt ? selectedTimeOpt.label12 : null
-
-  return (
-    <div className="min-h-screen bg-[#F4F4F5] flex flex-col font-sans text-slate-900 antialiased selection:bg-[#FBBF24] selection:text-slate-950">
-      {/* 1. Header Navigation */}
-      <Nav />
-
-      {/* 2. Top Progress Stepper */}
-      <BookingStepper
-        currentStep={currentStep}
-        completedSteps={completedSteps}
-        onStepClick={scrollToSection}
-      />
-
-      {/* Toast Notification Banner */}
-      {toastMessage && (
-        <div className="fixed top-20 right-4 z-50 bg-rose-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
-          <span className="text-sm font-bold">{toastMessage}</span>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-white/80 hover:text-white text-xs underline font-bold"
-          >
-            Dismiss
-          </button>
+  return <div className="min-h-screen bg-[#F4F4F5] text-slate-900 antialiased">
+    <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
+    <Nav />
+    <BookingStepper currentStep={valid ? 7 : time ? 6 : mode ? 5 : 3} completedSteps={completed} onStepClick={scrollToSection} />
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
+      <header className="mb-6 flex flex-col justify-between gap-3 sm:mb-8 sm:flex-row sm:items-center">
+        <div><h1 className="flex flex-wrap items-center gap-2 text-xl font-black tracking-tight sm:text-2xl">Book a MarutiCab <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-900">Khargone ↔ Indore</span></h1><p className="mt-1 text-sm text-slate-600">Private Economy Sedan · Fixed pickup time · No shared passengers</p></div>
+        <div className="flex items-center gap-2 self-start rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800"><ShieldCheck className="h-4 w-4" /> Secure online booking</div>
+      </header>
+      {notice && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">{notice}</div>}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+        <div className="space-y-5 sm:space-y-6">
+          <div id="section-route" className="scroll-mt-24"><SectionRoute direction={direction} selectedPointName={point.name} onSelectDirection={(value) => setDirection(value)} /></div>
+          <div id="section-point" className="scroll-mt-24"><SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={setPointId} /></div>
+          <div id="section-date" className="scroll-mt-24"><SectionDate pointId={pointId} vehicle="sedan" direction={direction} selectedDateStr={date} onSelectDate={selectDate} /></div>
+          <div id="section-mode" className="scroll-mt-24"><BookingModeSelector selectedMode={mode} point={pointId as keyof typeof BOOKING_CONFIG.guaranteedFares} matchAllowed={matchAllowed} onSelect={setMode} /></div>
+          <div id="section-time" className="scroll-mt-24"><SectionTimeSlot isToday={today} direction={direction} mode={mode} selectedTimeStr={time?.timeStr || null} onSelectTime={setTime} onSwitchToGuaranteed={() => setMode('guaranteed')} matchAvailability={matchAvailability} /></div>
+          <div id="section-passenger" className="scroll-mt-24"><SectionPassenger maxPassengers={4} data={passenger} onChange={(patch) => setPassenger((current) => ({ ...current, ...patch }))} errors={{}} /></div>
+          <div id="section-payment" className="scroll-mt-24 lg:hidden"><BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} /></div>
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-lg font-extrabold">Frequently asked questions</h2><div className="mt-4 space-y-4 text-sm"><details><summary className="cursor-pointer font-bold">When will I know about the match?</summary><p className="mt-2 text-slate-600">We notify you as soon as a compatible opposite-direction booking is found, before the 24-hour cutoff.</p></details><details><summary className="cursor-pointer font-bold">What if no match is found?</summary><p className="mt-2 text-slate-600">Choose a full refund of your ₹500 advance or upgrade to a guaranteed ride. If no match is available by cutoff and you do not choose, we will refund it.</p></details><details><summary className="cursor-pointer font-bold">Can I change my time?</summary><p className="mt-2 text-slate-600">Pickup time is fixed after payment. Contact support before booking if you need another departure.</p></details><details><summary className="cursor-pointer font-bold">When do I pay the balance?</summary><p className="mt-2 text-slate-600">Pay the displayed balance directly in the cab.</p></details><details><summary className="cursor-pointer font-bold">Is the cab shared with strangers?</summary><p className="mt-2 text-slate-600">No. You get a private cab. The return trip is matched with a separate customer going the other way.</p></details></div></section>
         </div>
-      )}
-
-      {/* 3. Main Continuous Booking Experience */}
-      <main id="booking-section" className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 lg:px-10 py-8 sm:py-10">
-        {/* Intro Subtitle */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>Book Private Cab</span>
-              <span className="text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                Khargone ↔ Indore
-              </span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1">
-              Guaranteed private car for your family • No shared passengers • Doorstep pickup & drop
-            </p>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl self-start sm:self-auto">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Booking request • Fare shown upfront</span>
-          </div>
-        </div>
-
-        {/* 2-Column Responsive Layout */}
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-9 items-start">
-          {/* LEFT COLUMN: All 6 Sections in One Continuous Scrolling View */}
-          <div className="w-full lg:w-[65%] xl:w-[68%] space-y-8 sm:space-y-9">
-            {/* SECTION 1: Route */}
-            <div id="section-route" className="scroll-mt-24">
-              <SectionRoute
-                direction={direction}
-                selectedPointName={selectedPoint.name}
-                onSelectDirection={handleSelectDirection}
-              />
-            </div>
-
-            {/* SECTION 2: Vehicle */}
-            <div id="section-vehicle" className="scroll-mt-24">
-              <SectionVehicle
-                selectedVehicle={vehicle}
-                direction={direction}
-                onSelectVehicle={handleSelectVehicle}
-              />
-            </div>
-
-            {/* SECTION 3: Drop Point & Interactive Map */}
-            <div id="section-point" className="scroll-mt-24">
-              <SectionDropPoint
-                direction={direction}
-                vehicle={vehicle}
-                daysAhead={daysAhead}
-                travelDate={selectedDateStr}
-                selectedPointId={pointId}
-                onSelectPoint={handleSelectPoint}
-              />
-            </div>
-
-            {/* SECTION 4: Travel Date (45-Day runtime generator) */}
-            <div id="section-date" className="scroll-mt-24">
-              <SectionDate
-                pointId={pointId}
-                vehicle={vehicle}
-                direction={direction}
-                selectedDateStr={selectedDateStr}
-                onSelectDate={handleSelectDate}
-              />
-            </div>
-
-            {/* SECTION 5: Pickup Time Slot */}
-            <div id="section-time" className="scroll-mt-24">
-              <SectionTimeSlot
-                isToday={isToday}
-                direction={direction}
-                selectedTimeStr={selectedTimeStr}
-                onSelectTime={handleSelectTime}
-              />
-              {errors.time && (
-                <p className="text-xs font-bold text-rose-600 mt-2 px-1">
-                  ⚠️ {errors.time}
-                </p>
-              )}
-            </div>
-
-            {/* SECTION 6: Passenger Details */}
-            <div id="section-passenger" className="scroll-mt-24">
-              <SectionPassenger
-                maxPassengers={maxPax}
-                data={passenger}
-                onChange={handlePassengerChange}
-                errors={errors}
-              />
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN (DESKTOP): Sticky Trip Summary Card */}
-          <div className="hidden lg:block lg:w-[35%] xl:w-[32%] sticky top-20">
-            <TripSummaryCard
-              direction={direction}
-              vehicle={vehicle}
-              pointName={selectedPoint.name}
-              dateLabel={dateLabel}
-              timeLabel={timeLabel}
-              breakdown={fareBreakdown}
-              isValid={isFormValid}
-              isSubmitting={isSubmitting}
-              onBookCar={handleBookingRequest}
-            />
-          </div>
-        </div>
-      </main>
-
-      {/* 4. Mobile Sticky Bottom Bar */}
-      <div className="lg:hidden sticky bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E5E7EB] px-4 py-3 shadow-lg">
-        <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
-          {/* Price summary tap to expand */}
-          <button
-            type="button"
-            onClick={() => setIsMobileModalOpen(true)}
-            className="flex flex-col text-left focus:outline-none cursor-pointer"
-          >
-            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
-              Total Fare <ChevronUp className="w-3 h-3 text-slate-400" />
-            </span>
-            <span className="text-lg font-black text-slate-900 leading-tight">
-              {formatRs(fareBreakdown.totalFare)}
-            </span>
-          </button>
-
-          {/* Action button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (isFormValid) {
-                handleBookingRequest()
-              } else {
-                setIsMobileModalOpen(true)
-              }
-            }}
-            disabled={isSubmitting}
-            className="bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-black text-sm px-5 py-3 rounded-xl shadow-xs transition-all active:scale-98 min-h-[46px] flex items-center gap-2 cursor-pointer disabled:opacity-60"
-          >
-            <span>{isFormValid ? 'Book Your Car' : 'Complete booking details'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+        <aside className="hidden lg:sticky lg:top-20 lg:block" id="section-payment"><BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} /></aside>
       </div>
-
-      {/* 5. Mobile Summary Bottom Sheet Modal */}
-      {isMobileModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl">
-            <TripSummaryCard
-              direction={direction}
-              vehicle={vehicle}
-              pointName={selectedPoint.name}
-              dateLabel={dateLabel}
-              timeLabel={timeLabel}
-              breakdown={fareBreakdown}
-              isValid={isFormValid}
-              isSubmitting={isSubmitting}
-              onBookCar={handleBookingRequest}
-              isMobileModal={true}
-              onCloseMobileModal={() => setIsMobileModalOpen(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 6. Honest Payment Confirmation Modal (TEST PHASE FLOW) */}
-      {confirmedBooking && (
-        <PaymentConfirmationSheet
-          bookingCode={confirmedBooking.bookingCode}
-          name={confirmedBooking.name}
-          phone={confirmedBooking.phone}
-          direction={confirmedBooking.direction}
-          pointName={confirmedBooking.pointName}
-          vehicleName={confirmedBooking.vehicleName}
-          pickupDateStr={confirmedBooking.pickupDateStr}
-          pickupTimeLabel={confirmedBooking.pickupTimeLabel}
-          passengers={confirmedBooking.passengers}
-          breakdown={confirmedBooking.breakdown}
-          whatsappUrl={confirmedBooking.whatsappUrl}
-          isDuplicate={confirmedBooking.isDuplicate}
-          onClose={() => setConfirmedBooking(null)}
-        />
-      )}
-
-      {/* 7. Bottom Perks Marquee Bar */}
-      <FooterMarquee />
-
-      {/* 8. Trust & Legal Footer */}
-      <FooterTrust />
-    </div>
-  )
+      <div className="mt-8 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900"><ShieldCheck className="h-4 w-4" />Tolls included · No driver allowance · No parking charges · Extra distance ₹{BOOKING_CONFIG.extraKmRate}/km</div>
+    </main>
+    <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-slate-200 bg-white/95 p-3 backdrop-blur lg:hidden"><div><div className="text-[10px] font-bold uppercase text-slate-500">Total fare</div><strong className="text-lg">{formatRs(fare.totalFare)}</strong></div><button type="button" disabled={!valid || isSubmitting} onClick={() => void submit()} className="flex min-h-11 items-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-black disabled:bg-slate-200">Pay {formatRs(fare.advanceAmount)} <ArrowRight className="h-4 w-4" /></button></div>
+    <FooterMarquee /><FooterTrust />
+  </div>
 }
