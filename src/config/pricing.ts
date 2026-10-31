@@ -1,5 +1,7 @@
 // src/config/pricing.ts
-// Single source of truth for dynamic pricing, points, and rules
+import { BOOKING_CONFIG, getDropPointExtra, type DropPointId } from '@/lib/config'
+
+// Backward-compatible presentation adapters. Booking prices come from lib/config.ts.
 
 export interface VehicleConfig {
   id: 'sedan' | 'suv'
@@ -39,26 +41,26 @@ export interface PricingFormulaConfig {
 }
 
 export const DEFAULT_PRICING_CONFIG: PricingFormulaConfig = {
-  BASE: { K2I: 3000, I2K: 3000 },
-  STEP: 100,
-  FLOOR: { K2I: 1700, I2K: 1700 },
+  BASE: { K2I: BOOKING_CONFIG.guaranteedFares.rajendra, I2K: BOOKING_CONFIG.guaranteedFares.rajendra },
+  STEP: 0,
+  FLOOR: { K2I: BOOKING_CONFIG.guaranteedFares.rajendra, I2K: BOOKING_CONFIG.guaranteedFares.rajendra },
   SUV_EXTRA: 500,
   POINTS: {
-    'Rajendra Nagar': 1700,
-    'Railway Station': 1900,
-    'Airport': 2000,
-    'Bhawarkua': 1800,
-    'Rajwada': 2000,
+    'Rajendra Nagar': BOOKING_CONFIG.guaranteedFares.rajendra,
+    'Railway Station': BOOKING_CONFIG.guaranteedFares.railway,
+    'Airport': BOOKING_CONFIG.guaranteedFares.airport,
+    'Bhawarkua': BOOKING_CONFIG.guaranteedFares.bhawarkua,
+    'Rajwada': BOOKING_CONFIG.guaranteedFares.rajwada,
   },
-  KM_CHARGE_PER_KM: 13,
+  KM_CHARGE_PER_KM: BOOKING_CONFIG.extraKmRate,
   TOLL_ESTIMATE: 0,
-  NIGHT_SURCHARGE: 300,
-  MIN_LEAD_HOURS: 3,
-  TRAVEL_HOURS: 3,
-  ADVANCE: 500,
+  NIGHT_SURCHARGE: BOOKING_CONFIG.nightSurcharge,
+  MIN_LEAD_HOURS: BOOKING_CONFIG.guaranteedMinLeadHours,
+  TRAVEL_HOURS: BOOKING_CONFIG.travelHours,
+  ADVANCE: BOOKING_CONFIG.guaranteedAdvance,
 }
 
-export const BASE_ROUTE_DISTANCE_KM = 157.08
+export const BASE_ROUTE_DISTANCE_KM = BOOKING_CONFIG.baseRouteKm
 const pointDrivingDistances: Record<string, number> = {
   rajendra: BASE_ROUTE_DISTANCE_KM,
   railway: 163.5,
@@ -71,8 +73,8 @@ export const PRICING_CONFIG = {
   ...DEFAULT_PRICING_CONFIG,
   brandName: 'MarutiCab',
   tagline: 'Private Cabs · Khargone ↔ Indore',
-  domain: 'hanscab.in',
-  contactWhatsApp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '919826098260',
+  domain: 'maruticab.in',
+  contactWhatsApp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '917282316090',
   supportPhone: '+91 98260 98260',
   supportHours: '6:00 AM – 11:00 PM',
   khargoneHub: 'Bus Stand Khargone',
@@ -81,9 +83,14 @@ export const PRICING_CONFIG = {
   estimatedTravelHours: DEFAULT_PRICING_CONFIG.TRAVEL_HOURS,
   advanceDeposit: DEFAULT_PRICING_CONFIG.ADVANCE,
   nightSurcharge: DEFAULT_PRICING_CONFIG.NIGHT_SURCHARGE,
-  indoreToKhargoneDiscount: 200,
-  sameDaySurcharge: 300,
-  nextDaySurcharge: 200,
+  indoreToKhargoneDiscount: 0,
+  sameDaySurcharge: 0,
+  nextDaySurcharge: 0,
+  enableSuv: BOOKING_CONFIG.enableSuv,
+  matchAdvance: BOOKING_CONFIG.matchAdvance,
+  matchCutoffHours: BOOKING_CONFIG.matchCutoffHours,
+  matchMinAdvanceHours: BOOKING_CONFIG.matchMinAdvanceHours,
+  matchDepartures: BOOKING_CONFIG.matchDepartures,
   driverCallMinutesBefore: 45,
   offers: {
     referral: {
@@ -104,7 +111,7 @@ export const PRICING_CONFIG = {
       badge: 'Recommended',
       badgeColor: 'amber',
       image: '/cars/sedan.webp',
-      baseFare: 1700,
+      baseFare: BOOKING_CONFIG.guaranteedFares.rajendra,
       features: ['Up to 4 passengers', '2-3 luggage bags', 'AC comfortable seats'],
     },
     suv: {
@@ -164,8 +171,8 @@ export function formatRs(amount: number): string {
 }
 
 // Night surcharge check (22:00 to 04:59)
-export function isNightTime(hour: number): boolean {
-  return hour >= 22 || hour < 5
+export function isNightTime(hour: number, minute = 0): boolean {
+  return hour >= 22 || hour < 4 || (hour === 4 && minute <= 30)
 }
 
 export function getPointConfig(pointIdOrName: string): PointConfig {
@@ -182,42 +189,20 @@ export function getPointFare(
   return config.POINTS[getPointConfig(pointIdOrName).name] ?? 0
 }
 
-// Calendar-specific prices use the quoted dates; days-ahead pricing is the fallback.
+// Guaranteed fares are fixed. Booking date never reduces the guaranteed fare.
 export function calculateDateFare(
   direction: 'K2I' | 'I2K' | 'KI' | 'IK',
   daysAhead: number,
   config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG,
   travelDate?: string
 ): number {
-  const dirKey = direction === 'IK' || direction === 'I2K' ? 'I2K' : 'K2I'
-  const base = config.BASE[dirKey]
-  const floor = config.FLOOR[dirKey]
-
-  // Keep the quoted November fares attached to their calendar dates.
-  if (travelDate) {
-    const calendarFares: Record<string, number> = {
-      '2026-10-31': 3000,
-      '2026-11-01': 2300,
-      '2026-11-02': 2200,
-      '2026-11-03': 2100,
-      '2026-11-04': 2000,
-      '2026-11-05': 1900,
-      '2026-11-06': 1800,
-      '2026-11-07': 1700,
-    }
-    if (calendarFares[travelDate] !== undefined) return calendarFares[travelDate]
-    if (travelDate > '2026-11-07') return floor
-  }
-
-  // For dates outside the quoted calendar, keep same-day and next-day at the
-  // urgent rate, then step down to the configured floor.
-  if (daysAhead <= 1) return base
-  const firstReducedDayFare = base - config.STEP * 6
-  const discountSteps = Math.max(0, daysAhead - 2)
-  return Math.max(floor, firstReducedDayFare - config.STEP * discountSteps)
+  void direction
+  void daysAhead
+  void travelDate
+  return config.BASE.K2I
 }
 
-/** Date-based fare for a drop point, retaining its existing location premium. */
+/** Fixed guaranteed fare for a drop point; `daysAhead` is kept for old callers. */
 export function getPointFareForDate(
   pointIdOrName: string,
   direction: 'K2I' | 'I2K' | 'KI' | 'IK',
@@ -225,10 +210,10 @@ export function getPointFareForDate(
   config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG,
   travelDate?: string
 ): number {
-  const dirKey = direction === 'IK' || direction === 'I2K' ? 'I2K' : 'K2I'
-  const routeBase = calculateDateFare(dirKey, daysAhead, config, travelDate)
-  const locationPremium = Math.max(0, getPointFare(pointIdOrName, config) - config.FLOOR[dirKey])
-  return routeBase + locationPremium
+  void direction
+  void daysAhead
+  void travelDate
+  return getPointFare(pointIdOrName, config)
 }
 
 // Starting price for a direction
@@ -242,6 +227,7 @@ export function getStartingPrice(
 
 export interface DetailedFareBreakdown {
   direction: 'K2I' | 'I2K'
+  mode: 'match' | 'guaranteed'
   daysAhead: number
   standardFare: number
   dateFare: number
@@ -268,16 +254,20 @@ export function computeFare(params: {
   travelDate?: string
   hour?: number
   isNight?: boolean
+  minute?: number
+  mode?: 'match' | 'guaranteed'
   customConfig?: PricingFormulaConfig
 }): DetailedFareBreakdown {
   const config = params.customConfig || DEFAULT_PRICING_CONFIG
   const dirKey = params.direction === 'IK' || params.direction === 'I2K' ? 'I2K' : 'K2I'
   const selectedPoint = getPointConfig(params.pointIdOrName)
   const standardFare = getPointFareForDate(selectedPoint.id, dirKey, params.daysAhead, config, params.travelDate)
-  const dateFare = standardFare
+  const pointId = selectedPoint.id as DropPointId
+  const pointExtra = getDropPointExtra(pointId)
+  const mode = params.mode || 'guaranteed'
+  const dateFare = mode === 'match' ? BOOKING_CONFIG.matchDealBaseFare + pointExtra : standardFare
   const earlyDiscount = 0
-  const vehicleExtra = params.vehicle === 'suv' ? config.SUV_EXTRA : 0
-  const pointExtra = 0
+  const vehicleExtra = params.vehicle === 'suv' && BOOKING_CONFIG.enableSuv ? config.SUV_EXTRA : 0
   const distanceCharge = 0
   const chargeableDistanceKm = 0
 
@@ -286,17 +276,18 @@ export function computeFare(params: {
   if (typeof params.isNight === 'boolean') {
     isNight = params.isNight
   } else if (typeof params.hour === 'number') {
-    isNight = isNightTime(params.hour)
+    isNight = isNightTime(params.hour, params.minute)
   }
   const nightExtra = isNight ? config.NIGHT_SURCHARGE : 0
   const tollEstimate = 0
 
   const totalFare = dateFare + vehicleExtra + nightExtra
-  const advanceDeposit = config.ADVANCE
+  const advanceDeposit = mode === 'match' ? BOOKING_CONFIG.matchAdvance : BOOKING_CONFIG.guaranteedAdvance
   const balanceFare = Math.max(0, totalFare - advanceDeposit)
 
   return {
     direction: dirKey,
+    mode,
     daysAhead: params.daysAhead,
     standardFare,
     dateFare,
