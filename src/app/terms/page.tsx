@@ -47,17 +47,17 @@ export default function TermsPage() {
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Pickup &amp; Waiting Time</h2>
             <p>
-              Your pickup time is exact and fixed once confirmed. Your driver will contact you before pickup. Please be ready on time; contact support promptly if you are delayed or need to cancel.
+              Your pickup time is exact and fixed once confirmed. Your driver will contact you before pickup. You may cancel a Match Deal from its secure booking status page while it is waiting for confirmation. New bookings do not require an online advance. Once the ride is confirmed, passenger cancellation is unavailable online. Please contact support if you are delayed.
             </p>
-            <p>Drivers allow 15 minutes after the scheduled pickup. If you are running late, contact support immediately; after the waiting period the car may leave and a confirmed-ride advance may not be refundable. Match Deal no-match refunds follow the separate full-refund rule above.</p>
+            <p>Drivers allow 15 minutes after the scheduled pickup. If you are running late, contact support immediately; after the waiting period the car may leave. Any advance paid on an older booking follows that booking’s refund terms.</p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">4. Luggage &amp; Passenger Capacity</h2>
             <p>
               Economy Sedans accommodate up to 4 passengers and 2–3 standard luggage bags. Passengers must adhere to the legal seating capacity of the booked vehicle.
             </p>
           </section>
-          <section className="rounded-xl bg-amber-50 p-4 text-sm"><h2 className="font-bold text-slate-900">Match Deal</h2><p className="mt-2 text-slate-700">A Rs 500 advance is paid online. If a compatible opposite-direction booking is found, your chosen pickup time remains unchanged. The booking status page shows the match decision cutoff. If no match is found by the cutoff, choose a full advance refund or request a private cab upgrade. If no choice is received within six hours, we request a full refund. The displayed balance is paid in the cab.</p></section>
-          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> Match Deal के लिए ₹500 अग्रिम राशि पूरी तरह वापस मिलेगी यदि मैच नहीं मिलता। पिकअप का समय बुकिंग की पुष्टि के बाद नहीं बदलेगा।</p>
+          <section className="rounded-xl bg-amber-50 p-4 text-sm"><h2 className="font-bold text-slate-900">Match Deal</h2><p className="mt-2 text-slate-700">No online advance is collected. If a compatible opposite-direction booking is found, your chosen pickup time remains unchanged. The booking status page shows the match decision cutoff. If no match is found by the cutoff, no payment is taken and you can contact us about another option. Pay the displayed fare in the cab after confirmation.</p></section>
+          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> Match Deal के लिए ऑनलाइन अग्रिम भुगतान नहीं लिया जाता। पिकअप का समय बुकिंग की पुष्टि के बाद नहीं बदलेगा।</p>
         </div>
       </main>
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { refundRazorpayPayment } from '@/lib/razorpay'
 import { notify, notifyAdmin } from '@/lib/booking-notifications'
+import { sendBookingAutomation } from '@/lib/whatsapp-automation'
 import { isAutoRefundDue, isCutoffExpired } from '@/lib/config'
 
 function authorized(request: NextRequest) {
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
     const { data: changed, error: updateError } = await db.from('bookings').update({ status: 'no_match_decision', no_match_at: now, decision_at: now }).eq('id', booking.id).eq('status', 'waiting').select('id')
     if (updateError || !changed?.length) continue
     cutoffCount++
-    await notify('no_match', booking.id)
+    if (Number(booking.advance_paid || 0) > 0) await notify('no_match', booking.id)
+    else await sendBookingAutomation('no_match', { ...booking, status: 'no_match_decision' }).catch(() => false)
     await notifyAdmin(`cutoff:${booking.id}`, booking.id, 'Match Deal reached cutoff without a compatible return booking.')
   }
   const { data: decisions } = await db.from('bookings').select('*').eq('mode', 'match').eq('status', 'no_match_decision').eq('refund_status', 'pending').limit(500)

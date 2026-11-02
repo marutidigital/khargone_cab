@@ -25,14 +25,14 @@ export const BOOKING_CONFIG = {
   travelHours: 3.5,
   guaranteedFares: {
     rajendra: 2200,
-    bhawarkua: 2200,
-    railway: 2200,
-    airport: 2200,
-    rajwada: 2200,
+    bhawarkua: 2300,
+    railway: 2500,
+    airport: 2700,
+    rajwada: 2400,
   } satisfies Record<DropPointId, number>,
   matchDealBaseFares: {
-    K2I: envAmount(process.env.NEXT_PUBLIC_MATCH_DEAL_K2I_FARE, 2200),
-    I2K: envAmount(process.env.NEXT_PUBLIC_MATCH_DEAL_I2K_FARE, 1800),
+    K2I: 2200,
+    I2K: 2200,
   } satisfies Record<RouteDirection, number>,
   suvExtra: envAmount(process.env.NEXT_PUBLIC_SUV_EXTRA, 500),
   nightSurcharge: envAmount(process.env.NEXT_PUBLIC_NIGHT_SURCHARGE, 400),
@@ -63,8 +63,7 @@ export interface FareBreakdown {
 }
 
 export function getDropPointExtra(point: DropPointId): number {
-  void point
-  return 0
+  return BOOKING_CONFIG.guaranteedFares[point] - BOOKING_CONFIG.guaranteedFares.rajendra
 }
 
 export function isNightPickup(time: string): boolean {
@@ -86,10 +85,13 @@ export function calculateBookingFare(input: {
     throw new Error('Premium SUV is not currently available.')
   }
   const dropPointExtra = getDropPointExtra(input.point)
-  const baseFare = BOOKING_CONFIG.matchDealBaseFares[input.direction]
+  // The location fare table is authoritative for both route directions.
+  // Keep a base/extra breakdown for receipts, with the full point fare as the subtotal.
+  const baseFare = BOOKING_CONFIG.guaranteedFares.rajendra
   const nightSurcharge = isNightPickup(input.pickupTime) ? BOOKING_CONFIG.nightSurcharge : 0
   const vehicleExtra = input.vehicle === 'premium_suv' ? BOOKING_CONFIG.suvExtra : 0
-  const totalFare = baseFare + dropPointExtra + nightSurcharge + vehicleExtra
+  const pointFare = BOOKING_CONFIG.guaranteedFares[input.point]
+  const totalFare = pointFare + nightSurcharge + vehicleExtra
   const advanceAmount = input.mode === 'match'
     ? BOOKING_CONFIG.matchAdvance
     : BOOKING_CONFIG.guaranteedAdvance

@@ -9,7 +9,7 @@ export async function recordCapturedAdvance(orderId: string, paymentId: string) 
   if (paymentReadError || !payment) throw new Error('Payment order was not found.')
   if (payment.status === 'captured') return { bookingId: payment.booking_id, alreadyProcessed: true }
   const { data: booking, error: bookingReadError } = await db.from('bookings')
-    .select('id,mode,status,travel_date,pickup_time,direction').eq('id', payment.booking_id).single()
+    .select('id,mode,status,travel_date,pickup_time,direction,extras').eq('id', payment.booking_id).single()
   if (bookingReadError || !booking || booking.status !== 'pending_payment') throw new Error('Booking is not awaiting payment.')
   const { error: paymentUpdateError } = await db.from('payments').update({ status: 'captured', razorpay_payment_id: paymentId, captured_at: new Date().toISOString() }).eq('id', payment.id).neq('status', 'captured')
   if (paymentUpdateError) throw paymentUpdateError
@@ -20,14 +20,21 @@ export async function recordCapturedAdvance(orderId: string, paymentId: string) 
   if (bookingUpdateError) throw bookingUpdateError
   let matched = false
   if (booking.mode === 'match') {
-    const { error } = await db.rpc('try_match_booking', { p_booking_id: booking.id, p_min_gap_hours: 4, p_max_gap_hours: 8 })
-    if (error) console.error('Match lookup after payment failed:', error)
+    const confirmedRideId = typeof booking.extras?.confirmed_ride_id === 'string' ? booking.extras.confirmed_ride_id : null
+    if (confirmedRideId) {
+      const { data: matchId, error } = await db.rpc('confirm_reserved_match', { p_requester_booking_id: booking.id })
+      if (error) console.error('Confirmed ride pairing after payment failed:', error)
+      if (!matchId) console.error('The selected confirmed ride could not be paired after payment:', booking.id)
+    } else {
+      const { error } = await db.rpc('try_match_booking', { p_booking_id: booking.id, p_min_gap_hours: 4, p_max_gap_hours: 8 })
+      if (error) console.error('Match lookup after payment failed:', error)
+    }
     const { data: refreshed } = await db.from('bookings').select('*').eq('id', booking.id).single()
     matched = refreshed?.status === 'matched'
     await notifyAdmin('new-waiting', booking.id, 'New paid Match Deal booking is waiting for dispatch.')
     if (matched && refreshed?.match_id) {
       const { data: pair } = await db.from('bookings').select('*').eq('match_id', refreshed.match_id)
-      for (const ride of pair ?? []) await notify('payment_captured', ride.id)
+      for (const ride of pair ?? []) await notify('match_confirmed', ride.id)
     } else {
       await notify('payment_captured', booking.id)
     }

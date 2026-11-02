@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { calculateBookingFare, type DropPointId } from '@/lib/config'
 import { createRazorpayPaymentLink, refundRazorpayPayment } from '@/lib/razorpay'
 import { notify, notifyAdmin } from '@/lib/booking-notifications'
+import { sendBookingAutomation } from '@/lib/whatsapp-automation'
 
 export async function createWhatsAppUpgradeLink(token: string) {
   const db = createServiceClient()
@@ -37,6 +38,7 @@ export async function refundWhatsAppBooking(token: string) {
   const db = createServiceClient()
   const { data: booking } = await db.from('bookings').select('*').eq('public_token', token).limit(1).single()
   if (!booking || booking.status !== 'no_match_decision' || booking.mode !== 'match') throw new Error('This booking is not awaiting a refund decision.')
+  if (Number(booking.advance_paid || 0) <= 0) throw new Error('No payment was collected for this booking, so there is no advance to refund.')
   const { data: payment } = await db.from('payments').select('*').eq('booking_id', booking.id).eq('purpose', 'advance').limit(1).single()
   if (!payment?.razorpay_payment_id || !['captured', 'refund_pending'].includes(payment.status)) throw new Error('A refundable captured advance could not be found.')
   const idempotencyKey = payment.refund_idempotency_key || `whatsapp_refund_${booking.id}`
@@ -55,4 +57,46 @@ export async function refundWhatsAppBooking(token: string) {
   await db.from('bookings').update({ status: complete ? 'refunded' : 'no_match_decision', refund_status: complete ? 'processed' : 'pending' }).eq('id', booking.id)
   if (complete) await notify('refund_processed', booking.id, { eventVersion: 'whatsapp-refund' })
   return { complete }
+}
+
+export async function cancelUnconfirmedBooking(token: string) {
+  const db = createServiceClient()
+  const { data: booking } = await db.from('bookings').select('*').eq('public_token', token).limit(1).single()
+  if (!booking) throw new Error('Booking not found.')
+  if (!['waiting', 'no_match_decision'].includes(booking.status)) {
+    throw new Error(booking.status === 'matched' || booking.status === 'confirmed'
+      ? 'This ride is confirmed and can no longer be cancelled online.'
+      : 'This booking cannot be cancelled in its current status.')
+  }
+
+  const { data: payment } = await db.from('payments').select('*').eq('booking_id', booking.id).eq('purpose', 'advance').limit(1).single()
+  const now = new Date().toISOString()
+  const hasCapturedAdvance = Number(booking.advance_paid || 0) > 0 && payment?.razorpay_payment_id && ['captured', 'refund_pending'].includes(payment.status)
+  const { error: cancelError } = await db.from('bookings')
+    .update({ status: 'cancelled', refund_status: hasCapturedAdvance ? 'processing' : 'not_applicable', updated_at: now })
+    .eq('id', booking.id).in('status', ['waiting', 'no_match_decision'])
+  const { data: afterCancel } = await db.from('bookings').select('id,status').eq('id', booking.id).limit(1).single()
+  if (cancelError) throw new Error('Could not cancel this booking. Please try again.')
+  if (afterCancel?.status !== 'cancelled') throw new Error('The ride was just confirmed, so it can no longer be cancelled online.')
+
+  await sendBookingAutomation('booking_cancelled', { ...booking, status: 'cancelled' }).catch(() => false)
+  if (!hasCapturedAdvance) {
+    return { complete: true, status: 'cancelled_no_payment' }
+  }
+
+  const idempotencyKey = payment.refund_idempotency_key || `customer_cancel_${booking.id}`
+  await db.from('payments').update({ status: 'refund_pending', refund_idempotency_key: idempotencyKey }).eq('id', payment.id).in('status', ['captured', 'refund_pending'])
+  try {
+    const result = await refundRazorpayPayment(payment.razorpay_payment_id, payment.amount, idempotencyKey)
+    const complete = result.status === 'processed'
+    await db.from('payments').update({ status: complete ? 'refunded' : 'refund_pending', refund_id: result.id, refunded_at: complete ? new Date().toISOString() : null }).eq('id', payment.id)
+    await db.from('bookings').update({ status: 'cancelled', refund_status: complete ? 'processed' : 'pending' }).eq('id', booking.id).eq('status', 'cancelled')
+    if (complete) await notify('refund_processed', booking.id, { eventVersion: 'customer-cancel-refund' })
+    return { complete, status: complete ? 'cancelled_refunded' : 'refund_pending' }
+  } catch (error) {
+    await db.from('payments').update({ status: 'refund_pending', refund_idempotency_key: idempotencyKey }).eq('id', payment.id)
+    await db.from('bookings').update({ status: 'cancelled', refund_status: 'failed' }).eq('id', booking.id).eq('status', 'cancelled')
+    await notifyAdmin(`cancel-refund-failed:${booking.id}`, booking.id, 'A passenger cancelled before confirmation, but Razorpay could not process the advance refund. Retry from admin.')
+    return { complete: false, status: 'refund_pending' }
+  }
 }

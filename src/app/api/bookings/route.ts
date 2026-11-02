@@ -3,8 +3,9 @@ import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase-server'
 import { calculateBookingFare, getMatchCutoffAt, isMatchDealWithinWindow, parsePickupDateTime, type DropPointId } from '@/lib/config'
-import { createRazorpayOrder, razorpayConfigured } from '@/lib/razorpay'
 import { PRICING_CONFIG } from '@/config/pricing'
+import { notify, notifyAdmin } from '@/lib/booking-notifications'
+import { sendBookingAutomation } from '@/lib/whatsapp-automation'
 
 const Input = z.object({
   direction: z.enum(['K2I', 'I2K']), mode: z.literal('match'),
@@ -12,7 +13,7 @@ const Input = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
   passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
-  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100),
+  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100), confirmedRideId: z.string().uuid().optional(),
 })
 const rateMap = new Map<string, number[]>()
 
@@ -30,7 +31,6 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!razorpayConfigured()) return NextResponse.json({ error: 'Online booking payments are not configured yet. Please contact MarutiCab on WhatsApp.' }, { status: 503 })
   const parsed = Input.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Please check the booking details and consent.' }, { status: 400 })
   const data = parsed.data
@@ -51,10 +51,10 @@ export async function POST(request: NextRequest) {
   if (existing?.[0]) {
     const prior = existing[0]
     if (prior.phone !== data.phone) return NextResponse.json({ error: 'This checkout key is not associated with your phone number.' }, { status: 403 })
-    if (prior.status !== 'pending_payment') return NextResponse.json({ error: 'This booking attempt has already been paid or completed.' }, { status: 409 })
-    const { data: priorPayment } = await db.from('payments').select('razorpay_order_id,amount,status').eq('booking_id', prior.id).eq('purpose', 'advance').limit(1).single()
-    if (!priorPayment?.razorpay_order_id) return NextResponse.json({ error: 'The previous checkout did not finish. Please start a new booking.' }, { status: 409 })
-    return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, orderId: priorPayment.razorpay_order_id, amount: priorPayment.amount * 100, currency: 'INR', keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID })
+    if (['waiting', 'matched', 'confirmed', 'no_match_decision'].includes(prior.status)) {
+      return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, status: prior.status, fare })
+    }
+    return NextResponse.json({ error: 'This booking attempt is no longer active. Please start a new booking.' }, { status: 409 })
   }
   const { data: samePhone, error: duplicatePhoneError } = await db.from('bookings').select('id').eq('phone', data.phone).eq('travel_date', data.date).in('status', ['pending_payment', 'waiting', 'matched', 'confirmed', 'no_match_decision']).limit(1)
   if (!duplicatePhoneError && samePhone?.length) return NextResponse.json({ error: 'There is already an active booking for this phone number on that date. Contact us if you need another cab.' }, { status: 409 })
@@ -69,9 +69,9 @@ export async function POST(request: NextRequest) {
     consent_whatsapp: true, consent_at: new Date().toISOString(),
     consent_text: 'I agree to receive WhatsApp updates about this booking and accept the Terms and Refund Policy.',
     base_fare: fare.baseFare, discount: 0, night_extra: fare.nightSurcharge,
-    total_fare: fare.totalFare, advance_amount: fare.advanceAmount, advance_paid: 0,
-    is_night: fare.nightSurcharge > 0, extras: { drop_point_extra: fare.dropPointExtra, night_surcharge: fare.nightSurcharge },
-    balance_amount: fare.balanceAmount, status: 'pending_payment', refund_status: data.mode === 'match' ? 'pending' : 'not_applicable',
+    total_fare: fare.totalFare, advance_amount: 0, advance_paid: 0,
+    is_night: fare.nightSurcharge > 0, extras: { drop_point_extra: fare.dropPointExtra, night_surcharge: fare.nightSurcharge, ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {}) },
+    balance_amount: fare.totalFare, status: 'waiting', refund_status: 'not_applicable',
     cutoff_at: cutoffAt, public_token: token, idempotency_key: data.idempotencyKey,
   }).select('id,booking_ref').single()
   if (insertError || !booking) {
@@ -79,14 +79,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Could not save the booking. Check that the Supabase migration is applied.' }, { status: 503 })
   }
 
-  try {
-    const order = await createRazorpayOrder({ amount: fare.advanceAmount, receipt: String(booking.booking_ref), notes: { booking_id: booking.id, booking_ref: String(booking.booking_ref) } })
-    const { error: paymentError } = await db.from('payments').insert({ booking_id: booking.id, purpose: 'advance', razorpay_order_id: order.id, amount: fare.advanceAmount, status: 'created' })
-    if (paymentError) throw paymentError
-    return NextResponse.json({ bookingRef: booking.booking_ref, publicToken: token, orderId: order.id, amount: fare.advanceAmount * 100, currency: 'INR', keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID, fare })
-  } catch (error) {
-    await db.from('bookings').update({ status: 'cancelled', refund_status: 'not_applicable' }).eq('id', booking.id).eq('status', 'pending_payment')
-    console.error('Razorpay order creation failed', error)
-    return NextResponse.json({ error: 'Could not start secure payment. No payment was taken; please try again.' }, { status: 502 })
+  if (data.confirmedRideId) {
+    const { data: reserved, error: reservationError } = await db.rpc('reserve_match_candidate', {
+      p_requester_booking_id: booking.id,
+      p_candidate_booking_id: data.confirmedRideId,
+      p_hold_minutes: 15,
+    })
+    if (reservationError || reserved !== true) {
+      await db.from('bookings').update({ status: 'cancelled', refund_status: 'not_applicable' }).eq('id', booking.id).eq('status', 'waiting')
+      console.error('Could not reserve selected return ride:', reservationError)
+      if (reservationError) return NextResponse.json({ error: 'Confirmed Booking is temporarily unavailable. Please try again later.' }, { status: 503 })
+      return NextResponse.json({ error: 'That return ride was just taken. Refresh the list and choose another available ride.' }, { status: 409 })
+    }
   }
+
+  if (data.confirmedRideId) {
+    const { data: matchId, error: matchError } = await db.rpc('confirm_reserved_match', { p_requester_booking_id: booking.id })
+    if (matchError || !matchId) {
+      await db.rpc('release_match_reservation', { p_requester_booking_id: booking.id })
+      await db.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id).eq('status', 'waiting')
+      console.error('Could not confirm selected return ride:', matchError)
+      return NextResponse.json({ error: 'That return ride is no longer available. Refresh the list and choose another ride.' }, { status: 409 })
+    }
+    const { data: pair } = await db.from('bookings').select('*').eq('match_id', matchId)
+    for (const ride of pair ?? []) await notify('match_confirmed', ride.id).catch((error) => console.error('Match notification failed:', error))
+  } else {
+    const { error: matchError } = await db.rpc('try_match_booking', { p_booking_id: booking.id, p_min_gap_hours: 4, p_max_gap_hours: 8 })
+    if (matchError) console.error('Automatic Match Deal search failed:', matchError)
+    const { data: refreshed } = await db.from('bookings').select('status,match_id').eq('id', booking.id).single()
+    if (refreshed?.status === 'matched' && refreshed.match_id) {
+      const { data: pair } = await db.from('bookings').select('id').eq('match_id', refreshed.match_id)
+      for (const ride of pair ?? []) void notify('match_confirmed', ride.id).catch((error) => console.error('Match notification failed:', error))
+    }
+  }
+
+  const { data: savedBooking } = await db.from('bookings').select('*').eq('id', booking.id).single()
+  if (savedBooking?.status === 'waiting') {
+    void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
+    void notifyAdmin(`new-waiting:${booking.id}`, booking.id, 'New Match Deal booking is waiting for dispatch. No advance was collected.')
+  }
+  return NextResponse.json({ bookingRef: booking.booking_ref, publicToken: token, status: savedBooking?.status || 'waiting', fare })
 }
