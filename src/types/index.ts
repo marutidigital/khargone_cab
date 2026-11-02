@@ -2,7 +2,7 @@
 
 export type Direction = 'KI' | 'IK'
 export type DropPoint = 'rajendra' | 'railway' | 'airport' | 'bhawarkua' | 'rajwada'
-export type BookingStatus = 'waiting' | 'confirmed' | 'cancelled'
+export type BookingStatus = 'pending_payment' | 'waiting' | 'matched' | 'confirmed' | 'no_match_decision' | 'completed' | 'refunded' | 'cancelled'
 export type VehicleType = 'sedan' | 'suv'
 
 export interface DropOption {
@@ -35,6 +35,13 @@ export interface Booking {
   whatsapp_sent: boolean
   email_sent: boolean
   advance_paid?: number
+  mode?: 'match' | 'guaranteed'
+  passengers?: number
+  passenger_count?: number
+  advance_amount?: number
+  balance_amount?: number
+  cutoff_at?: string | null
+  match_id?: string | null
   created_at: string
   updated_at: string
 }

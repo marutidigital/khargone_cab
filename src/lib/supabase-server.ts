@@ -9,7 +9,7 @@ let serviceClient: ReturnType<typeof createClient> | null = null
 // Helper mock builder for server-side JSON database operations
 class MockBuilder {
   private table: string
-  private filters: { field: string; value: any }[] = []
+  private filters: { field: string; value: any; op?: string }[] = []
   private orderField: string | null = null
   private orderAscending: boolean = false
   private limitNum: number | null = null
@@ -31,7 +31,37 @@ class MockBuilder {
   }
 
   eq(field: string, value: any) {
-    this.filters.push({ field, value })
+    this.filters.push({ field, value, op: 'eq' })
+    return this
+  }
+
+  neq(field: string, value: any) {
+    this.filters.push({ field, value, op: 'neq' })
+    return this
+  }
+
+  in(field: string, value: any[]) {
+    this.filters.push({ field, value, op: 'in' })
+    return this
+  }
+
+  lt(field: string, value: any) {
+    this.filters.push({ field, value, op: 'lt' })
+    return this
+  }
+
+  lte(field: string, value: any) {
+    this.filters.push({ field, value, op: 'lte' })
+    return this
+  }
+
+  gte(field: string, value: any) {
+    this.filters.push({ field, value, op: 'gte' })
+    return this
+  }
+
+  is(field: string, value: any) {
+    this.filters.push({ field, value, op: 'is' })
     return this
   }
 
@@ -151,7 +181,14 @@ class MockBuilder {
         const updatedData = currentData.map(item => {
           let match = true
           for (const filter of this.filters) {
-            if (item[filter.field] !== filter.value) {
+            const actual = item[filter.field]
+            const isMatch = filter.op === 'neq' ? actual === filter.value
+              : filter.op === 'in' ? !filter.value.includes(actual)
+              : filter.op === 'lt' ? !(actual < filter.value)
+              : filter.op === 'lte' ? !(actual <= filter.value)
+              : filter.op === 'gte' ? !(actual >= filter.value)
+              : actual !== filter.value
+            if (isMatch) {
               match = false
               break
             }
@@ -175,7 +212,15 @@ class MockBuilder {
 
       // Apply filters
       for (const filter of this.filters) {
-        data = data.filter(item => item[filter.field] === filter.value)
+        data = data.filter(item => {
+          const actual = item[filter.field]
+          if (filter.op === 'neq') return actual !== filter.value
+          if (filter.op === 'in') return filter.value.includes(actual)
+          if (filter.op === 'lt') return actual != null && actual < filter.value
+          if (filter.op === 'lte') return actual != null && actual <= filter.value
+          if (filter.op === 'gte') return actual != null && actual >= filter.value
+          return actual === filter.value
+        })
       }
 
       // Apply ordering

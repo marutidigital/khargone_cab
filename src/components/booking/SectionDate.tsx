@@ -3,6 +3,7 @@
 import { useState, useRef, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { getPointFareForDate, PRICING_CONFIG } from '@/config/pricing'
+import { BOOKING_CONFIG } from '@/lib/config'
 
 export interface DateTileItem {
   dateStr: string // YYYY-MM-DD
@@ -23,6 +24,26 @@ interface Props {
 
 export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSelectDate }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const todayDateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+
+  const getDateItem = (dateStr: string): DateTileItem => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const target = new Date(year, month - 1, day)
+    const today = new Date(`${todayDateStr}T00:00:00`)
+    const targetUtc = Date.UTC(year, month - 1, day)
+    const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+    const daysAhead = Math.round((targetUtc - todayUtc) / 86_400_000)
+    return {
+      dateStr,
+      weekday: target.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayNum: String(day),
+      month: target.toLocaleDateString('en-US', { month: 'short' }),
+      daysAhead,
+      price: getPointFareForDate(pointId, direction, daysAhead, undefined, dateStr) + (vehicle === 'suv' ? 500 : 0),
+    }
+  }
 
   // Generate 30 days from today in Asia/Kolkata
   const dateList = useMemo(() => {
@@ -48,8 +69,8 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
 
     const todayStart = new Date(y, m - 1, d)
 
-    // Generate 45 days from today in Asia/Kolkata
-    for (let i = 0; i < 45; i++) {
+    // Keep the quick-pick strip short; later dates are available from the calendar.
+    for (let i = 0; i < 14; i++) {
       const target = new Date(todayStart)
       target.setDate(todayStart.getDate() + i)
 
@@ -85,20 +106,23 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
   }
 
   // Active selected item
-  const activeItem = dateList.find((d) => d.dateStr === selectedDateStr) || dateList[0]
+  const activeItem = dateList.find((d) => d.dateStr === selectedDateStr) || getDateItem(selectedDateStr)
+  const maxDate = new Date(`${todayDateStr}T00:00:00`)
+  maxDate.setDate(maxDate.getDate() + BOOKING_CONFIG.maxAdvanceDays)
+  const maxDateStr = `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, '0')}-${String(maxDate.getDate()).padStart(2, '0')}`
 
   return (
     <section className="bg-white border border-[#E5E7EB] rounded-3xl p-6 sm:p-8 shadow-xs">
       {/* Title & Legend Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-base font-black text-[#FBBF24]">4.</span>
+          <span className="text-base font-black text-[#FBBF24]">3.</span>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
             Select Travel Date
           </h2>
         </div>
 
-        <span className="text-xs text-slate-500">Fare changes by travel date · SUV +Rs 500</span>
+        <span className="text-xs text-slate-500">Select a date · prices do not decrease with advance booking</span>
       </div>
 
       {/* Horizontally scrolling strip with arrows */}
@@ -163,8 +187,25 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
         </button>
       </div>
 
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <span>Pick a later date</span>
+          <input
+            type="date"
+            min={todayDateStr}
+            max={maxDateStr}
+            value={selectedDateStr}
+            onChange={(event) => {
+              if (event.target.value) onSelectDate(getDateItem(event.target.value))
+            }}
+            className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+          />
+        </label>
+        <span className="text-xs text-slate-500">Guaranteed fare: {activeItem.price.toLocaleString('en-IN')} · up to {BOOKING_CONFIG.maxAdvanceDays} days ahead</span>
+      </div>
+
       <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-slate-500">Select a travel date to see its fare.</span>
+        <span className="text-slate-500">Match Deal times appear after the date is selected.</span>
 
         <span className="text-[11px] text-slate-500">
           Selected: <strong className="text-slate-900">{activeItem.weekday}, {activeItem.dayNum} {activeItem.month}</strong>

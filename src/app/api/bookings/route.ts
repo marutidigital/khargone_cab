@@ -1,240 +1,92 @@
-// src/app/api/bookings/route.ts
-import { after, NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase-server'
-import { sendBookingConfirmation, sendMatchNotification } from '@/lib/whatsapp'
-import { sendBookingEmail, sendAdminAlert, sendMatchEmail } from '@/lib/email'
-import { calcPrice, isNightHour, POINTS } from '@/lib/constants'
+import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
-import type { Booking } from '@/types'
+import { createServiceClient } from '@/lib/supabase-server'
+import { calculateBookingFare, getMatchCutoffAt, isAllowedMatchDeparture, isMatchDealWithinWindow, parsePickupDateTime, type DropPointId } from '@/lib/config'
+import { createRazorpayOrder, razorpayConfigured } from '@/lib/razorpay'
+import { PRICING_CONFIG } from '@/config/pricing'
 
-const BookingSchema = z.object({
-  direction:      z.enum(['KI', 'IK']),
-  drop_point:     z.enum(['rajendra', 'railway', 'airport', 'bhawarkua', 'rajwada']),
-  drop_name:      z.string().min(2).optional(),
-  travel_date:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
-    value => {
-      const parsed = new Date(`${value}T00:00:00Z`)
-      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
-    },
-    'Invalid travel date'
-  ),
-  pickup_time:    z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  passenger_name: z.string().trim().min(2).max(60),
-  phone:          z.string().regex(/^[6-9]\d{9}$/),
-  email:          z.string().trim().email().optional().or(z.literal('')),
-  extra:          z.number().int().min(0).optional(),
-  days_ahead:     z.number().int().min(0).max(60).optional(),
-  vehicle:        z.enum(['sedan', 'suv']).optional(),
+const Input = z.object({
+  direction: z.enum(['K2I', 'I2K']), mode: z.enum(['match', 'guaranteed']),
+  point: z.enum(['rajendra', 'bhawarkua', 'railway', 'airport', 'rajwada']),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
+  passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
+  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100),
 })
+const rateMap = new Map<string, number[]>()
 
-// GET /api/bookings?direction=KI&date=YYYY-MM-DD&status=waiting&limit=50
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const supabase = createServiceClient()
-
-  let query = supabase
-    .from('bookings')
-    .select('id,booking_ref,direction,drop_name,travel_date,pickup_time,status,is_night,total_fare,vehicle_type,created_at')
-    .order('created_at', { ascending: false })
-
-  const dir    = searchParams.get('direction')
-  const date   = searchParams.get('date')
-  const status = searchParams.get('status')
-  const limit  = searchParams.get('limit')
-
-  if (dir)  query = query.eq('direction', dir)
-  if (date) query = query.eq('travel_date', date)
-  if (status && status !== 'all') {
-    query = query.eq('status', status)
-  }
-
-  const requestedLimit = limit ? Number.parseInt(limit, 10) : 50
-  const limitNum = Number.isFinite(requestedLimit)
-    ? Math.min(Math.max(requestedLimit, 1), 100)
-    : 50
-  query = query.limit(limitNum)
-
-  const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ bookings: data })
+function checkRate(key: string) {
+  const now = Date.now()
+  const recent = (rateMap.get(key) ?? []).filter((value) => now - value < 60 * 60 * 1000)
+  if (recent.length >= 8) return false
+  recent.push(now)
+  rateMap.set(key, recent)
+  return true
 }
 
-// POST /api/bookings
-export async function POST(req: NextRequest) {
+export async function GET() {
+  return NextResponse.json({ error: 'Use the availability endpoint for public booking checks.' }, { status: 405 })
+}
+
+export async function POST(request: NextRequest) {
+  if (!razorpayConfigured()) return NextResponse.json({ error: 'Online booking payments are not configured yet. Please contact MarutiCab on WhatsApp.' }, { status: 503 })
+  const parsed = Input.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) return NextResponse.json({ error: 'Please check the booking details and consent.' }, { status: 400 })
+  const data = parsed.data
+  const pickup = parsePickupDateTime(data.date, data.time)
+  const now = new Date()
+  const maxDate = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+  if (!pickup || pickup < now || pickup > maxDate) return NextResponse.json({ error: 'Choose a valid pickup time within the next 60 days.' }, { status: 400 })
+  if (data.mode === 'match' && (!isAllowedMatchDeparture(data.direction, data.time) || !isMatchDealWithinWindow(data.date, data.time, now))) {
+    return NextResponse.json({ error: 'Match Deal is available only at the listed departure times, at least 30 hours before pickup.' }, { status: 400 })
+  }
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!checkRate(`${ip}:${data.phone}`)) return NextResponse.json({ error: 'Too many booking attempts. Try again later.' }, { status: 429 })
+
+  const fare = calculateBookingFare({ mode: data.mode, point: data.point as DropPointId, pickupTime: data.time })
+  const db = createServiceClient()
+  const { data: existing, error: duplicateError } = await db.from('bookings').select('id,public_token,booking_ref,status,phone').eq('idempotency_key', data.idempotencyKey).limit(1)
+  if (duplicateError) return NextResponse.json({ error: 'Booking storage is unavailable. Apply the Supabase migration and try again.' }, { status: 503 })
+  if (existing?.[0]) {
+    const prior = existing[0]
+    if (prior.phone !== data.phone) return NextResponse.json({ error: 'This checkout key is not associated with your phone number.' }, { status: 403 })
+    if (prior.status !== 'pending_payment') return NextResponse.json({ error: 'This booking attempt has already been paid or completed.' }, { status: 409 })
+    const { data: priorPayment } = await db.from('payments').select('razorpay_order_id,amount,status').eq('booking_id', prior.id).eq('purpose', 'advance').limit(1).single()
+    if (!priorPayment?.razorpay_order_id) return NextResponse.json({ error: 'The previous checkout did not finish. Please start a new booking.' }, { status: 409 })
+    return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, orderId: priorPayment.razorpay_order_id, amount: priorPayment.amount * 100, currency: 'INR', keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID })
+  }
+  const { data: samePhone, error: duplicatePhoneError } = await db.from('bookings').select('id').eq('phone', data.phone).eq('travel_date', data.date).in('status', ['pending_payment', 'waiting', 'matched', 'confirmed', 'no_match_decision']).limit(1)
+  if (!duplicatePhoneError && samePhone?.length) return NextResponse.json({ error: 'There is already an active booking for this phone number on that date. Contact us if you need another cab.' }, { status: 409 })
+
+  const token = randomBytes(32).toString('base64url')
+  const direction = data.direction === 'K2I' ? 'KI' : 'IK'
+  const cutoffAt = data.mode === 'match' ? getMatchCutoffAt(data.date, data.time) : null
+  const { data: booking, error: insertError } = await db.from('bookings').insert({
+    direction, mode: data.mode, vehicle: 'economy_sedan', vehicle_type: 'sedan',
+    drop_point: data.point, drop_name: PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point, travel_date: data.date, pickup_time: data.time,
+    passenger_name: data.name, phone: data.phone, passenger_count: data.passengers, address: data.address || null,
+    consent_whatsapp: true, consent_at: new Date().toISOString(),
+    consent_text: 'I agree to receive WhatsApp updates about this booking and accept the Terms and Refund Policy.',
+    base_fare: fare.baseFare, discount: 0, night_extra: fare.nightSurcharge,
+    total_fare: fare.totalFare, advance_amount: fare.advanceAmount, advance_paid: 0,
+    is_night: fare.nightSurcharge > 0, extras: { drop_point_extra: fare.dropPointExtra, night_surcharge: fare.nightSurcharge },
+    balance_amount: fare.balanceAmount, status: 'pending_payment', refund_status: data.mode === 'match' ? 'pending' : 'not_applicable',
+    cutoff_at: cutoffAt, public_token: token, idempotency_key: data.idempotencyKey,
+  }).select('id,booking_ref').single()
+  if (insertError || !booking) {
+    if (insertError?.code === '23505') return NextResponse.json({ error: 'There is already an active booking for this phone number on that date.' }, { status: 409 })
+    return NextResponse.json({ error: 'Could not save the booking. Check that the Supabase migration is applied.' }, { status: 503 })
+  }
+
   try {
-    const body   = await req.json()
-    const parsed = BookingSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-    }
-
-    const d = parsed.data
-    const vehicle = d.vehicle ?? 'sedan'
-    const point = POINTS[d.direction].find(option => option.id === d.drop_point)
-    if (!point) {
-      return NextResponse.json({ error: 'Invalid pickup or drop point' }, { status: 400 })
-    }
-
-    const indiaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-    const daysAhead = Math.round(
-      (Date.parse(`${d.travel_date}T00:00:00Z`) - Date.parse(`${indiaToday}T00:00:00Z`)) / 86_400_000
-    )
-    if (daysAhead < 0 || daysAhead > 60) {
-      return NextResponse.json({ error: 'Travel date must be between today and 60 days ahead' }, { status: 400 })
-    }
-
-    const [h] = d.pickup_time.split(':').map(Number)
-    const isNight = isNightHour(h)
-    const vehicleExtra = vehicle === 'suv' ? 500 : 0
-    const price = calcPrice(d.drop_point, daysAhead, isNight, vehicleExtra, d.direction, d.travel_date)
-
-    const supabase = createServiceClient()
-
-    // Generate booking ref
-    const { data: refData, error: refError } = await supabase.rpc('generate_booking_ref')
-    if (refError || !refData) throw refError ?? new Error('Could not generate booking reference')
-    const booking_ref = refData as string
-
-    // Find or create client account
-    let clientId: string | null = null
-    const { data: existingClients, error: existingClientError } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('phone', d.phone)
-      .limit(1)
-    if (existingClientError) throw existingClientError
-
-    if (existingClients && existingClients.length > 0) {
-      clientId = existingClients[0].id
-      // Update client name and email if provided
-      const clientUpdates = d.email
-        ? { name: d.passenger_name, email: d.email }
-        : { name: d.passenger_name }
-      const { error: clientUpdateError } = await supabase
-        .from('clients')
-        .update(clientUpdates)
-        .eq('id', clientId)
-      if (clientUpdateError) throw clientUpdateError
-    } else {
-      const { data: newClient, error: clientErr } = await supabase
-        .from('clients')
-        .insert({
-          name: d.passenger_name,
-          phone: d.phone,
-          email: d.email || null,
-        })
-        .select('id')
-        .single()
-      
-      if (clientErr) {
-        console.error('Failed to auto-create client account:', clientErr)
-      } else if (newClient) {
-        clientId = newClient.id
-      }
-    }
-
-    // Check for opposite-direction match on same date
-    const { data: matches, error: matchError } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('direction', d.direction === 'KI' ? 'IK' : 'KI')
-      .eq('travel_date', d.travel_date)
-      .eq('vehicle_type', vehicle)
-      .eq('status', 'waiting')
-      .limit(1)
-    if (matchError) throw matchError
-
-    const match = matches?.[0]
-    const status = match ? 'confirmed' : 'waiting'
-
-    // Insert new booking
-    const { data: newBooking, error: insertErr } = await supabase
-      .from('bookings')
-      .insert({
-        booking_ref,
-        direction:      d.direction,
-        drop_point:     d.drop_point,
-        drop_name:      point.name,
-        travel_date:    d.travel_date,
-        pickup_time:    d.pickup_time,
-        is_night:       isNight,
-        base_fare:      price.base,
-        discount:       price.discount,
-        night_extra:    price.night_extra,
-        total_fare:     price.total,
-        passenger_name: d.passenger_name,
-        phone:          d.phone,
-        email:          d.email || null,
-        status,
-        vehicle_type:   vehicle,
-        client_id:      clientId,
-        matched_with:   match?.id ?? null,
-      })
-      .select()
-      .single()
-
-    if (insertErr) throw insertErr
-
-    // Update matched booking
-    if (match) {
-      const { error: matchUpdateError } = await supabase
-        .from('bookings')
-        .update({ status: 'confirmed', matched_with: newBooking.id })
-        .eq('id', match.id)
-      if (matchUpdateError) {
-        console.error('Failed to update matched booking:', matchUpdateError)
-      }
-    }
-
-    // Send notifications (fire & forget)
-    const notifyNew = async () => {
-      try {
-        await sendBookingConfirmation(newBooking)
-        await supabase.from('bookings').update({ whatsapp_sent: true }).eq('id', newBooking.id)
-      } catch (e) { console.error('WhatsApp notify error:', e) }
-
-      if (d.email) {
-        try {
-          await sendBookingEmail(newBooking)
-          await sendAdminAlert(newBooking)
-          await supabase.from('bookings').update({ email_sent: true }).eq('id', newBooking.id)
-        } catch (e) { console.error('Email notify error:', e) }
-      } else {
-        try { await sendAdminAlert(newBooking) } catch (e) { console.error('Admin email error:', e) }
-      }
-    }
-
-    const notifyMatch = async () => {
-      if (!match) return
-      try {
-        await sendMatchNotification({
-          passenger_name: match.passenger_name,
-          phone:          match.phone,
-          booking_ref:    match.booking_ref,
-          direction:      match.direction,
-          travel_date:    match.travel_date,
-          pickup_time:    match.pickup_time,
-        })
-      } catch (e) { console.error('Match WhatsApp error:', e) }
-
-      if (match.email) {
-        try {
-          await sendMatchEmail({ ...match, status: 'confirmed' } as Booking)
-        } catch (e) { console.error('Match email error:', e) }
-      }
-    }
-
-    // Keep the response fast while allowing the serverless runtime to finish notifications.
-    after(async () => {
-      await Promise.all([notifyNew(), notifyMatch()])
-    })
-
-    return NextResponse.json({
-      booking: newBooking,
-      matched: !!match,
-    }, { status: 201 })
-  } catch (err: any) {
-    console.error('Booking error:', err)
-    return NextResponse.json({ error: err.message ?? 'Internal error' }, { status: 500 })
+    const order = await createRazorpayOrder({ amount: fare.advanceAmount, receipt: String(booking.booking_ref), notes: { booking_id: booking.id, booking_ref: String(booking.booking_ref) } })
+    const { error: paymentError } = await db.from('payments').insert({ booking_id: booking.id, purpose: 'advance', razorpay_order_id: order.id, amount: fare.advanceAmount, status: 'created' })
+    if (paymentError) throw paymentError
+    return NextResponse.json({ bookingRef: booking.booking_ref, publicToken: token, orderId: order.id, amount: fare.advanceAmount * 100, currency: 'INR', keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID, fare })
+  } catch (error) {
+    await db.from('bookings').update({ status: 'cancelled', refund_status: 'not_applicable' }).eq('id', booking.id).eq('status', 'pending_payment')
+    console.error('Razorpay order creation failed', error)
+    return NextResponse.json({ error: 'Could not start secure payment. No payment was taken; please try again.' }, { status: 502 })
   }
 }

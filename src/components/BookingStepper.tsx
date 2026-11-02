@@ -19,11 +19,12 @@ interface Props {
 
 const STEPS = [
   { id: 1, label: 'Route' },
-  { id: 2, label: 'Vehicle' },
-  { id: 3, label: 'Drop Point' },
-  { id: 4, label: 'Date & Time' },
-  { id: 5, label: 'Passenger' },
-  { id: 6, label: 'Payment' },
+  { id: 2, label: 'Drop Point' },
+  { id: 3, label: 'Date' },
+  { id: 4, label: 'Ride Type' },
+  { id: 5, label: 'Pickup Time' },
+  { id: 6, label: 'Passenger' },
+  { id: 7, label: 'Payment' },
 ]
 
 export function BookingStepper({ currentStep, completedSteps, onStepClick }: Props) {

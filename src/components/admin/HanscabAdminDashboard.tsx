@@ -23,10 +23,15 @@ import {
   LogOut,
   ShieldCheck,
   Building,
+  ClipboardList,
+  MessageSquareText,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase-client'
 import type { Lead, LeadStage } from '@/types'
 import { formatRs, PRICING_CONFIG } from '@/config/pricing'
+import { AdminBookingsPanel } from '@/components/admin/AdminBookingsPanel'
+import { WhatsAppAutomationPanel } from '@/components/admin/WhatsAppAutomationPanel'
+import { WhatsAppOperationsPanel } from '@/components/admin/WhatsAppOperationsPanel'
 
 interface Props {
   user: any
@@ -42,6 +47,7 @@ const STAGE_OPTIONS: { id: LeadStage; label: string; color: string }[] = [
 ]
 
 export function HanscabAdminDashboard({ user, onSignOut }: Props) {
+  const [activeView, setActiveView] = useState<'bookings' | 'whatsapp' | 'leads'>('bookings')
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -56,10 +62,10 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
   // Inline notes editing state
   const [notesState, setNotesState] = useState<Record<string, string>>({})
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
-  }
+  }, [])
 
   // 1. Fetch leads from Supabase using authenticated client (RLS policy: admin reads leads)
   const fetchLeads = useCallback(async () => {
@@ -89,11 +95,11 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
-    fetchLeads()
-  }, [fetchLeads])
+    if (activeView === 'leads') void fetchLeads()
+  }, [activeView, fetchLeads])
 
   // 2. Update Stage in Supabase
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
@@ -306,7 +312,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
                 Maruti<span className="text-[#FBBF24]">Cab</span> Admin
               </h1>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
-                Leads Dispatch
+                Operations
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -316,6 +322,23 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <nav aria-label="Admin sections" className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {([
+              ['bookings', 'Bookings', ClipboardList],
+              ['whatsapp', 'WhatsApp', MessageSquareText],
+              ['leads', 'Leads', Users],
+            ] as const).map(([view, label, Icon]) => (
+              <button
+                key={view}
+                type="button"
+                aria-current={activeView === view ? 'page' : undefined}
+                onClick={() => setActiveView(view)}
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors ${activeView === view ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+              >
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
+          </nav>
           {/* User info */}
           <div className="hidden md:flex flex-col text-right px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
             <span className="text-xs font-bold text-slate-800 truncate max-w-[200px]">
@@ -325,7 +348,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
           </div>
 
           {/* Refresh */}
-          <button
+          {activeView === 'leads' && <button
             onClick={fetchLeads}
             disabled={refreshing}
             className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[42px] cursor-pointer shadow-xs active:scale-98"
@@ -333,16 +356,16 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#FBBF24]' : ''}`} />
             <span>Refresh</span>
-          </button>
+          </button>}
 
           {/* Export to CSV */}
-          <button
+          {activeView === 'leads' && <button
             onClick={handleExportCSV}
             className="flex items-center gap-1.5 bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-black px-4 py-2 rounded-xl text-xs transition-all shadow-xs min-h-[42px] cursor-pointer active:scale-98"
           >
             <Download className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Export CSV</span>
-          </button>
+          </button>}
 
           {/* Sign Out */}
           <button
@@ -369,7 +392,9 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto space-y-6 mt-6">
+      {activeView === 'bookings' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminBookingsPanel /></main>}
+      {activeView === 'whatsapp' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><WhatsAppAutomationPanel /><WhatsAppOperationsPanel /></main>}
+      {activeView === 'leads' && <main className="max-w-7xl mx-auto space-y-6 mt-6">
         {/* ── 1. CARDS: Total, Today, Per Direction ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Leads */}
@@ -782,7 +807,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
             </table>
           </div>
         </div>
-      </main>
+      </main>}
     </div>
   )
 }

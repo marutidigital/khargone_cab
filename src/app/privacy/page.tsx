@@ -31,7 +31,7 @@ export default function PrivacyPage() {
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-3">
               Privacy Policy
             </h1>
-            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · MarutiCab (hanscab.in)</p>
+            <p className="text-xs text-slate-500 mt-1">Effective Date: October 2026 · MarutiCab (maruticab.in)</p>
           </div>
 
           <section className="space-y-4 text-sm leading-relaxed text-slate-600">
@@ -41,12 +41,12 @@ export default function PrivacyPage() {
 
             <h2 className="text-base font-bold text-slate-900 pt-2">1. Information We Collect</h2>
             <p>
-              When requesting a cab booking on hanscab.in, we collect:
+              When requesting a cab booking on maruticab.in, we collect:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm">
               <li>Your name and contact phone number (10-digit Indian mobile number).</li>
               <li>Trip details including travel date, pickup time, pickup location, and drop point.</li>
-              <li>Number of passengers and preferred vehicle category (Economy Sedan or Premium SUV).</li>
+              <li>Number of passengers and the selected Economy Sedan trip details.</li>
               <li>Optional landmark or specific doorstep pickup address.</li>
             </ul>
 
