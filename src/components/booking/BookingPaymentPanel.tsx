@@ -34,7 +34,7 @@ export function BookingPaymentPanel({ mode, breakdown, dateLabel, timeLabel, isV
 
       {mode === 'match' && (
         <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950">
-          <strong>Refund promise:</strong> If no compatible match is found by {BOOKING_CONFIG.matchCutoffHours} hours before pickup, choose a full {formatRs(BOOKING_CONFIG.matchAdvance)} refund or upgrade to a guaranteed ride.
+          <strong>Refund promise:</strong> If no compatible match is found by the cutoff shown in your booking updates, choose a full {formatRs(BOOKING_CONFIG.matchAdvance)} refund or request a private cab upgrade.
         </p>
       )}
       <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-slate-600">

@@ -1,6 +1,6 @@
 'use client'
 // src/components/booking/SectionDate.tsx
-import { useState, useRef, useMemo } from 'react'
+import { useRef, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { getPointFareForDate, PRICING_CONFIG } from '@/config/pricing'
 import { BOOKING_CONFIG } from '@/lib/config'
@@ -122,7 +122,7 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
           </h2>
         </div>
 
-        <span className="text-xs text-slate-500">Select a date · prices do not decrease with advance booking</span>
+        <span className="text-xs text-slate-500">Choose today, a quick-pick date, or any date up to 60 days ahead</span>
       </div>
 
       {/* Horizontally scrolling strip with arrows */}
@@ -189,7 +189,7 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-          <span>Pick a later date</span>
+          <span>Choose a date</span>
           <input
             type="date"
             min={todayDateStr}
@@ -201,11 +201,13 @@ export function SectionDate({ pointId, vehicle, direction, selectedDateStr, onSe
             className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
           />
         </label>
-        <span className="text-xs text-slate-500">Guaranteed fare: {activeItem.price.toLocaleString('en-IN')} · up to {BOOKING_CONFIG.maxAdvanceDays} days ahead</span>
+        <span className="text-xs text-slate-500">Match Deal fare: ₹{activeItem.price.toLocaleString('en-IN')}</span>
       </div>
 
       <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-slate-500">Match Deal times appear after the date is selected.</span>
+        <span className={`rounded-full border px-2.5 py-1 font-bold ${activeItem.daysAhead >= 2 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+          {activeItem.daysAhead >= 2 ? 'High match chance' : 'Very low match chance'}
+        </span>
 
         <span className="text-[11px] text-slate-500">
           Selected: <strong className="text-slate-900">{activeItem.weekday}, {activeItem.dayNum} {activeItem.month}</strong>

@@ -21,7 +21,7 @@ const STEPS = [
   { id: 1, label: 'Route' },
   { id: 2, label: 'Drop Point' },
   { id: 3, label: 'Date' },
-  { id: 4, label: 'Ride Type' },
+  { id: 4, label: 'Match Deal' },
   { id: 5, label: 'Pickup Time' },
   { id: 6, label: 'Passenger' },
   { id: 7, label: 'Payment' },

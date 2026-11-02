@@ -16,7 +16,7 @@ import { BookingPaymentPanel } from '@/components/booking/BookingPaymentPanel'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
 import { PRICING_CONFIG, formatRs } from '@/config/pricing'
-import { BOOKING_CONFIG, calculateBookingFare, isMatchDealWithinWindow, type BookingMode } from '@/lib/config'
+import { BOOKING_CONFIG, calculateBookingFare, type BookingMode } from '@/lib/config'
 import { initUTMTracking, logEvent } from '@/lib/tracking'
 
 declare global {
@@ -27,12 +27,20 @@ function todayInIndia() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
+function daysFromTodayInIndia(date: string) {
+  const dayStart = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number)
+    return Date.UTC(year, month - 1, day)
+  }
+  return Math.max(0, Math.round((dayStart(date) - dayStart(todayInIndia())) / 86_400_000))
+}
+
 export default function Home() {
   const router = useRouter()
   const [direction, setDirection] = useState<'K2I' | 'I2K'>('K2I')
   const [pointId, setPointId] = useState('rajendra')
   const [date, setDate] = useState(todayInIndia)
-  const [mode, setMode] = useState<BookingMode>('guaranteed')
+  const mode: BookingMode = 'match'
   const [time, setTime] = useState<ExactTimeOption | null>(null)
   const [passenger, setPassenger] = useState<PassengerFormData>({ name: '', phone: '', passengers: 1, consent: false, address: '' })
   const [matchAvailability, setMatchAvailability] = useState<{ ready: boolean; count: number } | null>(null)
@@ -41,17 +49,17 @@ export default function Home() {
   const idempotencyKey = useRef('')
 
   const point = PRICING_CONFIG.points.find((entry) => entry.id === pointId) || PRICING_CONFIG.points[0]
-  const fare = useMemo(() => calculateBookingFare({ mode, point: pointId as keyof typeof BOOKING_CONFIG.guaranteedFares, pickupTime: time?.timeStr || '10:00' }), [mode, pointId, time])
+  const fare = useMemo(() => calculateBookingFare({ mode, direction, point: pointId as keyof typeof BOOKING_CONFIG.guaranteedFares, pickupTime: time?.timeStr || '12:00' }), [direction, mode, pointId, time])
   const dateLabel = useMemo(() => new Date(`${date}T00:00:00+05:30`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' }), [date])
+  const daysAhead = useMemo(() => daysFromTodayInIndia(date), [date])
   const valid = Boolean(time && passenger.name.trim().length >= 2 && /^[6-9]\d{9}$/.test(passenger.phone) && passenger.consent)
   const today = date === todayInIndia()
-  const matchAllowed = BOOKING_CONFIG.matchDepartures[direction].some((departure) => isMatchDealWithinWindow(date, departure))
 
   useEffect(() => { initUTMTracking(); void logEvent({ event: 'page_view' }) }, [])
   useEffect(() => {
     setTime(null)
     setMatchAvailability(null)
-  }, [date, direction, mode])
+  }, [date, direction])
   useEffect(() => {
     if (mode !== 'match' || !time) return
     const abort = new AbortController()
@@ -112,11 +120,11 @@ export default function Home() {
           <div id="section-route" className="scroll-mt-24"><SectionRoute direction={direction} selectedPointName={point.name} onSelectDirection={(value) => setDirection(value)} /></div>
           <div id="section-point" className="scroll-mt-24"><SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={setPointId} /></div>
           <div id="section-date" className="scroll-mt-24"><SectionDate pointId={pointId} vehicle="sedan" direction={direction} selectedDateStr={date} onSelectDate={selectDate} /></div>
-          <div id="section-mode" className="scroll-mt-24"><BookingModeSelector selectedMode={mode} point={pointId as keyof typeof BOOKING_CONFIG.guaranteedFares} matchAllowed={matchAllowed} onSelect={setMode} /></div>
-          <div id="section-time" className="scroll-mt-24"><SectionTimeSlot isToday={today} direction={direction} mode={mode} selectedTimeStr={time?.timeStr || null} onSelectTime={setTime} onSwitchToGuaranteed={() => setMode('guaranteed')} matchAvailability={matchAvailability} /></div>
+          <div id="section-mode" className="scroll-mt-24"><BookingModeSelector direction={direction} point={pointId as keyof typeof BOOKING_CONFIG.guaranteedFares} daysAhead={daysAhead} /></div>
+          <div id="section-time" className="scroll-mt-24"><SectionTimeSlot isToday={today} direction={direction} selectedTimeStr={time?.timeStr || null} onSelectTime={setTime} matchAvailability={matchAvailability} /></div>
           <div id="section-passenger" className="scroll-mt-24"><SectionPassenger maxPassengers={4} data={passenger} onChange={(patch) => setPassenger((current) => ({ ...current, ...patch }))} errors={{}} /></div>
           <div id="section-payment" className="scroll-mt-24 lg:hidden"><BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} /></div>
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-lg font-extrabold">Frequently asked questions</h2><div className="mt-4 space-y-4 text-sm"><details><summary className="cursor-pointer font-bold">When will I know about the match?</summary><p className="mt-2 text-slate-600">We notify you as soon as a compatible opposite-direction booking is found, before the 24-hour cutoff.</p></details><details><summary className="cursor-pointer font-bold">What if no match is found?</summary><p className="mt-2 text-slate-600">Choose a full refund of your ₹500 advance or upgrade to a guaranteed ride. If no match is available by cutoff and you do not choose, we will refund it.</p></details><details><summary className="cursor-pointer font-bold">Can I change my time?</summary><p className="mt-2 text-slate-600">Pickup time is fixed after payment. Contact support before booking if you need another departure.</p></details><details><summary className="cursor-pointer font-bold">When do I pay the balance?</summary><p className="mt-2 text-slate-600">Pay the displayed balance directly in the cab.</p></details><details><summary className="cursor-pointer font-bold">Is the cab shared with strangers?</summary><p className="mt-2 text-slate-600">No. You get a private cab. The return trip is matched with a separate customer going the other way.</p></details></div></section>
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-lg font-extrabold">Frequently asked questions</h2><div className="mt-4 space-y-4 text-sm"><details><summary className="cursor-pointer font-bold">When will I know about the match?</summary><p className="mt-2 text-slate-600">We notify you as soon as a compatible opposite-direction booking is found. Booking at least two days ahead gives us more time to find a match.</p></details><details><summary className="cursor-pointer font-bold">What if no match is found?</summary><p className="mt-2 text-slate-600">Choose a full refund of your ₹500 advance or request an upgrade. If no match is available by the cutoff and you do not choose, we will refund it.</p></details><details><summary className="cursor-pointer font-bold">Can I choose any pickup time?</summary><p className="mt-2 text-slate-600">Yes. Pick any future time. Night pickups from 9:00 PM to 4:00 AM include a ₹400 charge.</p></details><details><summary className="cursor-pointer font-bold">When do I pay the balance?</summary><p className="mt-2 text-slate-600">Pay the displayed balance directly in the cab after your ride is confirmed.</p></details><details><summary className="cursor-pointer font-bold">Is the cab shared with strangers?</summary><p className="mt-2 text-slate-600">No. You get a private cab. The return trip is matched with a separate customer going the other way.</p></details></div></section>
         </div>
         <aside className="hidden lg:sticky lg:top-20 lg:block" id="section-payment"><BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} /></aside>
       </div>

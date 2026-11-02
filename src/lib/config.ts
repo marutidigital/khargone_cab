@@ -24,19 +24,22 @@ export const BOOKING_CONFIG = {
   baseRouteKm: 157,
   travelHours: 3.5,
   guaranteedFares: {
-    rajendra: envAmount(process.env.NEXT_PUBLIC_GUARANTEED_FARE_RAJENDRA, 3000),
-    bhawarkua: envAmount(process.env.NEXT_PUBLIC_GUARANTEED_FARE_BHAWARKUA, 3100),
-    railway: envAmount(process.env.NEXT_PUBLIC_GUARANTEED_FARE_RAILWAY, 3200),
-    airport: envAmount(process.env.NEXT_PUBLIC_GUARANTEED_FARE_AIRPORT, 3300),
-    rajwada: envAmount(process.env.NEXT_PUBLIC_GUARANTEED_FARE_RAJWADA, 3300),
+    rajendra: 2200,
+    bhawarkua: 2200,
+    railway: 2200,
+    airport: 2200,
+    rajwada: 2200,
   } satisfies Record<DropPointId, number>,
-  matchDealBaseFare: envAmount(process.env.NEXT_PUBLIC_MATCH_DEAL_BASE_FARE, 2000),
+  matchDealBaseFares: {
+    K2I: envAmount(process.env.NEXT_PUBLIC_MATCH_DEAL_K2I_FARE, 2200),
+    I2K: envAmount(process.env.NEXT_PUBLIC_MATCH_DEAL_I2K_FARE, 1800),
+  } satisfies Record<RouteDirection, number>,
   suvExtra: envAmount(process.env.NEXT_PUBLIC_SUV_EXTRA, 500),
-  nightSurcharge: envAmount(process.env.NEXT_PUBLIC_NIGHT_SURCHARGE, 300),
+  nightSurcharge: envAmount(process.env.NEXT_PUBLIC_NIGHT_SURCHARGE, 400),
   matchAdvance: envAmount(process.env.NEXT_PUBLIC_MATCH_ADVANCE, 500),
   guaranteedAdvance: envAmount(process.env.NEXT_PUBLIC_ADVANCE_FOR_GUARANTEED, 500),
   matchCutoffHours: envAmount(process.env.NEXT_PUBLIC_MATCH_CUTOFF_HOURS, 24),
-  matchMinAdvanceHours: envAmount(process.env.NEXT_PUBLIC_MATCH_MIN_ADVANCE_HOURS, 30),
+  matchMinAdvanceHours: 0,
   matchMinGapHours: envAmount(process.env.NEXT_PUBLIC_MATCH_MIN_GAP_HOURS, 4),
   matchMaxGapHours: envAmount(process.env.NEXT_PUBLIC_MATCH_MAX_GAP_HOURS, 8),
   extraKmRate: envAmount(process.env.NEXT_PUBLIC_EXTRA_KM_RATE, 13),
@@ -60,7 +63,8 @@ export interface FareBreakdown {
 }
 
 export function getDropPointExtra(point: DropPointId): number {
-  return BOOKING_CONFIG.guaranteedFares[point] - BOOKING_CONFIG.guaranteedFares.rajendra
+  void point
+  return 0
 }
 
 export function isNightPickup(time: string): boolean {
@@ -68,11 +72,12 @@ export function isNightPickup(time: string): boolean {
   if (!match) return false
   const hour = Number(match[1])
   const minute = Number(match[2])
-  return hour >= 22 || hour < 4 || (hour === 4 && minute <= 30)
+  return hour >= 21 || hour < 4 || (hour === 4 && minute === 0)
 }
 
 export function calculateBookingFare(input: {
   mode: BookingMode
+  direction: RouteDirection
   point: DropPointId
   pickupTime: string
   vehicle?: 'economy_sedan' | 'premium_suv'
@@ -81,9 +86,7 @@ export function calculateBookingFare(input: {
     throw new Error('Premium SUV is not currently available.')
   }
   const dropPointExtra = getDropPointExtra(input.point)
-  const baseFare = input.mode === 'match'
-    ? BOOKING_CONFIG.matchDealBaseFare
-    : BOOKING_CONFIG.guaranteedFares.rajendra
+  const baseFare = BOOKING_CONFIG.matchDealBaseFares[input.direction]
   const nightSurcharge = isNightPickup(input.pickupTime) ? BOOKING_CONFIG.nightSurcharge : 0
   const vehicleExtra = input.vehicle === 'premium_suv' ? BOOKING_CONFIG.suvExtra : 0
   const totalFare = baseFare + dropPointExtra + nightSurcharge + vehicleExtra
@@ -118,13 +121,15 @@ export function parsePickupDateTime(date: string, time: string): Date | null {
 export function isMatchDealWithinWindow(date: string, time: string, now = new Date()): boolean {
   const pickup = parsePickupDateTime(date, time)
   if (!pickup) return false
-  return pickup.getTime() - now.getTime() >= BOOKING_CONFIG.matchMinAdvanceHours * 60 * 60 * 1000
+  return pickup.getTime() > now.getTime()
 }
 
-export function getMatchCutoffAt(date: string, time: string): string | null {
+export function getMatchCutoffAt(date: string, time: string, now = new Date()): string | null {
   const pickup = parsePickupDateTime(date, time)
   if (!pickup) return null
-  return new Date(pickup.getTime() - BOOKING_CONFIG.matchCutoffHours * 60 * 60 * 1000).toISOString()
+  const remainingMs = pickup.getTime() - now.getTime()
+  const decisionWindowMs = Math.min(BOOKING_CONFIG.matchCutoffHours * 60 * 60 * 1000, remainingMs / 2)
+  return new Date(pickup.getTime() - decisionWindowMs).toISOString()
 }
 
 export function isCutoffExpired(cutoffAt: string | null | undefined, now = new Date()): boolean {

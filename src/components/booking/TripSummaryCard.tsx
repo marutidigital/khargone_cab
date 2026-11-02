@@ -157,7 +157,7 @@ export function TripSummaryCard({
 
         {breakdown.nightExtra > 0 && (
           <div className="flex items-center justify-between text-amber-900 font-semibold">
-            <span>Night surcharge (22:00–04:59)</span>
+            <span>Night surcharge (9:00 PM–4:00 AM)</span>
             <span>+{formatRs(breakdown.nightExtra)}</span>
           </div>
         )}

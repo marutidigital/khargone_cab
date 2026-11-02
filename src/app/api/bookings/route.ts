@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase-server'
-import { calculateBookingFare, getMatchCutoffAt, isAllowedMatchDeparture, isMatchDealWithinWindow, parsePickupDateTime, type DropPointId } from '@/lib/config'
+import { calculateBookingFare, getMatchCutoffAt, isMatchDealWithinWindow, parsePickupDateTime, type DropPointId } from '@/lib/config'
 import { createRazorpayOrder, razorpayConfigured } from '@/lib/razorpay'
 import { PRICING_CONFIG } from '@/config/pricing'
 
 const Input = z.object({
-  direction: z.enum(['K2I', 'I2K']), mode: z.enum(['match', 'guaranteed']),
+  direction: z.enum(['K2I', 'I2K']), mode: z.literal('match'),
   point: z.enum(['rajendra', 'bhawarkua', 'railway', 'airport', 'rajwada']),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
@@ -38,13 +38,13 @@ export async function POST(request: NextRequest) {
   const now = new Date()
   const maxDate = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
   if (!pickup || pickup < now || pickup > maxDate) return NextResponse.json({ error: 'Choose a valid pickup time within the next 60 days.' }, { status: 400 })
-  if (data.mode === 'match' && (!isAllowedMatchDeparture(data.direction, data.time) || !isMatchDealWithinWindow(data.date, data.time, now))) {
-    return NextResponse.json({ error: 'Match Deal is available only at the listed departure times, at least 30 hours before pickup.' }, { status: 400 })
+  if (!isMatchDealWithinWindow(data.date, data.time, now)) {
+    return NextResponse.json({ error: 'Choose any future pickup time for your Match Deal booking.' }, { status: 400 })
   }
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!checkRate(`${ip}:${data.phone}`)) return NextResponse.json({ error: 'Too many booking attempts. Try again later.' }, { status: 429 })
 
-  const fare = calculateBookingFare({ mode: data.mode, point: data.point as DropPointId, pickupTime: data.time })
+  const fare = calculateBookingFare({ mode: data.mode, direction: data.direction, point: data.point as DropPointId, pickupTime: data.time })
   const db = createServiceClient()
   const { data: existing, error: duplicateError } = await db.from('bookings').select('id,public_token,booking_ref,status,phone').eq('idempotency_key', data.idempotencyKey).limit(1)
   if (duplicateError) return NextResponse.json({ error: 'Booking storage is unavailable. Apply the Supabase migration and try again.' }, { status: 503 })
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
   const token = randomBytes(32).toString('base64url')
   const direction = data.direction === 'K2I' ? 'KI' : 'IK'
-  const cutoffAt = data.mode === 'match' ? getMatchCutoffAt(data.date, data.time) : null
+  const cutoffAt = getMatchCutoffAt(data.date, data.time, now)
   const { data: booking, error: insertError } = await db.from('bookings').insert({
     direction, mode: data.mode, vehicle: 'economy_sedan', vehicle_type: 'sedan',
     drop_point: data.point, drop_name: PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point, travel_date: data.date, pickup_time: data.time,

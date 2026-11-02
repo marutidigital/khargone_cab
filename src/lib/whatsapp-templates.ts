@@ -56,7 +56,7 @@ export function mapTemplateVariables(template: BuiltInTemplate, booking: Record<
     case 'match_confirmed_driver':
       return [`${from} to ${to}`, time, pickup, date, name, String(booking.phone || ''), String(booking.passenger_count || booking.passengers || 1), money(booking.balance_amount)]
     case 'no_match_options':
-      return [name, date, time, money(booking.guaranteed_total_fare || calculateBookingFare({ mode: 'guaranteed', point: booking.drop_point as DropPointId, pickupTime: time }).totalFare)]
+      return [name, date, time, money(booking.guaranteed_total_fare || calculateBookingFare({ mode: 'guaranteed', direction: booking.direction === 'IK' ? 'I2K' : 'K2I', point: booking.drop_point as DropPointId, pickupTime: time }).totalFare)]
     case 'refund_processed':
       return [name, money(booking.advance_amount || booking.refund_amount || 500)]
     case 'ride_reminder_customer':

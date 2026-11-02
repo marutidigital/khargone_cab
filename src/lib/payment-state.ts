@@ -45,7 +45,7 @@ export async function recordCapturedUpgrade(paymentLinkId: string, paymentId: st
   if (payment.status === 'captured') return { bookingId: payment.booking_id, alreadyProcessed: true }
   const { data: booking } = await db.from('bookings').select('*').eq('id', payment.booking_id).single()
   if (!booking || booking.status !== 'no_match_decision' || booking.mode !== 'match') throw new Error('Booking is no longer awaiting an upgrade.')
-  const fare = calculateBookingFare({ mode: 'guaranteed', point: booking.drop_point as DropPointId, pickupTime: String(booking.pickup_time).slice(0, 5) })
+  const fare = calculateBookingFare({ mode: 'guaranteed', direction: booking.direction === 'IK' ? 'I2K' : 'K2I', point: booking.drop_point as DropPointId, pickupTime: String(booking.pickup_time).slice(0, 5) })
   const alreadyPaid = Number(booking.advance_paid || booking.advance_amount || 0)
   const newAdvancePaid = alreadyPaid + Number(payment.amount)
   const { error: paymentError } = await db.from('payments').update({ status: 'captured', razorpay_payment_id: paymentId, captured_at: new Date().toISOString() }).eq('id', payment.id).neq('status', 'captured')

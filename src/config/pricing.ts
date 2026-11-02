@@ -41,16 +41,16 @@ export interface PricingFormulaConfig {
 }
 
 export const DEFAULT_PRICING_CONFIG: PricingFormulaConfig = {
-  BASE: { K2I: BOOKING_CONFIG.guaranteedFares.rajendra, I2K: BOOKING_CONFIG.guaranteedFares.rajendra },
+  BASE: BOOKING_CONFIG.matchDealBaseFares,
   STEP: 0,
-  FLOOR: { K2I: BOOKING_CONFIG.guaranteedFares.rajendra, I2K: BOOKING_CONFIG.guaranteedFares.rajendra },
+  FLOOR: BOOKING_CONFIG.matchDealBaseFares,
   SUV_EXTRA: 500,
   POINTS: {
-    'Rajendra Nagar': BOOKING_CONFIG.guaranteedFares.rajendra,
-    'Railway Station': BOOKING_CONFIG.guaranteedFares.railway,
-    'Airport': BOOKING_CONFIG.guaranteedFares.airport,
-    'Bhawarkua': BOOKING_CONFIG.guaranteedFares.bhawarkua,
-    'Rajwada': BOOKING_CONFIG.guaranteedFares.rajwada,
+    'Rajendra Nagar': 0,
+    'Railway Station': 0,
+    'Airport': 0,
+    'Bhawarkua': 0,
+    'Rajwada': 0,
   },
   KM_CHARGE_PER_KM: BOOKING_CONFIG.extraKmRate,
   TOLL_ESTIMATE: 0,
@@ -170,9 +170,9 @@ export function formatRs(amount: number): string {
   return `Rs ${amount.toLocaleString('en-IN')}`
 }
 
-// Night surcharge check (22:00 to 04:59)
+// Night surcharge check (9:00 PM to 4:00 AM)
 export function isNightTime(hour: number, minute = 0): boolean {
-  return hour >= 22 || hour < 4 || (hour === 4 && minute <= 30)
+  return hour >= 21 || hour < 4 || (hour === 4 && minute === 0)
 }
 
 export function getPointConfig(pointIdOrName: string): PointConfig {
@@ -196,10 +196,10 @@ export function calculateDateFare(
   config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG,
   travelDate?: string
 ): number {
-  void direction
   void daysAhead
   void travelDate
-  return config.BASE.K2I
+  const dirKey = direction === 'IK' || direction === 'I2K' ? 'I2K' : 'K2I'
+  return config.BASE[dirKey]
 }
 
 /** Fixed guaranteed fare for a drop point; `daysAhead` is kept for old callers. */
@@ -210,10 +210,10 @@ export function getPointFareForDate(
   config: PricingFormulaConfig = DEFAULT_PRICING_CONFIG,
   travelDate?: string
 ): number {
-  void direction
   void daysAhead
   void travelDate
-  return getPointFare(pointIdOrName, config)
+  const dirKey = direction === 'IK' || direction === 'I2K' ? 'I2K' : 'K2I'
+  return config.BASE[dirKey] + (config.POINTS[getPointConfig(pointIdOrName).name] ?? 0)
 }
 
 // Starting price for a direction
@@ -265,7 +265,7 @@ export function computeFare(params: {
   const pointId = selectedPoint.id as DropPointId
   const pointExtra = getDropPointExtra(pointId)
   const mode = params.mode || 'guaranteed'
-  const dateFare = mode === 'match' ? BOOKING_CONFIG.matchDealBaseFare + pointExtra : standardFare
+  const dateFare = mode === 'match' ? BOOKING_CONFIG.matchDealBaseFares[dirKey] + pointExtra : standardFare
   const earlyDiscount = 0
   const vehicleExtra = params.vehicle === 'suv' && BOOKING_CONFIG.enableSuv ? config.SUV_EXTRA : 0
   const distanceCharge = 0

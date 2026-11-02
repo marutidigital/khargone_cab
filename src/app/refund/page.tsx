@@ -37,19 +37,19 @@ export default function RefundPage() {
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-sm text-emerald-950">
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
-              Match Deal advance of Rs 500 is refundable if no compatible ride is found. Confirm Now bookings pay Rs 500 now and the remaining fare in the cab.
+              Your Rs 500 Match Deal advance is refundable if no compatible ride is found by the cutoff. The remaining fare is paid in the cab after confirmation.
             </div>
           </div>
 
           <section className="space-y-3 text-sm leading-relaxed">
             <h2 className="text-base font-bold text-slate-900">1. Booking Requests</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              Your booking is active only after the Rs 500 payment is verified. A Match Deal confirms after an opposite-direction ride is found. Confirm Now guarantees a private cab at the exact pickup time.
+              Your booking is active only after the Rs 500 payment is verified. We confirm a Match Deal after finding a compatible opposite-direction ride at your selected time.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">2. Passenger Cancellations</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              If no Match Deal is found by 24 hours before pickup, select a full refund or upgrade. If no option is selected within six hours, we request a full Rs 500 refund. Refunds go to the original payment method and usually take 5–7 working days. Contact MarutiCab promptly for other cancellations.
+              If no Match Deal is found by the cutoff shown in your booking updates, select a full refund or request an upgrade. If no option is selected within six hours, we request a full Rs 500 refund. Refunds go to the original payment method and usually take 5–7 working days. Contact MarutiCab promptly for other cancellations.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Trip Modifications</h2>
@@ -59,7 +59,7 @@ export default function RefundPage() {
 
             <h2 className="text-base font-bold text-slate-900 pt-2">4. Fare and Payment</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              The fare summary lists the base fare, drop-point difference, night surcharge, advance and balance. Tolls are included; no driver allowance or parking charge applies. Distance beyond the selected drop is charged at Rs 13/km, calculated at the final destination.
+              The fare summary lists the route fare, night charge, advance and balance. Tolls are included; no driver allowance or parking charge applies. Distance beyond the selected drop is charged at Rs 13/km, calculated at the final destination.
             </p>
           </section>
           <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> मैच नहीं मिलने पर ₹500 अग्रिम राशि वापस मिलेगी। रिफंड सामान्यतः 5–7 कार्यदिवस में मूल भुगतान माध्यम पर आता है।</p>

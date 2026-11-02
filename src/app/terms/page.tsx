@@ -42,7 +42,7 @@ export default function TermsPage() {
 
             <h2 className="text-base font-bold text-slate-900 pt-2">2. All-Inclusive Pricing</h2>
             <p>
-              The fare shown at checkout includes tolls. There is no driver allowance or parking charge. Night pickups from 10:00 PM through 4:30 AM include the displayed surcharge. A route beyond your selected drop point is charged at Rs 13/km, calculated at the final destination.
+              Khargone to Indore rides cost Rs 2,200 and Indore to Khargone rides cost Rs 1,800. The displayed fare includes tolls; there is no driver allowance or parking charge. Pickups from 9:00 PM through 4:00 AM include a Rs 400 night charge. A route beyond your selected drop point is charged at Rs 13/km, calculated at the final destination.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Pickup &amp; Waiting Time</h2>
@@ -56,7 +56,7 @@ export default function TermsPage() {
               Economy Sedans accommodate up to 4 passengers and 2–3 standard luggage bags. Passengers must adhere to the legal seating capacity of the booked vehicle.
             </p>
           </section>
-          <section className="rounded-xl bg-amber-50 p-4 text-sm"><h2 className="font-bold text-slate-900">Match Deal</h2><p className="mt-2 text-slate-700">A Rs 500 advance is paid online. If a compatible opposite-direction booking is found, your exact pickup time remains unchanged. If no match is found by 24 hours before pickup, choose a full advance refund or upgrade to Confirm Now. If no choice is received within six hours, we request a full refund. Guaranteed rides also require a Rs 500 advance; the displayed balance is paid in the cab.</p></section>
+          <section className="rounded-xl bg-amber-50 p-4 text-sm"><h2 className="font-bold text-slate-900">Match Deal</h2><p className="mt-2 text-slate-700">A Rs 500 advance is paid online. If a compatible opposite-direction booking is found, your chosen pickup time remains unchanged. The booking status page shows the match decision cutoff. If no match is found by the cutoff, choose a full advance refund or request a private cab upgrade. If no choice is received within six hours, we request a full refund. The displayed balance is paid in the cab.</p></section>
           <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> Match Deal के लिए ₹500 अग्रिम राशि पूरी तरह वापस मिलेगी यदि मैच नहीं मिलता। पिकअप का समय बुकिंग की पुष्टि के बाद नहीं बदलेगा।</p>
         </div>
       </main>

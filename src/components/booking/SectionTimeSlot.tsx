@@ -1,9 +1,8 @@
 'use client'
 // src/components/booking/SectionTimeSlot.tsx
-import { useMemo } from 'react'
 import { Clock, ShieldCheck } from 'lucide-react'
-import { PRICING_CONFIG, isNightTime } from '@/config/pricing'
-import { BOOKING_CONFIG, type BookingMode } from '@/lib/config'
+import { isNightTime } from '@/config/pricing'
+import { BOOKING_CONFIG } from '@/lib/config'
 
 export interface ExactTimeOption {
   timeStr: string // "09:30" 24h
@@ -17,10 +16,8 @@ export interface ExactTimeOption {
 interface Props {
   isToday: boolean
   direction: 'K2I' | 'I2K'
-  mode: BookingMode
   selectedTimeStr: string | null
   onSelectTime: (opt: ExactTimeOption) => void
-  onSwitchToGuaranteed: () => void
   matchAvailability: { ready: boolean; count: number } | null
 }
 
@@ -52,33 +49,32 @@ function to12HourLabel(hour: number, minute: number): string {
   return `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`
 }
 
-export function SectionTimeSlot({ isToday, direction, mode, selectedTimeStr, onSelectTime, onSwitchToGuaranteed, matchAvailability }: Props) {
-  const slots = useMemo(() => {
-    const indiaTime = getIndiaTime()
-    const cutoffMinutes = indiaTime.hour * 60 + indiaTime.minute + PRICING_CONFIG.minLeadHours * 60
-    // Keep all half-hour pickup slots in normal clock order in one compact list.
-    const hours = Array.from({ length: 24 }, (_, index) => index)
-
-    return hours.flatMap((hour) => [0, 30].map((minute): ExactTimeOption => {
-      const timeMinutes = hour * 60 + minute
-      const isNight = isNightTime(hour, minute)
-      return {
-        timeStr: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
-        label12: to12HourLabel(hour, minute),
-        hour,
-        minute,
-        isNight,
-        disabled: isToday && timeMinutes < cutoffMinutes,
-      }
-    }))
-  }, [isToday])
-
-  const selectedSlot = slots.find((slot) => slot.timeStr === selectedTimeStr) ?? null
+export function SectionTimeSlot({ isToday, direction, selectedTimeStr, onSelectTime, matchAvailability }: Props) {
+  const indiaTime = getIndiaTime()
+  const nextMinute = indiaTime.hour * 60 + indiaTime.minute + 1
+  const minTime = isToday && nextMinute < 24 * 60
+    ? `${String(Math.floor(nextMinute / 60)).padStart(2, '0')}:${String(nextMinute % 60).padStart(2, '0')}`
+    : isToday ? '23:59' : undefined
+  const selectedParts = selectedTimeStr?.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  const selectedHour = selectedParts ? Number(selectedParts[1]) : -1
+  const selectedMinute = selectedParts ? Number(selectedParts[2]) : -1
+  const selectedSlot: ExactTimeOption | null = selectedParts ? {
+    timeStr: selectedTimeStr!,
+    label12: to12HourLabel(selectedHour, selectedMinute),
+    hour: selectedHour,
+    minute: selectedMinute,
+    isNight: isNightTime(selectedHour, selectedMinute),
+    disabled: false,
+  } : null
   const destinationCity = direction === 'K2I' ? 'Indore' : 'Khargone'
 
   const handleTimeChange = (timeStr: string) => {
-    const slot = slots.find((option) => option.timeStr === timeStr)
-    if (slot && !slot.disabled) onSelectTime(slot)
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(timeStr)
+    if (!match) return
+    const hour = Number(match[1])
+    const minute = Number(match[2])
+    const slot: ExactTimeOption = { timeStr, label12: to12HourLabel(hour, minute), hour, minute, isNight: isNightTime(hour, minute), disabled: false }
+    onSelectTime(slot)
   }
 
   return (
@@ -90,66 +86,32 @@ export function SectionTimeSlot({ isToday, direction, mode, selectedTimeStr, onS
         </h2>
       </div>
 
-      {mode === 'match' ? (
-        <>
-          <p className="mb-3 text-xs text-slate-600">Match Deal pickup time is fixed. Select one of these departures for {direction === 'K2I' ? 'Khargone to Indore' : 'Indore to Khargone'}.</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {BOOKING_CONFIG.matchDepartures[direction].map((timeStr) => {
-              const [hour, minute] = timeStr.split(':').map(Number)
-              const slot: ExactTimeOption = {
-                timeStr,
-                label12: to12HourLabel(hour, minute),
-                hour,
-                minute,
-                isNight: isNightTime(hour, minute),
-                disabled: false,
-              }
-              const selected = selectedTimeStr === timeStr
-              return (
-                <button
-                  key={timeStr}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => onSelectTime(slot)}
-                  className={`min-h-11 rounded-xl border px-3 text-sm font-bold ${selected ? 'border-amber-400 bg-amber-50 text-slate-950 ring-2 ring-amber-100' : 'border-slate-200 bg-white text-slate-700 hover:border-amber-300'}`}
-                >
-                  {slot.label12}{slot.isNight ? ' · Night' : ''}
-                </button>
-              )
-            })}
-          </div>
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-            {selectedTimeStr && matchAvailability ? (
-              <span className={`font-bold ${matchAvailability.ready ? 'text-emerald-800' : 'text-amber-800'}`}>
-                {matchAvailability.ready ? `Match ready · ${matchAvailability.count} compatible request${matchAvailability.count === 1 ? '' : 's'}` : 'Waiting for a match'}
-              </span>
-            ) : <span className="text-slate-600">Choose an exact departure to check for compatible bookings.</span>}
-            <button type="button" onClick={onSwitchToGuaranteed} className="self-start font-bold text-amber-900 underline sm:self-auto">Need another time? Switch to Confirm Now</button>
-          </div>
-        </>
-      ) : (
-      <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
         <label className="block w-full sm:max-w-xs">
-          <span className="block text-xs font-bold text-slate-700 mb-2">Exact pickup time · 30 minute slots</span>
-          <select
+          <span className="mb-2 block text-xs font-bold text-slate-700">Choose any pickup time</span>
+          <input
+            type="time"
+            step={60}
+            min={minTime}
             value={selectedTimeStr ?? ''}
             onChange={(event) => handleTimeChange(event.target.value)}
-            className="w-full h-12 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#FBBF24] focus:ring-2 focus:ring-amber-200"
-          >
-            <option value="" disabled>Select a pickup time</option>
-            {slots.map((slot) => (
-              <option key={slot.timeStr} value={slot.timeStr} disabled={slot.disabled}>
-                {slot.label12}{slot.isNight ? ` · Night (+₹${BOOKING_CONFIG.nightSurcharge})` : ''}{slot.disabled ? ' · Unavailable' : ''}
-              </option>
-            ))}
-          </select>
+            className="h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-semibold text-slate-900 outline-none transition focus:border-[#FBBF24] focus:ring-2 focus:ring-amber-200"
+            aria-label="Choose pickup time"
+          />
         </label>
 
         <div className="text-xs leading-relaxed text-slate-500 sm:pb-3">
-          Night pickups (10:00 PM–4:30 AM) include a {formatRs(BOOKING_CONFIG.nightSurcharge)} surcharge.
+          {isToday ? 'Choose a pickup time later than now.' : 'Choose any time that suits your trip.'} Night pickup (9:00 PM–4:00 AM) adds {formatRs(BOOKING_CONFIG.nightSurcharge)}.
         </div>
       </div>
-      )}
+
+      <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+        {selectedTimeStr && matchAvailability ? (
+          <span className={`font-bold ${matchAvailability.ready ? 'text-emerald-800' : 'text-amber-800'}`}>
+            {matchAvailability.ready ? `${matchAvailability.count} compatible opposite-direction request${matchAvailability.count === 1 ? '' : 's'} found for this time.` : 'No compatible opposite-direction request yet. We’ll keep looking until the match cutoff.'}
+          </span>
+        ) : <span className="text-slate-600">Choose a time to check for compatible return rides.</span>}
+      </div>
 
       <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
@@ -163,13 +125,11 @@ export function SectionTimeSlot({ isToday, direction, mode, selectedTimeStr, onS
 
         <div className="flex items-center gap-1 text-slate-600">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-          <span>Your pickup time stays fixed after confirmation.</span>
+          <span>Your chosen time is saved with your booking.</span>
         </div>
       </div>
     </section>
   )
 }
 
-function formatRs(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN')}`
-}
+function formatRs(amount: number): string { return `₹${amount.toLocaleString('en-IN')}` }

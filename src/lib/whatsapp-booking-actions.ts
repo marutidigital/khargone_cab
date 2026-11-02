@@ -7,7 +7,7 @@ export async function createWhatsAppUpgradeLink(token: string) {
   const db = createServiceClient()
   const { data: booking, error } = await db.from('bookings').select('*').eq('public_token', token).limit(1).single()
   if (error || !booking || booking.status !== 'no_match_decision' || booking.mode !== 'match') throw new Error('This booking is not awaiting an upgrade.')
-  const fare = calculateBookingFare({ mode: 'guaranteed', point: booking.drop_point as DropPointId, pickupTime: String(booking.pickup_time).slice(0, 5) })
+  const fare = calculateBookingFare({ mode: 'guaranteed', direction: booking.direction === 'IK' ? 'I2K' : 'K2I', point: booking.drop_point as DropPointId, pickupTime: String(booking.pickup_time).slice(0, 5) })
   const difference = Math.max(0, fare.totalFare - Number(booking.total_fare || 0))
   if (difference === 0) {
     const { error: updateError } = await db.from('bookings').update({ mode: 'guaranteed', status: 'confirmed', base_fare: fare.baseFare, night_extra: fare.nightSurcharge, total_fare: fare.totalFare, balance_amount: Math.max(0, fare.totalFare - Number(booking.advance_paid || booking.advance_amount || 0)), cutoff_at: null, refund_status: 'not_applicable' }).eq('id', booking.id).eq('status', 'no_match_decision')
