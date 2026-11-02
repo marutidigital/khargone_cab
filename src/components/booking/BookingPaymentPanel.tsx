@@ -12,9 +12,10 @@ interface Props {
   isValid: boolean
   isSubmitting: boolean
   onPay: () => void
+  bookingLabel?: string
 }
 
-export function BookingPaymentPanel({ mode, breakdown, dateLabel, timeLabel, isValid, isSubmitting, onPay }: Props) {
+export function BookingPaymentPanel({ mode, breakdown, dateLabel, timeLabel, isValid, isSubmitting, onPay, bookingLabel }: Props) {
   return (
     <section className="rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-xs sm:p-8">
       <div className="mb-4 flex items-center gap-2">
@@ -22,7 +23,7 @@ export function BookingPaymentPanel({ mode, breakdown, dateLabel, timeLabel, isV
         <h2 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Payment</h2>
       </div>
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
-        <div className="flex justify-between gap-3 text-slate-600"><span>Ride type</span><strong className="text-slate-900">{mode === 'match' ? 'Match Deal' : 'Confirm Now'}</strong></div>
+        <div className="flex justify-between gap-3 text-slate-600"><span>Ride type</span><strong className="text-slate-900">{bookingLabel || (mode === 'match' ? 'Match Deal' : 'Confirm Now')}</strong></div>
         <div className="flex justify-between gap-3 text-slate-600"><span>Pickup</span><strong className="text-right text-slate-900">{dateLabel} · {timeLabel || 'Choose a time'}</strong></div>
         <div className="flex justify-between gap-3 text-slate-600"><span>Base fare</span><strong className="text-slate-900">{formatRs(breakdown.baseFare)}</strong></div>
         <div className="flex justify-between gap-3 text-slate-600"><span>Drop-point extra</span><strong className="text-slate-900">{formatRs(breakdown.dropPointExtra)}</strong></div>
@@ -32,7 +33,7 @@ export function BookingPaymentPanel({ mode, breakdown, dateLabel, timeLabel, isV
         <div className="flex justify-between gap-3 text-slate-600"><span>Balance payable in the taxi</span><strong className="text-slate-900">{formatRs(breakdown.balanceAmount)}</strong></div>
       </div>
 
-      {mode === 'match' && (
+      {mode === 'match' && !bookingLabel && (
         <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950">
           <strong>Refund promise:</strong> If no compatible match is found by the cutoff shown in your booking updates, choose a full {formatRs(BOOKING_CONFIG.matchAdvance)} refund or request a private cab upgrade.
         </p>

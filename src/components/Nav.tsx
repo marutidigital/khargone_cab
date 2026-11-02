@@ -48,6 +48,13 @@ export function Nav() {
             Home
           </Link>
 
+          <Link
+            href="/booking"
+            className="text-sm font-semibold text-slate-700 hover:text-black transition-colors"
+          >
+            My Booking
+          </Link>
+
           <a
             href={`https://wa.me/${PRICING_CONFIG.contactWhatsApp}`}
             target="_blank"

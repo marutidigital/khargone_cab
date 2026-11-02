@@ -49,7 +49,7 @@ export default function RefundPage() {
 
             <h2 className="text-base font-bold text-slate-900 pt-2">2. Passenger Cancellations</h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              If no Match Deal is found by the cutoff shown in your booking updates, select a full refund or request an upgrade. If no option is selected within six hours, we request a full Rs 500 refund. Refunds go to the original payment method and usually take 5–7 working days. Contact MarutiCab promptly for other cancellations.
+              You may cancel from your secure booking status link while your Match Deal is waiting for confirmation. We refund the full Rs 500 advance to the original payment method, usually within 5–7 working days. Online cancellation is unavailable after a compatible ride is confirmed. If no Match Deal is found by the cutoff, you may also select a full refund or request an upgrade; if no option is selected within six hours, we request a full Rs 500 refund.
             </p>
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Trip Modifications</h2>
@@ -62,7 +62,7 @@ export default function RefundPage() {
               The fare summary lists the route fare, night charge, advance and balance. Tolls are included; no driver allowance or parking charge applies. Distance beyond the selected drop is charged at Rs 13/km, calculated at the final destination.
             </p>
           </section>
-          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> मैच नहीं मिलने पर ₹500 अग्रिम राशि वापस मिलेगी। रिफंड सामान्यतः 5–7 कार्यदिवस में मूल भुगतान माध्यम पर आता है।</p>
+          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700"><strong>संक्षेप में:</strong> पुष्टि से पहले बुकिंग रद्द करने पर ₹500 अग्रिम राशि वापस मिलेगी। पुष्टि के बाद ऑनलाइन रद्द नहीं कर सकते। रिफंड सामान्यतः 5–7 कार्यदिवस में मूल भुगतान माध्यम पर आता है।</p>
         </div>
       </main>
 

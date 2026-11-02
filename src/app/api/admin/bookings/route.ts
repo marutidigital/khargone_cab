@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     if (_action === 'refund') {
       const { data: booking } = await supabase.from('bookings').select('*').eq('id', id).single()
-      if (!booking || !['no_match_decision', 'confirmed', 'waiting'].includes(booking.status)) return NextResponse.json({ error: 'This booking cannot be refunded in its current status.' }, { status: 409 })
+      if (!booking || !['no_match_decision', 'confirmed', 'waiting', 'cancelled'].includes(booking.status)) return NextResponse.json({ error: 'This booking cannot be refunded in its current status.' }, { status: 409 })
       const { data: payment } = await supabase.from('payments').select('*').eq('booking_id', id).eq('purpose', 'advance').limit(1).single()
       if (!payment?.razorpay_payment_id || !['captured', 'refund_pending'].includes(payment.status)) return NextResponse.json({ error: 'No captured advance payment is available to refund.' }, { status: 409 })
       const key = payment.refund_idempotency_key || `admin_refund_${id}`
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
         const refund = await refundRazorpayPayment(payment.razorpay_payment_id, payment.amount, key)
         const complete = refund.status === 'processed'
         await supabase.from('payments').update({ status: complete ? 'refunded' : 'refund_pending', refund_id: refund.id, refunded_at: complete ? new Date().toISOString() : null }).eq('id', payment.id)
-        await updateBooking(id, { status: complete ? 'refunded' : 'no_match_decision', refund_status: complete ? 'processed' : 'pending' })
+        await updateBooking(id, { status: complete ? 'refunded' : booking.status === 'cancelled' ? 'cancelled' : 'no_match_decision', refund_status: complete ? 'processed' : 'pending' })
         if (complete) await notifyBooking(booking, 'refund_processed')
         return NextResponse.json({ success: true, status: complete ? 'refunded' : 'refund_pending' })
       } catch (cause) {

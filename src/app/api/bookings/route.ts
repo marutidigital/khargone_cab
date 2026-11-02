@@ -12,7 +12,7 @@ const Input = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
   passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
-  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100),
+  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100), confirmedRideId: z.string().uuid().optional(),
 })
 const rateMap = new Map<string, number[]>()
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     consent_text: 'I agree to receive WhatsApp updates about this booking and accept the Terms and Refund Policy.',
     base_fare: fare.baseFare, discount: 0, night_extra: fare.nightSurcharge,
     total_fare: fare.totalFare, advance_amount: fare.advanceAmount, advance_paid: 0,
-    is_night: fare.nightSurcharge > 0, extras: { drop_point_extra: fare.dropPointExtra, night_surcharge: fare.nightSurcharge },
+    is_night: fare.nightSurcharge > 0, extras: { drop_point_extra: fare.dropPointExtra, night_surcharge: fare.nightSurcharge, ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {}) },
     balance_amount: fare.balanceAmount, status: 'pending_payment', refund_status: data.mode === 'match' ? 'pending' : 'not_applicable',
     cutoff_at: cutoffAt, public_token: token, idempotency_key: data.idempotencyKey,
   }).select('id,booking_ref').single()
@@ -79,12 +79,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Could not save the booking. Check that the Supabase migration is applied.' }, { status: 503 })
   }
 
+  if (data.confirmedRideId) {
+    const { data: reserved, error: reservationError } = await db.rpc('reserve_match_candidate', {
+      p_requester_booking_id: booking.id,
+      p_candidate_booking_id: data.confirmedRideId,
+      p_hold_minutes: 15,
+    })
+    if (reservationError || reserved !== true) {
+      await db.from('bookings').update({ status: 'cancelled', refund_status: 'not_applicable' }).eq('id', booking.id).eq('status', 'pending_payment')
+      console.error('Could not reserve selected return ride:', reservationError)
+      if (reservationError) return NextResponse.json({ error: 'Confirmed Booking is temporarily unavailable. Please try again later.' }, { status: 503 })
+      return NextResponse.json({ error: 'That return ride was just taken. Refresh the list and choose another available ride.' }, { status: 409 })
+    }
+  }
+
   try {
     const order = await createRazorpayOrder({ amount: fare.advanceAmount, receipt: String(booking.booking_ref), notes: { booking_id: booking.id, booking_ref: String(booking.booking_ref) } })
     const { error: paymentError } = await db.from('payments').insert({ booking_id: booking.id, purpose: 'advance', razorpay_order_id: order.id, amount: fare.advanceAmount, status: 'created' })
     if (paymentError) throw paymentError
     return NextResponse.json({ bookingRef: booking.booking_ref, publicToken: token, orderId: order.id, amount: fare.advanceAmount * 100, currency: 'INR', keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID, fare })
   } catch (error) {
+    if (data.confirmedRideId) await db.rpc('release_match_reservation', { p_requester_booking_id: booking.id })
     await db.from('bookings').update({ status: 'cancelled', refund_status: 'not_applicable' }).eq('id', booking.id).eq('status', 'pending_payment')
     console.error('Razorpay order creation failed', error)
     return NextResponse.json({ error: 'Could not start secure payment. No payment was taken; please try again.' }, { status: 502 })

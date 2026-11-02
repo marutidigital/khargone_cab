@@ -47,7 +47,7 @@ export default function TermsPage() {
 
             <h2 className="text-base font-bold text-slate-900 pt-2">3. Pickup &amp; Waiting Time</h2>
             <p>
-              Your pickup time is exact and fixed once confirmed. Your driver will contact you before pickup. Please be ready on time; contact support promptly if you are delayed or need to cancel.
+              Your pickup time is exact and fixed once confirmed. Your driver will contact you before pickup. You may cancel a Match Deal from its secure booking status page while it is waiting for confirmation; we refund the full Rs 500 advance to the original payment method. Once the ride is confirmed, passenger cancellation is unavailable online. Please contact support if you are delayed.
             </p>
             <p>Drivers allow 15 minutes after the scheduled pickup. If you are running late, contact support immediately; after the waiting period the car may leave and a confirmed-ride advance may not be refundable. Match Deal no-match refunds follow the separate full-refund rule above.</p>
 
