@@ -36,7 +36,7 @@ begin
 
   select * into requester
   from public.bookings where id = p_requester_booking_id for update;
-  if not found or requester.mode <> 'match' or requester.status not in ('pending_payment', 'waiting') then
+  if not found or requester.mode <> 'match' or requester.status <> 'pending_payment' then
     return false;
   end if;
 
