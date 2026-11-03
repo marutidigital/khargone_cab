@@ -118,5 +118,17 @@ export async function POST(request: NextRequest) {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
     void notifyAdmin(`new-waiting:${booking.id}`, booking.id, 'New Match Deal booking is waiting for dispatch. No advance was collected.')
   }
-  return NextResponse.json({ bookingRef: booking.booking_ref, publicToken: token, status: savedBooking?.status || 'waiting', fare })
+
+  const pointName = PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point
+  const routeName = direction === 'KI' ? 'Khargone to Indore' : 'Indore to Khargone'
+  const waText = `🚕 *MarutiCab Booking Confirmation*\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Point:* ${pointName}\n*Date:* ${data.date}\n*Time:* ${data.time}\n*Passenger:* ${data.name} (${data.phone})\n*Fare:* ₹${fare.totalFare} (Pay in cab)\n\nTrack booking: https://maruticab.in/booking/${token}\nSupport: +91 72823 16090`
+  const whatsappUrl = `https://wa.me/917282316090?text=${encodeURIComponent(waText)}`
+
+  return NextResponse.json({
+    bookingRef: booking.booking_ref,
+    publicToken: token,
+    status: savedBooking?.status || 'waiting',
+    fare,
+    whatsappUrl,
+  })
 }

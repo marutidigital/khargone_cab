@@ -13,6 +13,7 @@ import { SectionPassenger, type PassengerFormData } from '@/components/booking/S
 import { BookingModeSelector } from '@/components/booking/BookingModeSelector'
 import { BookingPaymentPanel } from '@/components/booking/BookingPaymentPanel'
 import { ConfirmedRidePicker, type ConfirmedRideSelection } from '@/components/booking/ConfirmedRidePicker'
+import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
 import { PRICING_CONFIG, formatRs } from '@/config/pricing'
@@ -46,6 +47,11 @@ export default function Home() {
   const [matchAvailability, setMatchAvailability] = useState<{ ready: boolean; count: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
+  const [successData, setSuccessData] = useState<{
+    bookingRef: string
+    publicToken: string
+    whatsappUrl: string
+  } | null>(null)
   const idempotencyKey = useRef('')
 
   const point = PRICING_CONFIG.points.find((entry) => entry.id === pointId) || PRICING_CONFIG.points[0]
@@ -121,7 +127,12 @@ export default function Home() {
       if (!response.ok) throw new Error(result.error || 'Could not create your booking.')
       const publicToken = String(result.publicToken)
       window.sessionStorage.setItem('maruticab_booking_token', publicToken)
-      router.push('/booking')
+      setIsSubmitting(false)
+      setSuccessData({
+        bookingRef: result.bookingRef,
+        publicToken: result.publicToken,
+        whatsappUrl: result.whatsappUrl || `https://wa.me/917282316090?text=${encodeURIComponent(`Hi MarutiCab, booking ${result.bookingRef} request submitted.`)}`,
+      })
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not start checkout.')
       setIsSubmitting(false)
@@ -161,7 +172,73 @@ export default function Home() {
       </div>
       <div className="mt-8 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900"><ShieldCheck className="h-4 w-4" />Tolls included · No driver allowance · No parking charges · Extra distance ₹{BOOKING_CONFIG.extraKmRate}/km</div>
     </main>
-    <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-slate-200 bg-white/95 p-3 backdrop-blur lg:hidden"><div><div className="text-[10px] font-bold uppercase text-slate-500">Total fare</div><strong className="text-lg">{formatRs(fare.totalFare)}</strong></div><button type="button" disabled={!valid || isSubmitting} onClick={() => void submit()} className="flex min-h-11 items-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-black disabled:bg-slate-200">{isSubmitting ? 'Booking…' : 'Book your car'} <ArrowRight className="h-4 w-4" /></button></div>
+    {/* Mobile Native App Sticky Action Bar */}
+    <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-slate-200/80 bg-white/95 px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] backdrop-blur-md shadow-lg lg:hidden">
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Fare</div>
+        <div className="flex items-baseline gap-1">
+          <strong className="text-xl font-black text-slate-900">{formatRs(fare.totalFare)}</strong>
+          <span className="text-[10px] font-semibold text-emerald-700">· Pay in cab</span>
+        </div>
+      </div>
+
+      {!time ? (
+        <button
+          type="button"
+          onClick={() => scrollToSection(5)}
+          className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 active:scale-98 text-amber-950 px-4 py-2 text-xs font-black transition-all cursor-pointer"
+        >
+          <span>Select Time</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      ) : !valid ? (
+        <button
+          type="button"
+          onClick={() => scrollToSection(6)}
+          className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 active:scale-98 text-amber-950 px-4 py-2 text-xs font-black transition-all cursor-pointer"
+        >
+          <span>Add Details</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={() => void submit()}
+          className="flex min-h-[46px] items-center gap-2 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 px-5 py-2.5 text-sm font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+        >
+          <span>{isSubmitting ? 'Booking…' : 'Book MarutiCab'}</span>
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+
+    {/* Booking Success WhatsApp Modal */}
+    {successData && (
+      <BookingSuccessModal
+        isOpen={Boolean(successData)}
+        bookingRef={successData.bookingRef}
+        publicToken={successData.publicToken}
+        direction={direction}
+        pointName={point.name}
+        date={dateLabel}
+        time={time?.label12 || ''}
+        passengerName={passenger.name}
+        phone={passenger.phone}
+        totalFare={fare.totalFare}
+        whatsappUrl={successData.whatsappUrl}
+        onClose={() => {
+          const token = successData.publicToken
+          setSuccessData(null)
+          router.push(`/booking/${token}`)
+        }}
+        onViewStatus={() => {
+          const token = successData.publicToken
+          setSuccessData(null)
+          router.push(`/booking/${token}`)
+        }}
+      />
+    )}
     <FooterMarquee /><FooterTrust />
   </div>
 }

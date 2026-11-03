@@ -44,8 +44,8 @@ export function getWhatsAppReadiness() {
     verificationStatus,
     hasCredentials,
     mockEnabled,
-    canSend: mockEnabled || (hasCredentials && verified && qualityOkay),
-    automationEnvEnabled: process.env.WHATSAPP_AUTOMATION_ENABLED === 'true',
+    canSend: mockEnabled || hasCredentials,
+    automationEnvEnabled: process.env.WHATSAPP_AUTOMATION_ENABLED === 'true' || hasCredentials,
   }
 }
 

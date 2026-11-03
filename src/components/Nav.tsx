@@ -39,8 +39,30 @@ export function Nav() {
           </div>
         </Link>
 
-        {/* Navigation links & Book Now button */}
-        <div className="flex items-center gap-4 sm:gap-6">
+        {/* Mobile quick actions (app-like top bar) */}
+        <div className="flex sm:hidden items-center gap-2">
+          <a
+            href={`https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent('Hi MarutiCab, I need help with cab booking.')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+            aria-label="WhatsApp Support"
+          >
+            <Phone className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
+            <span>Support</span>
+          </a>
+
+          <Link
+            href="/booking"
+            className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+            aria-label="My Booking"
+          >
+            <span>My Rides</span>
+          </Link>
+        </div>
+
+        {/* Desktop navigation links & Book Now button */}
+        <div className="hidden sm:flex items-center gap-4 sm:gap-6">
           <Link
             href="/"
             className="text-sm font-semibold text-slate-700 hover:text-black transition-colors"
@@ -56,10 +78,10 @@ export function Nav() {
           </Link>
 
           <a
-            href={`https://wa.me/${PRICING_CONFIG.contactWhatsApp}`}
+            href={`https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent('Hi MarutiCab, I need help with cab booking.')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-black"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-black"
           >
             <Phone className="w-3.5 h-3.5 text-emerald-600" />
             <span>Support</span>
