@@ -34,14 +34,14 @@ export async function GET(req: NextRequest) {
     bookingsByPhone.set(b.phone, list)
   }
 
-  const enriched = (customers || []).map((c) => ({
+  const enriched = ((customers || []) as any[]).map((c: any) => ({
     ...c,
     rides: bookingsByPhone.get(c.phone) || [],
-  })).filter((c) => {
+  })).filter((c: any) => {
     if (!search) return true
     return (
-      c.name.toLowerCase().includes(search) ||
-      c.phone.toLowerCase().includes(search) ||
+      (c.name || '').toLowerCase().includes(search) ||
+      (c.phone || '').toLowerCase().includes(search) ||
       (c.notes && c.notes.toLowerCase().includes(search))
     )
   })

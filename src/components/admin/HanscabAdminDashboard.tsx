@@ -48,7 +48,7 @@ const STAGE_OPTIONS: { id: LeadStage; label: string; color: string }[] = [
 ]
 
 export function HanscabAdminDashboard({ user, onSignOut }: Props) {
-  const [activeView, setActiveView] = useState<'bookings' | 'customers' | 'whatsapp'>('bookings')
+  const [activeView, setActiveView] = useState<'bookings' | 'customers' | 'whatsapp' | 'leads'>('bookings')
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
