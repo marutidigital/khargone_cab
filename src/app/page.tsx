@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, MapPin, Calendar, Clock, User, Phone, Car, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/Nav'
 import { BookingStepper } from '@/components/BookingStepper'
 import { SectionRoute } from '@/components/booking/SectionRoute'
@@ -10,14 +10,12 @@ import { SectionDropPoint } from '@/components/booking/SectionDropPoint'
 import { SectionDate, type DateTileItem } from '@/components/booking/SectionDate'
 import { SectionTimeSlot, type ExactTimeOption } from '@/components/booking/SectionTimeSlot'
 import { SectionPassenger, type PassengerFormData } from '@/components/booking/SectionPassenger'
-import { BookingModeSelector } from '@/components/booking/BookingModeSelector'
 import { BookingPaymentPanel } from '@/components/booking/BookingPaymentPanel'
 import { ConfirmedRidePicker, type ConfirmedRideSelection } from '@/components/booking/ConfirmedRidePicker'
 import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
-import { PRICING_CONFIG, formatRs } from '@/config/pricing'
-import { isNightTime } from '@/config/pricing'
+import { PRICING_CONFIG, formatRs, isNightTime } from '@/config/pricing'
 import { BOOKING_CONFIG, calculateBookingFare, type BookingMode, type RouteDirection } from '@/lib/config'
 import { initUTMTracking, logEvent } from '@/lib/tracking'
 
@@ -33,8 +31,16 @@ function daysFromTodayInIndia(date: string) {
   return Math.max(0, Math.round((dayStart(date) - dayStart(todayInIndia())) / 86_400_000))
 }
 
+const APP_STEPS = [
+  { id: 1, label: 'Route & Drop' },
+  { id: 2, label: 'Date & Time' },
+  { id: 3, label: 'Passenger' },
+  { id: 4, label: 'Review & Book' },
+]
+
 export default function Home() {
   const router = useRouter()
+  const [currentStep, setCurrentStep] = useState<number>(1)
   const [direction, setDirection] = useState<'K2I' | 'I2K'>('K2I')
   const [pointId, setPointId] = useState('rajendra')
   const [date, setDate] = useState(todayInIndia)
@@ -43,7 +49,7 @@ export default function Home() {
   const [confirmedRide, setConfirmedRide] = useState<ConfirmedRideSelection | null>(null)
   const mode: BookingMode = 'match'
   const [time, setTime] = useState<ExactTimeOption | null>(null)
-  const [passenger, setPassenger] = useState<PassengerFormData>({ name: '', phone: '', passengers: 1, consent: false, address: '' })
+  const [passenger, setPassenger] = useState<PassengerFormData>({ name: '', phone: '', passengers: 1, consent: true, address: '' })
   const [matchAvailability, setMatchAvailability] = useState<{ ready: boolean; count: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
@@ -57,14 +63,15 @@ export default function Home() {
   const point = PRICING_CONFIG.points.find((entry) => entry.id === pointId) || PRICING_CONFIG.points[0]
   const fare = useMemo(() => calculateBookingFare({ mode, direction, point: pointId as keyof typeof BOOKING_CONFIG.guaranteedFares, pickupTime: time?.timeStr || '12:00' }), [direction, mode, pointId, time])
   const dateLabel = useMemo(() => new Date(`${date}T00:00:00+05:30`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short' }), [date])
-  const daysAhead = useMemo(() => daysFromTodayInIndia(date), [date])
-  const valid = Boolean(time && (bookingTab === 'match' || confirmedRide) && passenger.name.trim().length >= 2 && /^[6-9]\d{9}$/.test(passenger.phone) && passenger.consent)
+  const isPassengerValid = Boolean(passenger.name.trim().length >= 2 && /^[6-9]\d{9}$/.test(passenger.phone) && passenger.consent)
+  const valid = Boolean(time && (bookingTab === 'match' || confirmedRide) && isPassengerValid)
   const today = date === todayInIndia()
 
   useEffect(() => { initUTMTracking(); void logEvent({ event: 'page_view' }) }, [])
   useEffect(() => {
     setMatchAvailability(null)
   }, [date, direction])
+
   useEffect(() => {
     let alive = true
     const refresh = async () => {
@@ -87,6 +94,7 @@ export default function Home() {
     const timer = window.setInterval(() => void refresh(), 30_000)
     return () => { alive = false; window.clearInterval(timer) }
   }, [bookingTab, direction])
+
   useEffect(() => {
     if (mode !== 'match' || bookingTab !== 'match' || !time) return
     const abort = new AbortController()
@@ -114,6 +122,12 @@ export default function Home() {
     setPointId(selection.pointId)
     setTime({ timeStr: selection.returnTime, label12: `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`, hour, minute, isNight: isNightTime(hour, minute), disabled: false })
   }
+
+  const goToStep = (stepNumber: number) => {
+    setCurrentStep(stepNumber)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const submit = async () => {
     if (!valid || !time) { setNotice('Complete the pickup time, passenger details, and consent before continuing.'); return }
     setIsSubmitting(true); setNotice('')
@@ -139,106 +153,342 @@ export default function Home() {
     }
   }
 
-  const completed = [1, 2, ...(date ? [3] : []), ...(mode ? [4] : []), ...(time ? [5] : []), ...(valid ? [6] : [])]
-  const scrollToSection = (step: number) => document.getElementById(['', 'section-route', 'section-point', 'section-date', 'section-mode', 'section-time', 'section-passenger', 'section-payment'][step])?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Active step navigation helpers
+  const completedSteps = [
+    1,
+    ...(date && time ? [2] : []),
+    ...(isPassengerValid ? [3] : []),
+    ...(valid ? [4] : []),
+  ]
 
-  return <div className="min-h-screen bg-[#F4F4F5] text-slate-900 antialiased">
-    <Nav />
-    <BookingStepper currentStep={valid ? 7 : time ? 6 : mode ? 5 : 3} completedSteps={completed} onStepClick={scrollToSection} />
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
-      <header className="mb-6 flex flex-col justify-between gap-3 sm:mb-8 sm:flex-row sm:items-center">
-        <div><h1 className="flex flex-wrap items-center gap-2 text-xl font-black tracking-tight sm:text-2xl">Book a MarutiCab <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-900">Khargone ↔ Indore</span></h1><p className="mt-1 text-sm text-slate-600">Private Economy Sedan · Fixed pickup time · No shared passengers</p></div>
-        <div className="flex items-center gap-2 self-start rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800"><ShieldCheck className="h-4 w-4" /> Book now · Pay in the cab</div>
-      </header>
-      {notice && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">{notice}</div>}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
-        <div className="space-y-5 sm:space-y-6">
-          <div id="section-route" className="scroll-mt-24"><SectionRoute direction={direction} selectedPointName={point.name} onSelectDirection={selectDirection} /></div>
-          <section className={`grid ${confirmedRidesAvailable ? 'grid-cols-2' : 'grid-cols-1'} gap-2 rounded-2xl border border-slate-200 bg-white p-2`} aria-label="Booking type">
-            <button type="button" aria-pressed={bookingTab === 'match'} onClick={() => { idempotencyKey.current = ''; setBookingTab('match'); setConfirmedRide(null); setTime(null) }} className={`min-h-12 rounded-xl px-3 py-2 text-sm font-extrabold ${bookingTab === 'match' ? 'bg-amber-400 text-slate-950' : 'text-slate-600 hover:bg-slate-50'}`}>Match Deal</button>
-            {confirmedRidesAvailable && <button type="button" aria-pressed={bookingTab === 'confirmed'} onClick={() => { idempotencyKey.current = ''; setBookingTab('confirmed'); setTime(null); setConfirmedRide(null) }} className={`min-h-12 rounded-xl px-3 py-2 text-sm font-extrabold ${bookingTab === 'confirmed' ? 'bg-amber-400 text-slate-950' : 'text-slate-600 hover:bg-slate-50'}`}>Confirmed Booking</button>}
-          </section>
-          {bookingTab === 'confirmed' ? <div id="section-point" className="scroll-mt-24"><ConfirmedRidePicker direction={direction} selected={confirmedRide} onSelect={selectConfirmedRide} /></div> : <>
-            <div id="section-point" className="scroll-mt-24"><SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={(value) => { setPointId(value); setTime(null) }} /></div>
-            <div id="section-date" className="scroll-mt-24"><SectionDate pointId={pointId} vehicle="sedan" direction={direction} selectedDateStr={date} onSelectDate={selectDate} /></div>
-            <div id="section-mode" className="scroll-mt-24"><BookingModeSelector direction={direction} point={pointId as keyof typeof BOOKING_CONFIG.guaranteedFares} daysAhead={daysAhead} /></div>
-            <div id="section-time" className="scroll-mt-24"><SectionTimeSlot isToday={today} direction={direction} selectedTimeStr={time?.timeStr || null} onSelectTime={setTime} matchAvailability={matchAvailability} /></div>
-          </>}
-          <div id="section-passenger" className="scroll-mt-24"><SectionPassenger maxPassengers={4} data={passenger} onChange={(patch) => setPassenger((current) => ({ ...current, ...patch }))} errors={{}} /></div>
-          <div id="section-payment" className="scroll-mt-24 lg:hidden"><BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined} />{bookingTab === 'confirmed' && confirmedRide && <p className="mt-2 text-center text-xs font-semibold text-emerald-800">Your selected ride will be paired with the {confirmedRide.existingDirection === 'K2I' ? 'Khargone → Indore' : 'Indore → Khargone'} ride on {dateLabel}.</p>}</div>
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-lg font-extrabold">Frequently asked questions</h2><div className="mt-4 space-y-4 text-sm"><details><summary className="cursor-pointer font-bold">When will I know about the match?</summary><p className="mt-2 text-slate-600">We notify you as soon as a compatible opposite-direction booking is found. Booking at least two days ahead gives us more time to find a match.</p></details><details><summary className="cursor-pointer font-bold">When do I pay?</summary><p className="mt-2 text-slate-600">There is no online payment or advance. Pay the full displayed fare in the cab after the booking is confirmed.</p></details><details><summary className="cursor-pointer font-bold">Can I choose any pickup time?</summary><p className="mt-2 text-slate-600">Yes. Pick any future time. Night pickups from 9:00 PM to 4:00 AM include a ₹400 charge.</p></details><details><summary className="cursor-pointer font-bold">Can I cancel?</summary><p className="mt-2 text-slate-600">You can cancel while your Match Deal is waiting for confirmation. Online cancellation is unavailable once the ride is confirmed.</p></details><details><summary className="cursor-pointer font-bold">Is the cab shared with strangers?</summary><p className="mt-2 text-slate-600">No. You get a private cab. The return trip is matched with a separate customer going the other way.</p></details></div></section>
-        </div>
-        <aside className="hidden lg:sticky lg:top-20 lg:block" id="section-payment"><BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined} />{bookingTab === 'confirmed' && confirmedRide && <p className="mt-2 text-center text-xs font-semibold text-emerald-800">Your selected ride will be paired with the {confirmedRide.existingDirection === 'K2I' ? 'Khargone → Indore' : 'Indore → Khargone'} ride on {dateLabel}.</p>}</aside>
-      </div>
-      <div className="mt-8 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900"><ShieldCheck className="h-4 w-4" />Tolls included · No driver allowance · No parking charges · Extra distance ₹{BOOKING_CONFIG.extraKmRate}/km</div>
-    </main>
-    {/* Mobile Native App Sticky Action Bar */}
-    <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-slate-200/80 bg-white/95 px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] backdrop-blur-md shadow-lg lg:hidden">
+  return (
+    <div className="min-h-screen bg-[#F4F4F5] text-slate-900 antialiased flex flex-col justify-between">
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Fare</div>
-        <div className="flex items-baseline gap-1">
-          <strong className="text-xl font-black text-slate-900">{formatRs(fare.totalFare)}</strong>
-          <span className="text-[10px] font-semibold text-emerald-700">· Pay in cab</span>
+        <Nav />
+        <BookingStepper
+          currentStep={currentStep}
+          completedSteps={completedSteps}
+          onStepClick={goToStep}
+          steps={APP_STEPS}
+        />
+
+        <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-8 sm:py-8">
+          {/* Header */}
+          <header className="mb-4 sm:mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div>
+              <h1 className="flex flex-wrap items-center gap-2 text-lg font-black tracking-tight sm:text-2xl">
+                MarutiCab Private Cab
+                <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-900">
+                  {direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
+                </span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                Private Economy Sedan · Doorstep/City Point drop · No stranger co-passengers
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" /> Book now · Pay full fare in cab
+            </div>
+          </header>
+
+          {notice && (
+            <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
+              {notice}
+            </div>
+          )}
+
+          {/* Desktop Layout: 2-Column with Sticky Sidebar */}
+          <div className="hidden lg:grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="space-y-6">
+              <div id="section-route"><SectionRoute direction={direction} selectedPointName={point.name} onSelectDirection={selectDirection} /></div>
+              
+              {confirmedRidesAvailable && (
+                <section className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+                  <button type="button" aria-pressed={bookingTab === 'match'} onClick={() => { idempotencyKey.current = ''; setBookingTab('match'); setConfirmedRide(null); setTime(null) }} className={`min-h-12 rounded-xl px-3 py-2 text-sm font-extrabold ${bookingTab === 'match' ? 'bg-amber-400 text-slate-950' : 'text-slate-600 hover:bg-slate-50'}`}>Match Deal</button>
+                  <button type="button" aria-pressed={bookingTab === 'confirmed'} onClick={() => { idempotencyKey.current = ''; setBookingTab('confirmed'); setTime(null); setConfirmedRide(null) }} className={`min-h-12 rounded-xl px-3 py-2 text-sm font-extrabold ${bookingTab === 'confirmed' ? 'bg-amber-400 text-slate-950' : 'text-slate-600 hover:bg-slate-50'}`}>Confirmed Booking</button>
+                </section>
+              )}
+
+              {bookingTab === 'confirmed' ? (
+                <div id="section-point"><ConfirmedRidePicker direction={direction} selected={confirmedRide} onSelect={selectConfirmedRide} /></div>
+              ) : (
+                <>
+                  <div id="section-point"><SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={(value) => { setPointId(value); setTime(null) }} /></div>
+                  <div id="section-date"><SectionDate pointId={pointId} vehicle="sedan" direction={direction} selectedDateStr={date} onSelectDate={selectDate} /></div>
+                  <div id="section-time"><SectionTimeSlot isToday={today} direction={direction} selectedTimeStr={time?.timeStr || null} onSelectTime={setTime} matchAvailability={matchAvailability} /></div>
+                </>
+              )}
+
+              <div id="section-passenger"><SectionPassenger maxPassengers={4} data={passenger} onChange={(patch) => setPassenger((current) => ({ ...current, ...patch }))} errors={{}} /></div>
+            </div>
+
+            <aside className="sticky top-20" id="section-payment">
+              <BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined} />
+              {bookingTab === 'confirmed' && confirmedRide && (
+                <p className="mt-2 text-center text-xs font-semibold text-emerald-800">
+                  Your ride is paired with {confirmedRide.existingDirection === 'K2I' ? 'Khargone → Indore' : 'Indore → Khargone'} on {dateLabel}.
+                </p>
+              )}
+            </aside>
+          </div>
+
+          {/* Mobile Native App View (Step-by-Step Card Flow) */}
+          <div className="lg:hidden space-y-4 max-w-lg mx-auto">
+            {/* STEP 1: ROUTE & DROP POINT */}
+            {currentStep === 1 && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <SectionRoute direction={direction} selectedPointName={point.name} onSelectDirection={selectDirection} />
+
+                {confirmedRidesAvailable && (
+                  <section className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xs">
+                    <button type="button" aria-pressed={bookingTab === 'match'} onClick={() => { idempotencyKey.current = ''; setBookingTab('match'); setConfirmedRide(null); setTime(null) }} className={`py-2 px-3 rounded-xl text-xs font-extrabold ${bookingTab === 'match' ? 'bg-amber-400 text-slate-950' : 'text-slate-600'}`}>Match Deal</button>
+                    <button type="button" aria-pressed={bookingTab === 'confirmed'} onClick={() => { idempotencyKey.current = ''; setBookingTab('confirmed'); setTime(null); setConfirmedRide(null) }} className={`py-2 px-3 rounded-xl text-xs font-extrabold ${bookingTab === 'confirmed' ? 'bg-amber-400 text-slate-950' : 'text-slate-600'}`}>Confirmed</button>
+                  </section>
+                )}
+
+                {bookingTab === 'confirmed' ? (
+                  <ConfirmedRidePicker direction={direction} selected={confirmedRide} onSelect={selectConfirmedRide} />
+                ) : (
+                  <SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={(value) => { setPointId(value); setTime(null) }} />
+                )}
+              </div>
+            )}
+
+            {/* STEP 2: DATE & TIME */}
+            {currentStep === 2 && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Compact Selected Route Pill */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center justify-between shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-slate-900 truncate">
+                      {direction === 'K2I' ? `Khargone ➔ ${point.name}` : `${point.name} ➔ Khargone`}
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => goToStep(1)} className="text-xs font-bold text-amber-700 underline cursor-pointer">
+                    Change
+                  </button>
+                </div>
+
+                <SectionDate pointId={pointId} vehicle="sedan" direction={direction} selectedDateStr={date} onSelectDate={selectDate} />
+                <SectionTimeSlot isToday={today} direction={direction} selectedTimeStr={time?.timeStr || null} onSelectTime={setTime} matchAvailability={matchAvailability} />
+              </div>
+            )}
+
+            {/* STEP 3: PASSENGER DETAILS */}
+            {currentStep === 3 && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Trip Summary Chip */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center justify-between text-xs font-semibold shadow-xs">
+                  <div className="flex items-center gap-2 text-slate-800 truncate">
+                    <Calendar className="h-4 w-4 text-amber-600" />
+                    <span>{dateLabel}</span>
+                    <span>·</span>
+                    <Clock className="h-4 w-4 text-amber-600" />
+                    <span>{time?.label12 || 'Time not set'}</span>
+                  </div>
+                  <button type="button" onClick={() => goToStep(2)} className="text-amber-700 underline font-bold cursor-pointer">
+                    Change
+                  </button>
+                </div>
+
+                <SectionPassenger maxPassengers={4} data={passenger} onChange={(patch) => setPassenger((current) => ({ ...current, ...patch }))} errors={{}} />
+              </div>
+            )}
+
+            {/* STEP 4: REVIEW & CONFIRM */}
+            {currentStep === 4 && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Native App Ride Card */}
+                <div className="rounded-3xl border-2 border-amber-400 bg-white p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                        <Car className="w-4 h-4 text-amber-800" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-slate-900">Private Economy Sedan</div>
+                        <div className="text-[11px] text-slate-500">Up to 4 passengers · AC · Direct ride</div>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full">
+                      Pay in Cab
+                    </span>
+                  </div>
+
+                  {/* Route & Timing */}
+                  <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2.5 text-xs text-slate-700">
+                    <div className="flex items-center gap-2.5">
+                      <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Pickup</span>
+                        <strong className="text-slate-900 font-bold">{direction === 'K2I' ? 'Bus Stand Khargone' : point.name}</strong>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      <MapPin className="h-4 w-4 text-rose-500 shrink-0" />
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Drop</span>
+                        <strong className="text-slate-900 font-bold">{direction === 'K2I' ? point.name : 'Khargone'}</strong>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200/80 pt-2 flex items-center justify-between text-slate-600">
+                      <span>Date & Pickup Time</span>
+                      <strong className="text-slate-900">{dateLabel} at {time?.label12}</strong>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Passenger</span>
+                      <strong className="text-slate-900">{passenger.name} ({passenger.phone})</strong>
+                    </div>
+                  </div>
+
+                  {/* Price Breakdown */}
+                  <div className="space-y-1.5 text-xs text-slate-600 pt-1">
+                    <div className="flex justify-between">
+                      <span>Base route fare</span>
+                      <span className="font-bold text-slate-900">{formatRs(fare.baseFare)}</span>
+                    </div>
+                    {fare.dropPointExtra > 0 && (
+                      <div className="flex justify-between">
+                        <span>Drop point extra ({point.name})</span>
+                        <span className="font-bold text-slate-900">+{formatRs(fare.dropPointExtra)}</span>
+                      </div>
+                    )}
+                    {fare.nightSurcharge > 0 && (
+                      <div className="flex justify-between text-indigo-700">
+                        <span>Night pickup surcharge</span>
+                        <span className="font-bold">+{formatRs(fare.nightSurcharge)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-slate-200 pt-2.5 flex items-baseline justify-between text-slate-900">
+                      <div>
+                        <span className="text-sm font-extrabold block">Total Fare</span>
+                        <span className="text-[10px] text-emerald-700 font-semibold">Tolls included · Pay cash/UPI to driver</span>
+                      </div>
+                      <span className="text-2xl font-black text-slate-950">{formatRs(fare.totalFare)}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2 text-xs font-semibold text-emerald-900">
+                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Instant confirmation details will be sent directly to your WhatsApp!</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Mobile Native Sticky Action Bar */}
+      <div className="sticky bottom-0 z-50 border-t border-slate-200/90 bg-white/95 px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] backdrop-blur-md shadow-2xl lg:hidden">
+        <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
+          {/* Total Price Display */}
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Fare</div>
+            <div className="flex items-baseline gap-1">
+              <strong className="text-xl font-black text-slate-900">{formatRs(fare.totalFare)}</strong>
+              <span className="text-[10px] font-semibold text-emerald-700">· In cab</span>
+            </div>
+          </div>
+
+          {/* Dynamic Action Buttons per Step */}
+          <div className="flex items-center gap-2">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                onClick={() => goToStep(currentStep - 1)}
+                className="flex min-h-[46px] items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                aria-label="Previous step"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
+
+            {currentStep === 1 && (
+              <button
+                type="button"
+                onClick={() => goToStep(2)}
+                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer"
+              >
+                <span>Select Date & Time</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+
+            {currentStep === 2 && (
+              <button
+                type="button"
+                disabled={!time}
+                onClick={() => goToStep(3)}
+                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed"
+              >
+                <span>{time ? 'Passenger Details' : 'Select Time'}</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+
+            {currentStep === 3 && (
+              <button
+                type="button"
+                disabled={!isPassengerValid}
+                onClick={() => goToStep(4)}
+                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed"
+              >
+                <span>Review Booking</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+
+            {currentStep === 4 && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void submit()}
+                className="flex min-h-[46px] items-center gap-2 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white px-5 py-2.5 text-sm font-black shadow-md transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+              >
+                <span>{isSubmitting ? 'Booking…' : 'Book MarutiCab'}</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {!time ? (
-        <button
-          type="button"
-          onClick={() => scrollToSection(5)}
-          className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 active:scale-98 text-amber-950 px-4 py-2 text-xs font-black transition-all cursor-pointer"
-        >
-          <span>Select Time</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-      ) : !valid ? (
-        <button
-          type="button"
-          onClick={() => scrollToSection(6)}
-          className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 active:scale-98 text-amber-950 px-4 py-2 text-xs font-black transition-all cursor-pointer"
-        >
-          <span>Add Details</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => void submit()}
-          className="flex min-h-[46px] items-center gap-2 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 px-5 py-2.5 text-sm font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-        >
-          <span>{isSubmitting ? 'Booking…' : 'Book MarutiCab'}</span>
-          <ArrowRight className="h-4 w-4" />
-        </button>
+      {/* Booking Success WhatsApp Modal */}
+      {successData && (
+        <BookingSuccessModal
+          isOpen={Boolean(successData)}
+          bookingRef={successData.bookingRef}
+          publicToken={successData.publicToken}
+          direction={direction}
+          pointName={point.name}
+          date={dateLabel}
+          time={time?.label12 || ''}
+          passengerName={passenger.name}
+          phone={passenger.phone}
+          totalFare={fare.totalFare}
+          whatsappUrl={successData.whatsappUrl}
+          onClose={() => {
+            const token = successData.publicToken
+            setSuccessData(null)
+            router.push(`/booking/${token}`)
+          }}
+          onViewStatus={() => {
+            const token = successData.publicToken
+            setSuccessData(null)
+            router.push(`/booking/${token}`)
+          }}
+        />
       )}
-    </div>
 
-    {/* Booking Success WhatsApp Modal */}
-    {successData && (
-      <BookingSuccessModal
-        isOpen={Boolean(successData)}
-        bookingRef={successData.bookingRef}
-        publicToken={successData.publicToken}
-        direction={direction}
-        pointName={point.name}
-        date={dateLabel}
-        time={time?.label12 || ''}
-        passengerName={passenger.name}
-        phone={passenger.phone}
-        totalFare={fare.totalFare}
-        whatsappUrl={successData.whatsappUrl}
-        onClose={() => {
-          const token = successData.publicToken
-          setSuccessData(null)
-          router.push(`/booking/${token}`)
-        }}
-        onViewStatus={() => {
-          const token = successData.publicToken
-          setSuccessData(null)
-          router.push(`/booking/${token}`)
-        }}
-      />
-    )}
-    <FooterMarquee /><FooterTrust />
-  </div>
+      <div className="hidden lg:block">
+        <FooterMarquee />
+        <FooterTrust />
+      </div>
+    </div>
+  )
 }
