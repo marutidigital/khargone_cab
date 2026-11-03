@@ -114,6 +114,44 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: savedBooking } = await db.from('bookings').select('*').eq('id', booking.id).single()
+  
+  // Customer CRM tracking
+  let isRepeatCustomer = false
+  let customerTier = 'new'
+  try {
+    const { data: existingCustomer } = await db.from('customers').select('*').eq('phone', data.phone).single()
+    if (existingCustomer) {
+      isRepeatCustomer = true
+      const totalRides = (existingCustomer.total_bookings || 1) + 1
+      const totalSpend = (existingCustomer.total_spend || 0) + fare.totalFare
+      customerTier = totalRides >= 5 ? 'vip' : 'frequent'
+      await db.from('customers').update({
+        name: data.name,
+        total_bookings: totalRides,
+        total_spend: totalSpend,
+        last_booking_at: new Date().toISOString(),
+        preferred_direction: direction,
+        preferred_drop_point: data.point,
+        tier: customerTier,
+        updated_at: new Date().toISOString(),
+      }).eq('phone', data.phone)
+    } else {
+      await db.from('customers').insert({
+        phone: data.phone,
+        name: data.name,
+        total_bookings: 1,
+        total_spend: fare.totalFare,
+        preferred_direction: direction,
+        preferred_drop_point: data.point,
+        tier: 'new',
+        first_booking_at: new Date().toISOString(),
+        last_booking_at: new Date().toISOString(),
+      })
+    }
+  } catch (crmError) {
+    console.error('Customer CRM tracking error:', crmError)
+  }
+
   if (savedBooking?.status === 'waiting') {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
     void notifyAdmin(`new-waiting:${booking.id}`, booking.id, 'New Match Deal booking is waiting for dispatch. No advance was collected.')
@@ -121,7 +159,11 @@ export async function POST(request: NextRequest) {
 
   const pointName = PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point
   const routeName = direction === 'KI' ? 'Khargone to Indore' : 'Indore to Khargone'
-  const waText = `🚕 *MarutiCab Booking Confirmation*\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Point:* ${pointName}\n*Date:* ${data.date}\n*Time:* ${data.time}\n*Passenger:* ${data.name} (${data.phone})\n*Fare:* ₹${fare.totalFare} (Pay in cab)\n\nTrack booking: https://maruticab.in/booking/${token}\nSupport: +91 72823 16090`
+  const greetingHeader = isRepeatCustomer
+    ? `🚕 *Welcome back, ${data.name}!* Thank you for booking with MarutiCab again.`
+    : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab request is received.`
+
+  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Time:* ${data.time}\n*Fare:* ₹${fare.totalFare} (Pay in cab)\n\nTrack booking: https://maruticab.in/booking/${token}\nSupport: +91 72823 16090`
   const whatsappUrl = `https://wa.me/917282316090?text=${encodeURIComponent(waText)}`
 
   return NextResponse.json({
@@ -129,6 +171,8 @@ export async function POST(request: NextRequest) {
     publicToken: token,
     status: savedBooking?.status || 'waiting',
     fare,
+    isRepeatCustomer,
+    customerTier,
     whatsappUrl,
   })
 }
