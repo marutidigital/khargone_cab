@@ -98,10 +98,6 @@ export function Nav() {
             Book Now
           </button>
         </div>
-          >
-            Book Now
-          </button>
-        </div>
       </div>
     </header>
   )
