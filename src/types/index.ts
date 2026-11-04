@@ -42,6 +42,9 @@ export interface Booking {
   balance_amount?: number
   cutoff_at?: string | null
   match_id?: string | null
+  driver_id?: string | null
+  driver_name?: string | null
+  vehicle_model?: string | null
   created_at: string
   updated_at: string
 }

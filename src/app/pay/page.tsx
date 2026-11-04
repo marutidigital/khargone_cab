@@ -26,7 +26,7 @@ export default function RazorpayDemoPage() {
                 <CreditCard className="w-6 h-6 text-amber-800" />
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Razorpay Standard Checkout
+                Secure Online Checkout
               </h1>
               <p className="text-xs sm:text-sm text-slate-500">
                 Secure online payment for MarutiCab rides
@@ -113,14 +113,14 @@ export default function RazorpayDemoPage() {
                     customerName={name}
                     customerPhone={phone}
                     description={`MarutiCab Advance Payment (₹${amount})`}
-                    buttonText={`Pay ₹${amount.toLocaleString('en-IN')} with Razorpay`}
+                    buttonText={`Pay ₹${amount.toLocaleString('en-IN')} Online`}
                     onSuccess={(res) => setVerifiedPayment(res)}
                   />
                 </div>
 
                 <div className="flex items-center justify-center gap-2 pt-2 text-[11px] text-slate-500 font-semibold">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>256-bit Encrypted · Razorpay Official Gateway</span>
+                  <span>256-bit Encrypted · Official Payment Gateway</span>
                 </div>
               </div>
             )}

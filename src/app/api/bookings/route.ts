@@ -256,6 +256,9 @@ export async function POST(request: NextRequest) {
     console.error('Customer CRM tracking error:', crmError)
   }
 
+  const pointName = PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point
+  const routeName = direction === 'KI' ? 'Khargone to Indore' : 'Indore to Khargone'
+
   if (savedBooking?.status === 'confirmed') {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
     void notifyAdmin(`new-confirmed:${booking.id}`, booking.id, `🎉 Confirmed Booking #${booking.booking_ref}: ${data.name} (${data.phone}) - ${routeName} on ${data.date} at ${data.time}. Advance ₹${advancePaid} paid online. Balance: ₹${balanceAmount}. ⚠️ Action: Assign Driver & Vehicle!`)
@@ -264,8 +267,6 @@ export async function POST(request: NextRequest) {
     void notifyAdmin(`new-waiting:${booking.id}`, booking.id, `🚨 New Waiting Booking #${booking.booking_ref}: ${data.name} (${data.phone}) - ${routeName} on ${data.date} at ${data.time}. Advance ₹${advancePaid} paid online. Waiting for return match.`)
   }
 
-  const pointName = PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point
-  const routeName = direction === 'KI' ? 'Khargone to Indore' : 'Indore to Khargone'
   const greetingHeader = isRepeatCustomer
     ? `🚕 *Welcome back, ${data.name}!* Thank you for choosing MarutiCab again.`
     : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab request is received.`
