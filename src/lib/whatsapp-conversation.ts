@@ -5,7 +5,7 @@
 import { createServiceClient } from '@/lib/supabase-server'
 import { evaluateBookingLeadTime, formatInKolkata } from '@/lib/booking-rules'
 import { createRazorpayPaymentLink } from '@/lib/razorpay'
-import { sendText } from '@/lib/whatsapp'
+import { sendText, sendInChatPaymentOrder } from '@/lib/whatsapp'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
@@ -703,7 +703,23 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
   conv.data.payment_link = paymentUrl
   await saveConversation(conv)
 
-  // 3. Send Template 1: booking_received
+  // 3. Dispatch Native In-Chat WhatsApp Payment (MarutiCabRazorpay UPI)
+  try {
+    await sendInChatPaymentOrder({
+      to: conv.phone,
+      amountInRs: advance,
+      bookingRef,
+      bookingId: newBooking.id,
+      customerName: conv.data.customer_name || 'Passenger',
+      routeName: isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone',
+      travelDate: conv.data.travel_date || '',
+      pickupTime: conv.data.pickup_time || '',
+    })
+  } catch (inChatErr) {
+    console.warn('In-chat payment order dispatch error:', inChatErr)
+  }
+
+  // 4. Send Template 1: booking_received
   await sendWhatsAppTemplateMessage({
     toPhone: conv.phone,
     templateCode: 'booking_received',
@@ -720,7 +736,9 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
   return `💳 *Aapki Booking Request Saved (#${bookingRef})*
 
 Ride reserve karne ke liye ₹500 advance pay karein:
+• Upar diye gaye *"Review and Pay"* card par click karke WhatsApp me hi UPI (GPay / PhonePe / Paytm) se pay karein.
+• Ya iss direct link se pay karein:
 🔗 *Payment Link:* ${paymentUrl}
 
-⚠️ *Zaroori:* Payment verify hone ke baad hi hamara matching engine opposite-direction ride search karega. Agar deadline tak match nahi hota hai, to full ₹500 refund ho jayega.`
+⚠️ *Zaroori:* Payment verify hone ke baad hi hamara matching engine return ride match karega. Agar deadline tak match nahi milta, to full ₹500 turant refund ho jayega.`
 }

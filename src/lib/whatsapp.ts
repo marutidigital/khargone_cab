@@ -97,6 +97,92 @@ export async function sendInteractiveButtons({ to, body, buttons, bookingId, eve
   } }, bookingId, eventVersion })
 }
 
+export async function sendInChatPaymentOrder({
+  to,
+  amountInRs,
+  bookingRef,
+  bookingId,
+  customerName,
+  routeName,
+  travelDate,
+  pickupTime,
+}: {
+  to: string
+  amountInRs: number
+  bookingRef: string
+  bookingId?: string | null
+  customerName: string
+  routeName: string
+  travelDate: string
+  pickupTime: string
+}) {
+  const phone = normalizeWhatsAppPhone(to)
+  const amountPaise = Math.round(amountInRs * 100)
+
+  const paymentPayload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: phone,
+    type: 'interactive',
+    interactive: {
+      type: 'order_details',
+      header: {
+        type: 'image',
+        image: {
+          link: 'https://www.maruticab.in/hero-banner.jpg',
+        },
+      },
+      body: {
+        text: `Hey ${customerName || 'Passenger'}! 👋\n\nAapki *${routeName}* cab booking ke liye ₹${amountInRs} advance payment request.\n\n🧾 *Booking Ref:* #${bookingRef}\n📅 *Travel Date:* ${travelDate} at ${pickupTime}\n\nNeeche *"Review and Pay"* dabakar Google Pay, PhonePe ya Paytm se WhatsApp ke andar hi pay karein! ⚡`,
+      },
+      footer: {
+        text: '100% Refund Guaranteed · MarutiCab 🚕',
+      },
+      action: {
+        name: 'review_and_pay',
+        parameters: {
+          reference_id: `KC_${bookingRef}_${Date.now()}`,
+          type: 'digital-goods',
+          payment_type: 'upi',
+          payment_configuration_name: 'MarutiCabRazorpay',
+          currency: 'INR',
+          total_amount: {
+            value: amountPaise,
+            offset: 100,
+          },
+          order: {
+            status: 'pending',
+            description: `MarutiCab Advance Booking #${bookingRef}`,
+            items: [
+              {
+                retailer_id: `cab_advance_${bookingRef}`,
+                name: `${routeName} Cab Advance`,
+                amount: {
+                  value: amountPaise,
+                  offset: 100,
+                },
+                quantity: 1,
+              },
+            ],
+            subtotal: {
+              value: amountPaise,
+              offset: 100,
+            },
+          },
+        },
+      },
+    },
+  }
+
+  try {
+    const response = await postToMeta(paymentPayload)
+    return { success: true, response }
+  } catch (err: any) {
+    console.error('Failed to send In-Chat payment order:', err?.message || err)
+    return { success: false, error: err?.message }
+  }
+}
+
 export async function sendText({ to, body, bookingId, eventVersion }: { to: string; body: string; bookingId?: string | null; eventVersion?: string }) {
   const phone = normalizeWhatsAppPhone(to)
   return sendLoggedFreeform({ phone, message: { type: 'text', text: { body } }, bookingId, eventVersion })
@@ -168,7 +254,7 @@ export function parseWhatsAppActionPayload(value: string): { action: 'REFUND' | 
   return match ? { action: match[1] as 'REFUND' | 'UPGRADE', token: match[2] } : null
 }
 
-export function formatIncomingMessage(body: any): { id: string; phone: string; text: string; timestamp: string; type: string } | null {
+export function formatIncomingMessage(body: any): { id: string; phone: string; text: string; timestamp: string; type: string; order?: any } | null {
   const message = body?.entry?.flatMap((entry: any) => entry?.changes ?? [])
     .flatMap((change: any) => change?.value?.messages ?? [])[0]
   if (!message?.id || !message?.from) return null
@@ -176,9 +262,10 @@ export function formatIncomingMessage(body: any): { id: string; phone: string; t
     ?? message.button?.text
     ?? message.interactive?.button_reply?.title
     ?? message.interactive?.list_reply?.title
+    ?? message.order?.text
     ?? ''
   const payload = message.button?.payload ?? message.interactive?.button_reply?.id ?? message.interactive?.list_reply?.id
-  return { id: String(message.id), phone: String(message.from), text: String(payload || text), timestamp: String(message.timestamp || ''), type: String(message.type || 'unknown') }
+  return { id: String(message.id), phone: String(message.from), text: String(payload || text), timestamp: String(message.timestamp || ''), type: String(message.type || 'unknown'), order: message.order }
 }
 
 export function extractWhatsAppStatuses(body: any) {

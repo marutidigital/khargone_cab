@@ -59,6 +59,78 @@ async function handleInbound(body: any) {
   const action = parseWhatsAppActionPayload(message.text)
   const statusUrl = booking?.public_token ? `${process.env.APP_BASE_URL || 'https://maruticab.in'}/booking/${booking.public_token}` : null
 
+  // ── IN-CHAT WHATSAPP PAYMENT COMPLETED (Meta WhatsApp Pay with Razorpay) ──
+  if (message.type === 'order' || message.order) {
+    const orderRef = String(message.order?.reference_id || message.order?.order_id || '')
+    const transId = String(message.order?.payment?.transaction_id || '')
+    const amountVal = Number(message.order?.payment?.amount?.value || 50000) / 100
+
+    let targetBooking = booking
+    if ((!targetBooking || targetBooking.status !== 'pending_payment') && orderRef) {
+      const refMatch = orderRef.match(/KC\d+/)
+      if (refMatch) {
+        const { data: b } = await db.from('bookings').select('*').eq('booking_ref', refMatch[0]).limit(1).single()
+        if (b) targetBooking = b
+      }
+    }
+
+    if (targetBooking) {
+      const willConfirm = targetBooking.status === 'pending_payment' || targetBooking.status === 'draft' || (targetBooking.advance_paid || 0) < 500
+      if (willConfirm) {
+        await db.from('bookings').update({
+          status: 'waiting',
+          advance_paid: amountVal,
+          advance_amount: amountVal,
+          balance_amount: Math.max(0, (targetBooking.total_fare || 1800) - amountVal),
+          payment_id: transId || `wa_pay_${Date.now()}`,
+          payment_status: 'paid',
+          updated_at: new Date().toISOString(),
+          extras: {
+            ...(targetBooking.extras || {}),
+            paid_via: 'whatsapp_in_chat_pay',
+            whatsapp_order: message.order,
+          },
+        }).eq('id', targetBooking.id)
+
+        // Try automatic return match
+        try {
+          const { tryAutomaticFIFOMatch } = await import('@/lib/matching-engine')
+          await tryAutomaticFIFOMatch(targetBooking.id)
+        } catch (matchErr) {
+          console.error('Match engine auto FIFO error on WA payment:', matchErr)
+        }
+
+        // Send payment received template
+        try {
+          const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
+          await sendWhatsAppTemplateMessage({
+            toPhone: phone,
+            templateCode: 'payment_received',
+            variables: [
+              targetBooking.passenger_name || 'Passenger',
+              String(amountVal),
+              targetBooking.booking_ref,
+              transId || 'WhatsApp UPI',
+              targetBooking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone',
+              targetBooking.travel_date,
+            ],
+            bookingId: targetBooking.id,
+          })
+        } catch (tplErr) {
+          console.error('Failed to send payment confirmation WA template:', tplErr)
+        }
+
+        // Alert Admin
+        await notifyAdmin(
+          `wa_payment_received:${targetBooking.id}`,
+          targetBooking.id,
+          `💰 Advance ₹${amountVal} received via WhatsApp In-Chat UPI for Booking #${targetBooking.booking_ref}! Passenger: ${targetBooking.passenger_name} (${targetBooking.phone}).`
+        )
+      }
+      return
+    }
+  }
+
   if (normalizedText === 'STOP' || normalizedText === 'UNSUBSCRIBE') {
     await db.from('whatsapp_phone_preferences').upsert({ wa_id: phone, opt_out: true, opted_out_at: receivedAt, last_inbound_at: receivedAt, updated_at: new Date().toISOString() }, { onConflict: 'wa_id' })
     await db.from('bookings').update({ opt_out: true }).eq('phone', phone.slice(-10))
