@@ -125,6 +125,26 @@ export function AdminBookingsPanel() {
     finally { setSavingId(null) }
   }
 
+  const sendInChatPayment = async (booking: Booking) => {
+    setSavingId(booking.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const response = await fetch('/api/admin/whatsapp/send-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to send WhatsApp payment')
+      setNotice(`✅ WhatsApp payment order sent to ${booking.phone}!`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send WhatsApp payment.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   const refundBooking = async (booking: Booking) => {
     setSavingId(booking.id); setError(null); setNotice(null)
     try {
@@ -319,6 +339,19 @@ export function AdminBookingsPanel() {
                             <span>📲 WhatsApp Car Details</span>
                             <ExternalLink className="h-3 w-3" />
                           </a>
+                        )}
+
+                        {/* Send WhatsApp In-Chat Payment Order */}
+                        {booking.payment_status !== 'paid' && booking.status !== 'cancelled' && (
+                          <button
+                            type="button"
+                            disabled={savingId === booking.id}
+                            onClick={() => void sendInChatPayment(booking)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-2.5 py-1.5 text-xs font-bold transition shadow-xs disabled:opacity-50"
+                            title="Send ₹500 In-Chat Payment Request to customer WhatsApp"
+                          >
+                            <span>💳 Send In-Chat UPI</span>
+                          </button>
                         )}
 
                         {/* Status update selector */}
