@@ -17,73 +17,67 @@ export const TEMPLATE_DEFINITIONS: Record<string, WhatsAppTemplateRecord> = {
   booking_received: {
     template_code: 'booking_received',
     meta_template_name: 'booking_received',
-    header_text: '🚕 We\'ve Got Your Booking!',
+    header_text: '🚕 Booking Mil Gayi Hai!',
     body_text: `Hey {{1}}! 👋
 
-Thanks for choosing Maruti Cab Booking!
+Maruti Cab choose karne ke liye shukriya! ❤️
+Aapki travel booking request hume mil gayi hai.
 
-We've received your travel request.
+🧾 *Booking ID:* {{2}}
+📍 *Route:* {{3}}
+📅 *Date:* {{4}}
+⏰ *Pickup Time:* {{5}}
 
-🧾 Booking ID: {{2}}
-📍 Route: {{3}}
-📅 Travel Date: {{4}}
-⏰ Departure Time: {{5}}
+⏳ *Agla Step (Return Match):*
+Hum aapke safar ke liye suitable opposite return ride match kar rahe hain. 🚕💨
 
-We're now looking for the right return-ride match for your journey.
-
-💡 ज़रूरी जानकारी:
-
-आपकी बुकिंग अभी कन्फर्म नहीं हुई है। हम आपकी यात्रा के लिए सही रिटर्न राइड की व्यवस्था कर रहे हैं। जैसे ही रिटर्न राइड, ड्राइवर और गाड़ी की व्यवस्था पक्की हो जाएगी, हम आपको पूरी जानकारी भेज देंगे।
-
-अगर तय समय सीमा तक सही रिटर्न राइड नहीं मिलती है, तो आपकी बुकिंग कैंसिल कर दी जाएगी और आपका पूरा ₹500 एडवांस रिफंड उसी समय शुरू कर दिया जाएगा।`,
-    footer_text: 'Your journey matters to us! ❤️',
+Jaise hi gaadi aur driver confirm honge, hum turant aapko message bhejenge. Agar cutoff time tak match nahi mila, to aapka poora advance refund ho jayega. Don't worry! 😊`,
+    footer_text: 'Maruti Cab · Safe & Affordable 🚕',
     variables: ['customer_name', 'booking_id', 'route', 'travel_date', 'departure_time'],
   },
   payment_received: {
     template_code: 'payment_received',
     meta_template_name: 'payment_received',
-    header_text: '🎉 Your Advance Payment Is In!',
+    header_text: '🎉 Advance Payment Confirmed!',
     body_text: `Hey {{1}}! 👋
 
-Payment received! You're one step closer to your journey. 😊
+Aapka advance payment successfully mil gaya hai! 🥳
 
-💰 Amount Paid: ₹500
-🧾 Booking ID: {{2}}
-🔖 Payment Reference: {{3}}
-📍 Route: {{4}}
-📅 Travel Date: {{5}}
+💰 *Amount Paid:* ₹{{2}}
+🧾 *Booking ID:* {{3}}
+🔖 *Payment Ref:* {{4}}
+📍 *Route:* {{5}}
+📅 *Travel Date:* {{6}}
 
-We're now looking for a suitable return-ride match for you.
+Aapki booking safe hai! Hum ab opposite-direction return ride match confirm kar rahe hain.
 
-We'll message you as soon as your ride is arranged!
-
-Thanks for trusting Maruti Cab Booking. ❤️`,
-    footer_text: 'We\'re happy to have you onboard! 🚕',
-    variables: ['customer_name', 'booking_id', 'payment_reference', 'route', 'travel_date'],
+Jaise hi match confirm hoga, aapko cab aur driver ki updates mil jayengi. Thank you for trusting Maruti Cab! ❤️`,
+    footer_text: 'Khargone ↔ Indore Private Cabs 🚕',
+    variables: ['customer_name', 'amount_paid', 'booking_id', 'payment_reference', 'route', 'travel_date'],
   },
   cab_confirmed: {
     template_code: 'cab_confirmed',
     meta_template_name: 'cab_confirmed',
-    header_text: '🚕 Booking Confirmed · Maruti Cab',
-    body_text: `Hey {{1}}! 🎉
+    header_text: '🚕 Super News! Cab Confirm Ho Gayi!',
+    body_text: `Hey {{1}}! 🥳
 
-Aapki Maruti Cab booking confirm ho gayi hai! 🚕💨
-Aapke safar ke liye opposite-direction return ride match ho chuki hai.
+Great news! Aapke trip ke liye return ride match mil gaya hai aur aapki cab officially confirm ho gayi hai! 🎉💨
 
-🧾 Booking ID: {{2}}
-📍 Route: {{3}}
-📅 Travel Date: {{4}}
-⏰ Pickup Time: {{5}}
+🧾 *Booking ID:* {{2}}
+📍 *Route:* {{3}}
+📅 *Travel Date:* {{4}}
+⏰ *Pickup Time:* {{5}}
 
-💰 Total Fare: ₹{{6}}
-💵 Advance Paid: ₹{{7}}
-💳 Baaki Gaadi me Dena Hai: ₹{{8}}
+💰 *Fare Details:*
+• Total Fare: ₹{{6}}
+• Advance Paid: ₹{{7}}
+• Baaki Driver ko dena hai: ₹{{8}}
 
-🚗 Driver & Car Details:
-Hum aapko driver ka naam, contact number aur gaadi ki details ride se thoda pehle WhatsApp par share kar denge.
+🚗 *Driver & Cab Details:*
+Hum aapko driver ka naam, mobile number aur gaadi number trip se pehle WhatsApp par share kar denge.
 
-Kripya apne pickup time par taiyar rahein. Kisi bhi sahayata ke liye is message ka reply karein! ❤️`,
-    footer_text: 'Happy Journey · Maruti Cab Booking',
+Kripya pickup time par ready rahein. Shubh yatra! ❤️`,
+    footer_text: '24x7 Helpline: +91 72823 16090',
     variables: [
       'customer_name',
       'booking_id',
@@ -98,43 +92,41 @@ Kripya apne pickup time par taiyar rahein. Kisi bhi sahayata ke liye is message 
   refund_initiated: {
     template_code: 'refund_initiated',
     meta_template_name: 'refund_initiated',
-    header_text: '💸 An Update About Your Refund',
+    header_text: '💰 Advance Refund Initiated!',
     body_text: `Hey {{1}}! 👋
 
-We're really sorry, but unfortunately, we couldn't find a suitable return-ride match for your journey this time.
+Afsos hai ki is baar aapke schedule ke mutabiq return ride match nahi mil paya.
 
-Your booking has been cancelled, and your full advance refund has been submitted for processing.
+Aapka poora advance payment bina kisi deduction ke refund kar diya gaya hai! 💸
 
-🧾 Booking ID: {{2}}
-💰 Refund Amount: ₹500
-🔖 Refund Reference: {{3}}
+🧾 *Booking ID:* {{2}}
+💰 *Refund Amount:* ₹{{3}}
+🔖 *Refund Reference:* {{4}}
 
-The amount should reflect in your original payment method within your payment provider's processing time.
+Ye amount aapke original payment source (UPI/Bank/Card) me jaldi hi credit ho jayega.
 
-We're sorry things didn't work out this time. We hope to get you on the road with us soon! ❤️`,
-    footer_text: 'Thank you for understanding. – Maruti Cab Booking',
-    variables: ['customer_name', 'booking_id', 'refund_reference'],
+Aapko huye asuvidha ke liye hum maafi chahte hain. Umeed hai agli baar aapke saath safar hoga! ❤️`,
+    footer_text: 'Maruti Cab · 100% Refund Guarantee 🛡️',
+    variables: ['customer_name', 'booking_id', 'refund_amount', 'refund_reference'],
   },
   travel_reminder: {
     template_code: 'travel_reminder',
     meta_template_name: 'travel_reminder',
-    header_text: '🧳 Your Journey Is Coming Up!',
-    body_text: `Hey {{1}}! 👋
+    header_text: '⏰ Ready For Your Trip?',
+    body_text: `Hey {{1}}! 🧳
 
-Just a friendly reminder that your trip with Maruti Cab Booking is coming up!
+Bas ek friendly reminder ki aapki Maruti Cab ride aane wali hai! 🚕💨
 
-🧾 Booking ID: {{2}}
-📍 Route: {{3}}
-📅 Travel Date: {{4}}
-⏰ Pickup Time: {{5}}
-📌 Pickup Location: {{6}}
+🧾 *Booking ID:* {{2}}
+📍 *Route:* {{3}}
+📅 *Date:* {{4}}
+⏰ *Pickup Time:* {{5}}
+📌 *Pickup Point:* {{6}}
 
-Your cab is confirmed, so it's almost time to hit the road! 🚕💨
+Aapki cab confirmed hai! Driver aapse pickup se 30 minute pehle call par connect kar lenge.
 
-Please be ready at your pickup location on time.
-
-Need any help? Just reply to this message. 😊`,
-    footer_text: 'Travel safe, travel happy! ❤️',
+Koi bhi sawaal ho to bas is message ka reply karein. Have a safe & happy journey! 😊`,
+    footer_text: 'Travel Safe, Travel Happy · Maruti Cab ❤️',
     variables: ['customer_name', 'booking_id', 'route', 'travel_date', 'pickup_time', 'pickup_location'],
   },
 }

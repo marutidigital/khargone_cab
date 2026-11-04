@@ -158,11 +158,31 @@ export async function POST(request: NextRequest) {
           provider_refund_id: refundId,
         }).eq('booking_id', targetBookingId)
 
-        await db.from('bookings').update({
-          refund_status: 'processed',
-          status: 'refunded',
-          updated_at: new Date().toISOString(),
-        }).eq('id', targetBookingId)
+        const { data: bRow } = await db
+          .from('bookings')
+          .update({
+            refund_status: 'processed',
+            status: 'refunded',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', targetBookingId)
+          .select('*')
+          .single()
+
+        // Dispatch Template 4: refund_initiated via WhatsApp to customer!
+        if (bRow) {
+          await sendWhatsAppTemplateMessage({
+            toPhone: bRow.phone,
+            templateCode: 'refund_initiated',
+            variables: [
+              bRow.passenger_name || 'Passenger',
+              bRow.booking_ref,
+              String(refundAmount || bRow.advance_paid || 500),
+              refundId || 'RZP_REFUND',
+            ],
+            bookingId: bRow.id,
+          })
+        }
       }
     } else if (eventType === 'refund.failed') {
       const refundId = refund?.id
