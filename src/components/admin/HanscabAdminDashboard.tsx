@@ -25,6 +25,10 @@ import {
   Building,
   ClipboardList,
   MessageSquareText,
+  Sliders,
+  Route,
+  CreditCard,
+  FileText,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase-client'
 import type { Lead, LeadStage } from '@/types'
@@ -33,6 +37,10 @@ import { AdminBookingsPanel } from '@/components/admin/AdminBookingsPanel'
 import { AdminCustomersPanel } from '@/components/admin/AdminCustomersPanel'
 import { WhatsAppAutomationPanel } from '@/components/admin/WhatsAppAutomationPanel'
 import { WhatsAppOperationsPanel } from '@/components/admin/WhatsAppOperationsPanel'
+import { AdminBookingRulesPanel } from '@/components/admin/AdminBookingRulesPanel'
+import { AdminMatchesAndFleetPanel } from '@/components/admin/AdminMatchesAndFleetPanel'
+import { AdminPaymentsAndRefundsPanel } from '@/components/admin/AdminPaymentsAndRefundsPanel'
+import { AdminTemplatesPanel } from '@/components/admin/AdminTemplatesPanel'
 
 interface Props {
   user: any
@@ -48,7 +56,7 @@ const STAGE_OPTIONS: { id: LeadStage; label: string; color: string }[] = [
 ]
 
 export function HanscabAdminDashboard({ user, onSignOut }: Props) {
-  const [activeView, setActiveView] = useState<'bookings' | 'customers' | 'whatsapp' | 'leads'>('bookings')
+  const [activeView, setActiveView] = useState<'bookings' | 'matches' | 'payments' | 'rules' | 'templates' | 'customers' | 'whatsapp' | 'leads'>('bookings')
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -323,9 +331,13 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <nav aria-label="Admin sections" className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <nav aria-label="Admin sections" className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 flex-wrap gap-1">
             {([
               ['bookings', 'Bookings', ClipboardList],
+              ['matches', 'Matches & Fleet', Route],
+              ['payments', 'Payments & Refunds', CreditCard],
+              ['rules', 'Rules Engine', Sliders],
+              ['templates', 'Templates', FileText],
               ['customers', 'Customers (CRM)', Users],
               ['whatsapp', 'WhatsApp', MessageSquareText],
             ] as const).map(([view, label, Icon]) => (
@@ -394,6 +406,10 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
       )}
 
       {activeView === 'bookings' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminBookingsPanel /></main>}
+      {activeView === 'matches' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminMatchesAndFleetPanel /></main>}
+      {activeView === 'payments' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminPaymentsAndRefundsPanel /></main>}
+      {activeView === 'rules' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminBookingRulesPanel /></main>}
+      {activeView === 'templates' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminTemplatesPanel /></main>}
       {activeView === 'customers' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminCustomersPanel /></main>}
       {activeView === 'whatsapp' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><WhatsAppAutomationPanel /><WhatsAppOperationsPanel /></main>}
     </div>

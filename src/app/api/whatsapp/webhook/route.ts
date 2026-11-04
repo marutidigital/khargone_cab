@@ -176,11 +176,26 @@ async function handleInbound(body: any) {
       eventVersion: `status:${message.id}`,
     })
   } else {
-    await notifyAdmin(`inbound:${message.id}`, booking?.id || '', `New WhatsApp message from ${phone.slice(0, 4)}••••${phone.slice(-2)}${booking ? ` for ${booking.booking_ref}` : ''}`)
-    const { data: pref } = await db.from('whatsapp_phone_preferences').select('last_auto_reply_at').eq('wa_id', phone).limit(1).single()
-    if (!pref?.last_auto_reply_at) {
-      await sendText({ to: phone, body: `Dhanyavad! Hamari team jaldi reply karegi.${statusUrl ? ` Booking status: ${statusUrl}` : ''}`, bookingId: booking?.id, eventVersion: `auto-reply:${message.id}` }).catch(() => null)
-      await db.from('whatsapp_phone_preferences').update({ last_auto_reply_at: receivedAt, updated_at: new Date().toISOString() }).eq('wa_id', phone)
+    // Route into full WhatsApp conversational booking journey
+    try {
+      const { processWhatsAppInbound } = await import('@/lib/whatsapp-conversation')
+      const reply = await processWhatsAppInbound(phone, message.text)
+      if (reply) {
+        await sendText({
+          to: phone,
+          body: reply,
+          bookingId: booking?.id,
+          eventVersion: `conv:${message.id}`,
+        })
+      }
+    } catch (convErr) {
+      console.error('Conversation processing error:', convErr)
+      await sendText({
+        to: phone,
+        body: `Dhanyavad! MarutiCab dispatch team will assist you shortly. Call 8878933778 for urgent booking.`,
+        bookingId: booking?.id,
+        eventVersion: `fallback:${message.id}`,
+      })
     }
   }
 }
