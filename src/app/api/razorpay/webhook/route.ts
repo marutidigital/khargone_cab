@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
       if (booking) {
         // Record in public.payments table
-        await db.from('payments').insert({
+        const { error: payInsertErr } = await db.from('payments').insert({
           booking_id: booking.id,
           provider: 'razorpay',
           provider_order_id: orderId || null,
@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
           amount: amountRupees,
           payment_status: 'captured',
           verified_at: new Date().toISOString(),
-        }).catch((err: any) => console.warn('Payment insert notice:', err))
+        })
+        if (payInsertErr) console.warn('Payment insert notice:', payInsertErr)
 
         // Update booking: advance paid, status to waiting (or confirm if already matched)
         const balance = Math.max(0, Number(booking.total_fare || 0) - amountRupees)

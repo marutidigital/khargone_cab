@@ -143,10 +143,11 @@ export async function secureAndConfirmMatch(params: {
     const matchId = matchRecord.id
 
     // 4. Record in match_bookings table (concurrency protection)
-    await db.from('match_bookings').insert([
+    const { error: mbErr } = await db.from('match_bookings').insert([
       { match_id: matchId, booking_id: bookingOutId, leg_number: 1 },
       { match_id: matchId, booking_id: bookingBackId, leg_number: 2 },
-    ]).catch((err: any) => console.warn('match_bookings insert notice:', err))
+    ])
+    if (mbErr) console.warn('match_bookings insert notice:', mbErr)
 
     // 5. Update outward booking
     const nowIso = new Date().toISOString()

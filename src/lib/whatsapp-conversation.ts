@@ -79,7 +79,7 @@ export async function getConversation(phone: string): Promise<ConversationState>
  */
 export async function saveConversation(conv: ConversationState): Promise<void> {
   const db = createServiceClient()
-  await db
+  const { error: upsertErr } = await db
     .from('whatsapp_conversations')
     .upsert({
       phone: conv.phone,
@@ -89,7 +89,7 @@ export async function saveConversation(conv: ConversationState): Promise<void> {
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'phone' })
-    .catch((err: any) => console.error('Failed to save whatsapp conversation:', err))
+  if (upsertErr) console.error('Failed to save whatsapp conversation:', upsertErr)
 }
 
 /**

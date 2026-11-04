@@ -227,7 +227,7 @@ export async function sendWhatsAppTemplateMessage(params: {
     const msgId = (sendResult as any)?.messages?.[0]?.id || (sendResult as any)?.id || null
 
     // 3. Log into notifications table
-    await db.from('notifications').insert({
+    const { error: notifErr } = await db.from('notifications').insert({
       booking_id: bookingId || null,
       template: templateCode,
       recipient: toPhone,
@@ -237,7 +237,8 @@ export async function sendWhatsAppTemplateMessage(params: {
       sent_at: new Date().toISOString(),
       recipient_type: 'customer',
       event_version: `tpl:${templateCode}`,
-    }).catch((err: any) => console.error('Failed to log notification:', err))
+    })
+    if (notifErr) console.error('Failed to log notification:', notifErr)
 
     return { success: true, messageId: msgId || undefined }
   } catch (err: any) {
