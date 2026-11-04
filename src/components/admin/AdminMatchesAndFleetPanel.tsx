@@ -215,6 +215,20 @@ export function AdminMatchesAndFleetPanel() {
                         <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
                       </div>
                       <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-slate-500">
+                          {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
+                        </span>
+                        {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
+                            🌐 Public Board: Active
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
+                            🔒 Private / Pending
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
@@ -244,6 +258,20 @@ export function AdminMatchesAndFleetPanel() {
                         <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
                       </div>
                       <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-slate-500">
+                          {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
+                        </span>
+                        {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
+                            🌐 Public Board: Active
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
+                            🔒 Private / Pending
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

@@ -267,8 +267,20 @@ export async function tryAutomaticFIFOMatch(bookingId: string): Promise<{ matche
     return { matched: false }
   }
 
-  // Pick the oldest compatible candidate (First-Come, First-Served)
-  const candidate = candidates[0]
+  // Pick the oldest compatible candidate (First-Come, First-Served) satisfying >= 4h pickup gap
+  const [tHour, tMin] = String(bTarget.pickup_time).split(':').map(Number)
+  const targetMinutes = (Number.isFinite(tHour) ? tHour : 12) * 60 + (Number.isFinite(tMin) ? tMin : 0)
+
+  const candidate = (candidates as any[]).find((cand: any) => {
+    const [cHour, cMin] = String(cand.pickup_time).split(':').map(Number)
+    const candMinutes = (Number.isFinite(cHour) ? cHour : 12) * 60 + (Number.isFinite(cMin) ? cMin : 0)
+    const diffMinutes = Math.abs(candMinutes - targetMinutes)
+    return diffMinutes >= 240 // Minimum 4-hour pickup time gap requirement
+  })
+
+  if (!candidate) {
+    return { matched: false }
+  }
 
   const outId = bTarget.direction === 'KI' ? bTarget.id : candidate.id
   const backId = bTarget.direction === 'KI' ? candidate.id : bTarget.id

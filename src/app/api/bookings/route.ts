@@ -6,7 +6,7 @@ import { calculateBookingFare, getMatchCutoffAt, isMatchDealWithinWindow, parseP
 import { PRICING_CONFIG } from '@/config/pricing'
 import { notify, notifyAdmin } from '@/lib/booking-notifications'
 import { sendBookingAutomation } from '@/lib/whatsapp-automation'
-import { tryAutomaticFIFOMatch } from '@/lib/matching-engine'
+import { tryAutomaticFIFOMatch, secureAndConfirmMatch } from '@/lib/matching-engine'
 
 const Input = z.object({
   direction: z.enum(['K2I', 'I2K']), mode: z.literal('match'),
@@ -14,7 +14,9 @@ const Input = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
   passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
-  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100), confirmedRideId: z.string().uuid().optional(),
+  consent: z.literal(true), idempotencyKey: z.string().min(12).max(100),
+  confirmedRideId: z.string().uuid().optional(),
+  matchedWithBookingId: z.string().uuid().optional(),
   // Advance Payment fields
   paymentOrderId: z.string().optional(),
   paymentId: z.string().optional(),
@@ -95,6 +97,43 @@ export async function POST(request: NextRequest) {
 
   const token = randomBytes(32).toString('base64url')
   const direction = data.direction === 'K2I' ? 'KI' : 'IK'
+
+  // If visitor is matching a specific public board ride, pre-validate target booking & 4-hour gap
+  let targetBooking: any = null
+  if (data.matchedWithBookingId) {
+    const { data: tb, error: tbError } = await db
+      .from('bookings')
+      .select('*')
+      .eq('id', data.matchedWithBookingId)
+      .single()
+
+    if (tbError || !tb) {
+      return NextResponse.json({ error: 'Selected waiting ride was not found. Please choose an available ride from the board.' }, { status: 404 })
+    }
+    if (tb.status !== 'waiting' || tb.match_id) {
+      return NextResponse.json({ error: 'That return ride was just matched or is no longer waiting. Refresh the list and choose another available ride.' }, { status: 409 })
+    }
+    const expectedDir = tb.direction === 'KI' ? 'IK' : 'KI'
+    if (direction !== expectedDir) {
+      return NextResponse.json({ error: 'Visitor ride direction must be opposite to the waiting ride.' }, { status: 400 })
+    }
+    if (tb.travel_date !== data.date) {
+      return NextResponse.json({ error: 'Travel date must match the waiting ride date.' }, { status: 400 })
+    }
+    // Formula: ABS(existing_pickup_datetime - visitor_pickup_datetime) >= 4 hours (240 minutes)
+    const [tHour, tMin] = String(tb.pickup_time).split(':').map(Number)
+    const [vHour, vMin] = String(data.time).split(':').map(Number)
+    const tMinutes = (Number.isFinite(tHour) ? tHour : 12) * 60 + (Number.isFinite(tMin) ? tMin : 0)
+    const vMinutes = (Number.isFinite(vHour) ? vHour : 12) * 60 + (Number.isFinite(vMin) ? vMin : 0)
+    const diffMinutes = Math.abs(vMinutes - tMinutes)
+    if (diffMinutes < 240) {
+      return NextResponse.json({
+        error: `Pickup time must have at least a 4-hour gap from the existing ride pickup time (${String(tb.pickup_time).slice(0, 5)}). Difference is only ${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m.`
+      }, { status: 400 })
+    }
+    targetBooking = tb
+  }
+
   const cutoffAt = getMatchCutoffAt(data.date, data.time, now)
   const { data: booking, error: insertError } = await db.from('bookings').insert({
     direction, mode: data.mode, vehicle: 'economy_sedan', vehicle_type: 'sedan',
@@ -111,7 +150,8 @@ export async function POST(request: NextRequest) {
       razorpay_order_id: data.paymentOrderId,
       razorpay_payment_id: data.paymentId,
       coupon_code: data.couponCode || null,
-      ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {})
+      ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {}),
+      ...(data.matchedWithBookingId ? { matched_with_booking_id: data.matchedWithBookingId } : {}),
     },
     balance_amount: balanceAmount, status: 'waiting', refund_status: 'pending',
     cutoff_at: cutoffAt, public_token: token, idempotency_key: data.idempotencyKey,
@@ -146,9 +186,6 @@ export async function POST(request: NextRequest) {
       if (reservationError) return NextResponse.json({ error: 'Confirmed Booking is temporarily unavailable. Please try again later.' }, { status: 503 })
       return NextResponse.json({ error: 'That return ride was just taken. Refresh the list and choose another available ride.' }, { status: 409 })
     }
-  }
-
-  if (data.confirmedRideId) {
     const { data: matchId, error: matchError } = await db.rpc('confirm_reserved_match', { p_requester_booking_id: booking.id })
     if (matchError || !matchId) {
       await db.rpc('release_match_reservation', { p_requester_booking_id: booking.id })
@@ -158,6 +195,19 @@ export async function POST(request: NextRequest) {
     }
     const { data: pair } = await db.from('bookings').select('*').eq('match_id', matchId)
     for (const ride of pair ?? []) await notify('match_confirmed', ride.id).catch((error) => console.error('Match notification failed:', error))
+  } else if (targetBooking) {
+    // Matched with public board waiting ride!
+    const outId = targetBooking.direction === 'KI' ? targetBooking.id : booking.id
+    const backId = targetBooking.direction === 'KI' ? booking.id : targetBooking.id
+    const matchRes = await secureAndConfirmMatch({
+      bookingOutId: outId,
+      bookingBackId: backId,
+    })
+    if (!matchRes.success) {
+      console.warn('Public board match notice:', matchRes.error)
+      // Fallback: try general FIFO match
+      await tryAutomaticFIFOMatch(booking.id)
+    }
   } else {
     // Try automatic FIFO return match immediately!
     try {

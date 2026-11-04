@@ -13,6 +13,7 @@ import { SectionPassenger, type PassengerFormData } from '@/components/booking/S
 import { BookingPaymentPanel } from '@/components/booking/BookingPaymentPanel'
 import { ConfirmedRidePicker, type ConfirmedRideSelection } from '@/components/booking/ConfirmedRidePicker'
 import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal'
+import { PublicRideMatchingBoard } from '@/components/booking/PublicRideMatchingBoard'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
 import { PRICING_CONFIG, formatRs, isNightTime } from '@/config/pricing'
@@ -357,6 +358,19 @@ export default function Home() {
                 />
               </div>
             )}
+          </div>
+
+          {/* Public Ride Matching Board (Available Rides – Complete Your Round 🚕) */}
+          <div className="mt-8">
+            <PublicRideMatchingBoard
+              onBookingSuccess={(bookingRef: string, publicToken: string, whatsappUrl: string) => {
+                setSuccessData({
+                  bookingRef,
+                  publicToken,
+                  whatsappUrl,
+                })
+              }}
+            />
           </div>
         </main>
       </div>
