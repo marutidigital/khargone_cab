@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       coupon_code: data.couponCode || null,
       ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {})
     },
-    balance_amount: balanceAmount, status: 'confirmed', refund_status: 'not_applicable',
+    balance_amount: balanceAmount, status: 'waiting', refund_status: 'pending',
     cutoff_at: cutoffAt, public_token: token, idempotency_key: data.idempotencyKey,
   }).select('id,booking_ref').single()
   if (insertError || !booking) {
