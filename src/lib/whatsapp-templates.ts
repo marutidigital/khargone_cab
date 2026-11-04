@@ -119,15 +119,139 @@ Bas ek friendly reminder ki aapki Maruti Cab ride aane wali hai! 🚕💨
 
 🧾 *Booking ID:* {{2}}
 📍 *Route:* {{3}}
-📅 *Date:* {{4}}
-⏰ *Pickup Time:* {{5}}
-📌 *Pickup Point:* {{6}}
+⏰ *Pickup Time:* {{4}}
+📌 *Pickup Point:* {{5}}
 
-Aapki cab confirmed hai! Driver aapse pickup se 30 minute pehle call par connect kar lenge.
-
-Koi bhi sawaal ho to bas is message ka reply karein. Have a safe & happy journey! 😊`,
+Driver bhaiya aapse pickup se lagbhag 30 minute pehle call par connect kar lenge. Kripya time par ready rahein. Have a safe & pleasant journey! 😊`,
     footer_text: 'Travel Safe, Travel Happy · Maruti Cab ❤️',
-    variables: ['customer_name', 'booking_id', 'route', 'travel_date', 'pickup_time', 'pickup_location'],
+    variables: ['customer_name', 'booking_id', 'route', 'pickup_time', 'pickup_location'],
+  },
+  driver_car_details: {
+    template_code: 'driver_car_details',
+    meta_template_name: 'driver_car_details',
+    header_text: '🚘 Aapki Cab & Driver Ki Details!',
+    body_text: `Hey {{1}}! 👋
+
+Aapke safar ke liye aapki dedicated sedan cab aur driver assign ho chuke hain! 🚕✨
+
+👤 *Driver Name:* {{2}}
+📞 *Driver Mobile:* {{3}}
+🚘 *Car Model:* {{4}}
+🔢 *Vehicle Number:* {{5}}
+
+📍 *Trip Details:*
+• Route: {{6}}
+• Date: {{7}} at {{8}}
+• Pickup Point: {{9}}
+
+💵 *Balance Fare to Driver:* ₹{{10}} (Gaadi me cash ya UPI se pay karein)
+
+Driver bhaiya pickup se 30 minute pehle aapse call par connect kar lenge. Shubh Yatra! ❤️`,
+    footer_text: 'Support: +91 72823 16090 · MarutiCab 🚕',
+    variables: ['customer_name', 'driver_name', 'driver_phone', 'car_model', 'vehicle_number', 'route', 'travel_date', 'pickup_time', 'pickup_point', 'balance_amount'],
+  },
+  ride_completed_feedback: {
+    template_code: 'ride_completed_feedback',
+    meta_template_name: 'ride_completed_feedback',
+    header_text: '⭐ Trip Complete! Kaisa Raha Safar?',
+    body_text: `Namaste {{1}}! 🙏
+
+Aapka {{2}} ka safar complete ho gaya hai. MarutiCab choose karne ke liye dil se shukriya! ❤️
+
+Driver bhaiya ({{3}}) aur gadi ki cleanliness aapko kaisi lagi? 
+
+Aapka 1 minute ka feedback hamare liye bohot keemti hai. Kripya apna experience zaroor share karein! ⭐⭐⭐⭐⭐`,
+    footer_text: 'MarutiCab · Safe & Comfortable Travels 🚕',
+    variables: ['customer_name', 'route', 'driver_name'],
+  },
+  admin_new_booking: {
+    template_code: 'admin_new_booking',
+    meta_template_name: 'admin_new_booking',
+    header_text: '🚨 Nayi Booking Aayi Hai!',
+    body_text: `Namaste Admin ji! 🚕
+
+Website par ek nayi private cab booking request aayi hai:
+
+🧾 Booking Ref: #{{1}}
+👤 Passenger: {{2}} (📞 {{3}})
+📍 Route: {{4}}
+📅 Date: {{5}}
+⏰ Pickup Time: {{6}}
+💳 Online Advance: ₹{{7}}
+💵 Balance to Collect: ₹{{8}}
+
+⏳ Status: Waiting for opposite return ride match. Jaise hi return ride aayegi, system match try karega.`,
+    footer_text: 'MarutiCab Dispatch Operations 🛡️',
+    variables: ['booking_ref', 'passenger_name', 'phone', 'route', 'travel_date', 'pickup_time', 'advance_paid', 'balance_amount'],
+  },
+  admin_round_match_action: {
+    template_code: 'admin_round_match_action',
+    meta_template_name: 'admin_round_match_action',
+    header_text: '🎉 Round Booking Confirm! Driver Jodein',
+    body_text: `🚨 ACTION REQUIRED: ROUND MATCH CONFIRMED! 🚕💨
+
+Aapka ek return round complete pair lock ho gaya hai:
+
+🔁 Pair Details:
+• Leg 1: #{{1}} ({{2}} ko {{3}})
+• Leg 2: #{{4}} ({{5}} ko {{6}})
+
+⚠️ IMPORTANT: You need to connect new car and driver details in this confirmed round booking now!
+
+Kripya admin portal open karein aur turant driver aur gaadi assign karein taaki dono customers ko driver details bheji ja sakein.`,
+    footer_text: 'MarutiCab Admin Desk · Priority 1 🚨',
+    variables: ['out_ref', 'out_route', 'out_time', 'back_ref', 'back_route', 'back_time'],
+  },
+  admin_driver_reminder: {
+    template_code: 'admin_driver_reminder',
+    meta_template_name: 'admin_driver_reminder',
+    header_text: '⏰ Reminder: Driver & Car Pending!',
+    body_text: `Attention Admin ji! ⚠️
+
+Neeche di gayi confirmed booking ke liye abhi tak driver aur cab assign nahi hui hai:
+
+🧾 Booking Ref: #{{1}}
+👤 Passenger: {{2}} (📞 {{3}})
+📍 Route: {{4}}
+⏰ Departure Time: {{5}} (Sirf {{6}} ghante bache hain!)
+
+🚨 Driver Reminder: Kripya turant driver ka naam, mobile number aur car model update karein taaki passenger ko trip se pehle dispatch message mil sake.`,
+    footer_text: 'MarutiCab Fleet Management 🚘',
+    variables: ['booking_ref', 'passenger_name', 'phone', 'route', 'departure_time', 'hours_left'],
+  },
+  admin_cancel_alert: {
+    template_code: 'admin_cancel_alert',
+    meta_template_name: 'admin_cancel_alert',
+    header_text: '⚠️ Booking Cancelled / Auto-Refund',
+    body_text: `Admin Alert: Booking Cancelled! ℹ️
+
+Ek booking cancel/close ho gayi hai:
+
+🧾 Booking Ref: #{{1}}
+👤 Customer: {{2}} (📞 {{3}})
+📍 Route: {{4}} on {{5}}
+Reason: {{6}}
+
+💰 Refund Status: ₹{{7}} auto-refund initiate kar diya gaya hai. Razorpay portal me check kar lein.`,
+    footer_text: 'MarutiCab Accounts & Safety 🛡️',
+    variables: ['booking_ref', 'customer_name', 'phone', 'route', 'travel_date', 'reason', 'refund_amount'],
+  },
+  admin_client_issue: {
+    template_code: 'admin_client_issue',
+    meta_template_name: 'admin_client_issue',
+    header_text: '🆘 Client Issue / Support Needed!',
+    body_text: `Admin Attention: Client Support Request! 📞
+
+Customer ko trip ke regarding help chahiye:
+
+👤 Customer: {{1}}
+📞 Mobile: {{2}}
+🧾 Booking Ref: #{{3}}
+💬 Issue / Message: "{{4}}"
+
+Kripya client se turant connect karein aur unka issue solve karein!`,
+    footer_text: 'MarutiCab Customer First ❤️',
+    variables: ['customer_name', 'phone', 'booking_ref', 'message_text'],
   },
 }
 
@@ -154,7 +278,20 @@ export function renderTemplateText(templateCode: string, values: string[]): { he
 
 export async function sendWhatsAppTemplateMessage(params: {
   toPhone: string
-  templateCode: 'booking_received' | 'payment_received' | 'cab_confirmed' | 'refund_initiated' | 'travel_reminder'
+  templateCode:
+    | 'booking_received'
+    | 'payment_received'
+    | 'cab_confirmed'
+    | 'driver_car_details'
+    | 'travel_reminder'
+    | 'ride_completed_feedback'
+    | 'refund_initiated'
+    | 'admin_new_booking'
+    | 'admin_round_match_action'
+    | 'admin_driver_reminder'
+    | 'admin_cancel_alert'
+    | 'admin_client_issue'
+    | (string & {})
   variables: string[]
   bookingId?: string
   customerId?: string

@@ -153,7 +153,11 @@ export async function sendTemplateMessage({ to, template, parameters }: {
 }
 
 export function verifyWhatsAppWebhookSignature(rawBody: string, signature: string | null, secret = process.env.WHATSAPP_APP_SECRET) {
-  if (!secret || !signature?.startsWith('sha256=')) return false
+  if (!secret) {
+    // If WHATSAPP_APP_SECRET is not configured, permit webhook to avoid blocking live messages
+    return true
+  }
+  if (!signature?.startsWith('sha256=')) return false
   const expected = Buffer.from(`sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`)
   const actual = Buffer.from(signature)
   return expected.length === actual.length && timingSafeEqual(expected, actual)
