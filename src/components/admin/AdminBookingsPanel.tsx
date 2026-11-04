@@ -342,7 +342,7 @@ export function AdminBookingsPanel() {
                         )}
 
                         {/* Send WhatsApp In-Chat Payment Order */}
-                        {booking.payment_status !== 'paid' && booking.status !== 'cancelled' && (
+                        {booking.payment_status !== 'paid' && !(booking.advance_paid && booking.advance_paid >= (booking.advance_amount || 500)) && booking.status !== 'cancelled' && (
                           <button
                             type="button"
                             disabled={savingId === booking.id}

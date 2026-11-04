@@ -35,6 +35,7 @@ export interface Booking {
   whatsapp_sent: boolean
   email_sent: boolean
   advance_paid?: number
+  payment_status?: string | null
   mode?: 'match' | 'guaranteed'
   passengers?: number
   passenger_count?: number
