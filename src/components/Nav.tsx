@@ -40,21 +40,18 @@ export function Nav() {
         </Link>
 
         {/* Mobile quick actions (app-like top bar) */}
-        <div className="flex sm:hidden items-center gap-2">
-          <a
-            href={`https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent('Hi MarutiCab, I need help with cab booking.')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-            aria-label="WhatsApp Support"
+        <div className="flex sm:hidden items-center gap-1.5">
+          <Link
+            href="/confirmed-rides"
+            className="flex items-center gap-1 bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-black px-2.5 py-1.5 rounded-full border border-amber-500 active:scale-95 transition-transform shadow-xs"
+            aria-label="Confirmed Rides"
           >
-            <Phone className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
-            <span>Support</span>
-          </a>
+            <span>⚡ Confirmed Rides</span>
+          </Link>
 
           <Link
             href="/booking"
-            className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+            className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-2.5 py-1.5 rounded-full active:scale-95 transition-transform"
             aria-label="My Booking"
           >
             <span>My Rides</span>
@@ -62,12 +59,22 @@ export function Nav() {
         </div>
 
         {/* Desktop navigation links & Book Now button */}
-        <div className="hidden sm:flex items-center gap-4 sm:gap-6">
+        <div className="hidden sm:flex items-center gap-3 sm:gap-5">
           <Link
             href="/"
             className="text-sm font-semibold text-slate-700 hover:text-black transition-colors"
           >
             Home
+          </Link>
+
+          <Link
+            href="/confirmed-rides"
+            className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs sm:text-sm px-3 py-2 rounded-xl shadow-xs border border-amber-500 active:scale-95 transition-all"
+          >
+            <span>⚡ Confirmed Rides</span>
+            <span className="rounded-full bg-slate-950 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.2">
+              Round-Trips
+            </span>
           </Link>
 
           <Link

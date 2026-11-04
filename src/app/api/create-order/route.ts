@@ -17,7 +17,12 @@ export async function POST(req: NextRequest) {
     const { amount, currency = 'INR', receipt, notes } = body
 
     // Amount must be in paise and at least 100 paise (Rs 1.00)
-    const numAmount = Number(amount)
+    let numAmount = Number(amount)
+    // If passed in rupees (< 100 but >= 1), convert to paise
+    if (Number.isFinite(numAmount) && numAmount >= 1 && numAmount < 100) {
+      numAmount = Math.round(numAmount * 100)
+    }
+
     if (!Number.isFinite(numAmount) || numAmount < 100) {
       return NextResponse.json(
         { error: 'Amount is required and must be at least 100 paise (Rs 1.00).' },

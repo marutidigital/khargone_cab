@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, MapPin, Calendar, Clock, User, Phone, Car, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/Nav'
 import { BookingStepper } from '@/components/BookingStepper'
@@ -224,6 +225,38 @@ export default function Home() {
               <ShieldCheck className="h-4 w-4 text-emerald-600" /> Only ₹500 Advance · Balance after ride
             </div>
           </header>
+
+          {/* Special Top Action Banner for Confirmed Round-Trip Board */}
+          <div className="mb-6 rounded-2xl bg-white border-2 border-amber-300 p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-400 text-slate-950 shrink-0 shadow-xs">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <strong className="text-xs sm:text-sm font-black text-slate-900 block">
+                    Have Return Travel? Browse Confirmed Return Rides
+                  </strong>
+                  <span className="hidden sm:inline-block rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 border border-emerald-300">
+                    Live Opposite Rides
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Directly pair with an active cab waiting in the opposite direction. Guaranteed confirmation & dedicated sedan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href="/confirmed-rides"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-2.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <span>⚡ View Confirmed Rides Board</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
 
           {notice && (
             <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">

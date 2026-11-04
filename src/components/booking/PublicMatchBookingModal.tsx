@@ -182,12 +182,13 @@ export function PublicMatchBookingModal({
         throw new Error('Razorpay checkout failed to load. Please check your internet connection.')
       }
 
-      // 2. Create Razorpay order on backend
+      // 2. Create Razorpay order on backend (amount in paise: Rs 2 = 200 paise, Rs 500 = 50000 paise)
+      const advancePaise = advanceToPay * 100
       const orderRes = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: advanceToPay,
+          amount: advancePaise,
           currency: 'INR',
           receipt: `rcpt_pm_${Date.now()}`,
           notes: {
