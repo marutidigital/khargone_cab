@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes } from 'node:crypto'
+import crypto, { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase-server'
 import { calculateBookingFare, getMatchCutoffAt, isMatchDealWithinWindow, parsePickupDateTime, type DropPointId } from '@/lib/config'
@@ -14,6 +14,12 @@ const Input = z.object({
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
   passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
   consent: z.literal(true), idempotencyKey: z.string().min(12).max(100), confirmedRideId: z.string().uuid().optional(),
+  // Advance Payment fields
+  paymentOrderId: z.string().optional(),
+  paymentId: z.string().optional(),
+  paymentSignature: z.string().optional(),
+  advancePaid: z.number().int().min(1).max(5000).optional().default(500),
+  couponCode: z.string().optional(),
 })
 const rateMap = new Map<string, number[]>()
 
@@ -45,6 +51,33 @@ export async function POST(request: NextRequest) {
   if (!checkRate(`${ip}:${data.phone}`)) return NextResponse.json({ error: 'Too many booking attempts. Try again later.' }, { status: 429 })
 
   const fare = calculateBookingFare({ mode: data.mode, direction: data.direction, point: data.point as DropPointId, pickupTime: data.time })
+
+  // Enforce advance payment: verify Razorpay signature
+  let advancePaid = 0
+  if (data.paymentOrderId && data.paymentId && data.paymentSignature) {
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || 't87HNHonjGlKH6vnUXa4SX9v'
+    const generatedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${data.paymentOrderId}|${data.paymentId}`)
+      .digest('hex')
+
+    const isMatch =
+      generatedSignature.length === data.paymentSignature.length &&
+      crypto.timingSafeEqual(Buffer.from(generatedSignature), Buffer.from(data.paymentSignature))
+
+    if (!isMatch) {
+      return NextResponse.json({ error: 'Razorpay payment signature could not be verified.' }, { status: 400 })
+    }
+    advancePaid = data.advancePaid || 500
+  } else {
+    // "no booking without advance payment"
+    return NextResponse.json({
+      error: 'Advance payment of ₹500 (or ₹5 with coupon) is required to confirm your booking.'
+    }, { status: 400 })
+  }
+
+  const balanceAmount = Math.max(0, fare.totalFare - advancePaid)
+
   const db = createServiceClient()
   const { data: existing, error: duplicateError } = await db.from('bookings').select('id,public_token,booking_ref,status,phone').eq('idempotency_key', data.idempotencyKey).limit(1)
   if (duplicateError) return NextResponse.json({ error: 'Booking storage is unavailable. Apply the Supabase migration and try again.' }, { status: 503 })
@@ -68,10 +101,18 @@ export async function POST(request: NextRequest) {
     passenger_name: data.name, phone: data.phone, passenger_count: data.passengers, address: data.address || null,
     consent_whatsapp: true, consent_at: new Date().toISOString(),
     consent_text: 'I agree to receive WhatsApp updates about this booking and accept the Terms and Refund Policy.',
-    base_fare: fare.baseFare, discount: 0, night_extra: fare.nightSurcharge,
-    total_fare: fare.totalFare, advance_amount: 0, advance_paid: 0,
-    is_night: fare.nightSurcharge > 0, extras: { drop_point_extra: fare.dropPointExtra, night_surcharge: fare.nightSurcharge, ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {}) },
-    balance_amount: fare.totalFare, status: 'waiting', refund_status: 'not_applicable',
+    base_fare: fare.baseFare, discount: data.couponCode ? 495 : 0, night_extra: fare.nightSurcharge,
+    total_fare: fare.totalFare, advance_amount: advancePaid, advance_paid: advancePaid,
+    is_night: fare.nightSurcharge > 0,
+    extras: {
+      drop_point_extra: fare.dropPointExtra,
+      night_surcharge: fare.nightSurcharge,
+      razorpay_order_id: data.paymentOrderId,
+      razorpay_payment_id: data.paymentId,
+      coupon_code: data.couponCode || null,
+      ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {})
+    },
+    balance_amount: balanceAmount, status: 'confirmed', refund_status: 'not_applicable',
     cutoff_at: cutoffAt, public_token: token, idempotency_key: data.idempotencyKey,
   }).select('id,booking_ref').single()
   if (insertError || !booking) {
@@ -152,18 +193,21 @@ export async function POST(request: NextRequest) {
     console.error('Customer CRM tracking error:', crmError)
   }
 
-  if (savedBooking?.status === 'waiting') {
+  if (savedBooking?.status === 'confirmed') {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
-    void notifyAdmin(`new-waiting:${booking.id}`, booking.id, 'New Match Deal booking is waiting for dispatch. No advance was collected.')
+    void notifyAdmin(`new-confirmed:${booking.id}`, booking.id, `New Confirmed Booking ${booking.booking_ref}: Advance of ₹${advancePaid} received via Razorpay (${data.paymentId}). Balance: ₹${balanceAmount}.`)
+  } else if (savedBooking?.status === 'waiting') {
+    void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
+    void notifyAdmin(`new-waiting:${booking.id}`, booking.id, 'New Match Deal booking is waiting for dispatch.')
   }
 
   const pointName = PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point
   const routeName = direction === 'KI' ? 'Khargone to Indore' : 'Indore to Khargone'
   const greetingHeader = isRepeatCustomer
-    ? `🚕 *Welcome back, ${data.name}!* Thank you for booking with MarutiCab again.`
-    : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab request is received.`
+    ? `🚕 *Welcome back, ${data.name}!* Thank you for choosing MarutiCab again.`
+    : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab is CONFIRMED.`
 
-  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Time:* ${data.time}\n*Fare:* ₹${fare.totalFare} (Pay in cab)\n\nTrack booking: https://maruticab.in/booking/${token}\nSupport: +91 72823 16090`
+  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Pickup Time:* ${data.time}\n*Status:* Confirmed\n\n💳 *Advance Paid:* ₹${advancePaid} (Razorpay ID: ${data.paymentId})\n💵 *Balance to Driver:* ₹${balanceAmount} (Pay in cab)\n\nTrack / Cancel ride: https://maruticab.in/booking/${token}\nSupport: +91 72823 16090`
   const whatsappUrl = `https://wa.me/917282316090?text=${encodeURIComponent(waText)}`
 
   return NextResponse.json({

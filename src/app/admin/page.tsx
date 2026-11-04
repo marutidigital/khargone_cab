@@ -34,6 +34,32 @@ export default function AdminPage() {
   const verifyAdminAccess = useCallback(async (userId: string) => {
     setCheckingAdmin(true)
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+
+      if (token) {
+        try {
+          const res = await fetch('/api/admin/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          if (res.ok) {
+            const body = await res.json()
+            if (body.isAdmin) {
+              setIsAdmin(true)
+              setCheckingAdmin(false)
+              return
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Server admin verify fetch error:', fetchErr)
+        }
+      }
+
+      // Fallback: direct Supabase check
       const { data, error } = await supabase
         .from('admins')
         .select('user_id')

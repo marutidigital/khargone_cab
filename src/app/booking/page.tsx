@@ -17,7 +17,7 @@ export default function PassengerBookingsPage() {
       router.replace(`/booking/${encodeURIComponent(token)}`)
       return
     }
-    setReady(true)
+    router.replace('/my-rides')
   }, [router])
 
   const whatsapp = `https://wa.me/${PRICING_CONFIG.contactWhatsApp}?text=${encodeURIComponent('Hi MarutiCab, I need help opening my booking and checking cancellation eligibility.')}`

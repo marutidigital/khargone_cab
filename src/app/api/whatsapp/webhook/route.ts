@@ -81,10 +81,100 @@ async function handleInbound(body: any) {
     return
   }
 
-  if (normalizedText === 'STATUS' && statusUrl) {
-    await sendText({ to: phone, body: `Your MarutiCab booking status: ${statusUrl}`, bookingId: booking?.id, eventVersion: `status:${message.id}` })
-  } else if (normalizedText === 'CANCEL' && statusUrl) {
-    await sendText({ to: phone, body: `To request a cancellation, reply with your booking reference or contact MarutiCab support. Your booking status is here: ${statusUrl}`, bookingId: booking?.id, eventVersion: `cancel:${message.id}` })
+  const isCancelCommand =
+    normalizedText === 'CANCEL' ||
+    normalizedText === 'CANCEL RIDE' ||
+    normalizedText.startsWith('CANCEL ') ||
+    normalizedText === 'रद्द' ||
+    normalizedText.includes('CANCEL')
+
+  const isStatusCommand =
+    normalizedText === 'STATUS' ||
+    normalizedText === 'RIDE STATUS' ||
+    normalizedText.startsWith('STATUS ') ||
+    normalizedText === 'स्थिति'
+
+  if (isCancelCommand) {
+    // Look for active booking for this phone
+    const { data: activeBookings } = await db
+      .from('bookings')
+      .select('*')
+      .eq('phone', phone.slice(-10))
+      .in('status', ['waiting', 'matched', 'confirmed', 'pending_payment'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const targetBooking = activeBookings?.[0]
+
+    if (targetBooking) {
+      const willRefund = (targetBooking.advance_paid || 0) > 0
+      await db
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          refund_status: willRefund ? 'pending' : 'not_applicable',
+          updated_at: new Date().toISOString(),
+          extras: {
+            ...(targetBooking.extras || {}),
+            cancelled_via: 'whatsapp_bot',
+            cancelled_at: receivedAt,
+          },
+        })
+        .eq('id', targetBooking.id)
+
+      const cancelReply = [
+        `✅ *Ride Cancelled Successfully*`,
+        `Booking Ref: *${targetBooking.booking_ref}*`,
+        `Route: ${targetBooking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}`,
+        `Date: ${targetBooking.travel_date}`,
+        willRefund
+          ? `\n💰 *Advance Refund:* ₹${targetBooking.advance_paid} has been queued for refund to your payment source (5-7 business days).`
+          : '',
+        `\nThank you for notifying us. Need a ride later? Visit: https://maruticab.in or call 8878933778.`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      await sendText({
+        to: phone,
+        body: cancelReply,
+        bookingId: targetBooking.id,
+        eventVersion: `cancelled:${message.id}`,
+      })
+
+      await notifyAdmin(
+        `cancel_whatsapp:${targetBooking.id}`,
+        targetBooking.id,
+        `Customer cancelled booking ${targetBooking.booking_ref} via WhatsApp.${willRefund ? ` Refund of ₹${targetBooking.advance_paid} pending.` : ''}`
+      )
+    } else {
+      await sendText({
+        to: phone,
+        body: `No active MarutiCab booking found to cancel for your number. If you need any assistance, please call 8878933778 or visit https://maruticab.in.`,
+        eventVersion: `cancel_none:${message.id}`,
+      })
+    }
+  } else if (isStatusCommand && booking) {
+    const routeName = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+    const statusBody = [
+      `🚗 *MarutiCab Booking Status*`,
+      `Ref: *${booking.booking_ref}*`,
+      `Status: *${(booking.status || 'Active').toUpperCase()}*`,
+      `Route: ${routeName}`,
+      `Date & Time: ${booking.travel_date} at ${booking.pickup_time}`,
+      booking.driver_name ? `Driver: ${booking.driver_name}` : 'Driver assignment: Under dispatch',
+      booking.advance_paid ? `Advance Paid: ₹${booking.advance_paid} (Balance: ₹${booking.balance_amount || 0} in cab)` : 'Payment: Cash/UPI in cab',
+      statusUrl ? `\nLive details: ${statusUrl}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    await sendText({
+      to: phone,
+      body: statusBody,
+      bookingId: booking.id,
+      eventVersion: `status:${message.id}`,
+    })
   } else {
     await notifyAdmin(`inbound:${message.id}`, booking?.id || '', `New WhatsApp message from ${phone.slice(0, 4)}••••${phone.slice(-2)}${booking ? ` for ${booking.booking_ref}` : ''}`)
     const { data: pref } = await db.from('whatsapp_phone_preferences').select('last_auto_reply_at').eq('wa_id', phone).limit(1).single()

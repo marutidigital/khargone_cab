@@ -128,14 +128,43 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const submit = async () => {
-    if (!valid || !time) { setNotice('Complete the pickup time, passenger details, and consent before continuing.'); return }
-    setIsSubmitting(true); setNotice('')
+  const handlePaymentSuccessAndSubmit = async (paymentInfo: {
+    orderId: string
+    paymentId: string
+    signature: string
+    advancePaid: number
+    couponCode?: string
+  }) => {
+    if (!valid || !time) {
+      setNotice('Complete pickup time and passenger details before continuing.')
+      return
+    }
+    setIsSubmitting(true)
+    setNotice('')
     try {
       if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID()
       const response = await fetch('/api/bookings', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction, mode, point: pointId, date, time: time.timeStr, ...(bookingTab === 'confirmed' && confirmedRide ? { confirmedRideId: confirmedRide.id } : {}), name: passenger.name.trim(), phone: passenger.phone, passengers: passenger.passengers, address: passenger.address, consent: passenger.consent, idempotencyKey: idempotencyKey.current }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          direction,
+          mode,
+          point: pointId,
+          date,
+          time: time.timeStr,
+          ...(bookingTab === 'confirmed' && confirmedRide ? { confirmedRideId: confirmedRide.id } : {}),
+          name: passenger.name.trim(),
+          phone: passenger.phone,
+          passengers: passenger.passengers,
+          address: passenger.address,
+          consent: passenger.consent,
+          idempotencyKey: idempotencyKey.current,
+          paymentOrderId: paymentInfo.orderId,
+          paymentId: paymentInfo.paymentId,
+          paymentSignature: paymentInfo.signature,
+          advancePaid: paymentInfo.advancePaid,
+          couponCode: paymentInfo.couponCode,
+        }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Could not create your booking.')
@@ -145,7 +174,11 @@ export default function Home() {
       setSuccessData({
         bookingRef: result.bookingRef,
         publicToken: result.publicToken,
-        whatsappUrl: result.whatsappUrl || `https://wa.me/917282316090?text=${encodeURIComponent(`Hi MarutiCab, booking ${result.bookingRef} request submitted.`)}`,
+        whatsappUrl:
+          result.whatsappUrl ||
+          `https://wa.me/917282316090?text=${encodeURIComponent(
+            `Hi MarutiCab, booking ${result.bookingRef} confirmed with advance payment.`
+          )}`,
       })
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not start checkout.')
@@ -187,7 +220,7 @@ export default function Home() {
               </p>
             </div>
             <div className="flex items-center gap-2 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" /> Book now · Pay full fare in cab
+              <ShieldCheck className="h-4 w-4 text-emerald-600" /> Only ₹500 Advance · Balance after ride
             </div>
           </header>
 
@@ -210,7 +243,7 @@ export default function Home() {
               )}
 
               {bookingTab === 'confirmed' ? (
-                <div id="section-point"><ConfirmedRidePicker direction={direction} selected={confirmedRide} onSelect={selectConfirmedRide} /></div>
+                <div id="section-point"><ConfirmedRidePicker direction={direction} selectedDate={date} selected={confirmedRide} onSelect={selectConfirmedRide} /></div>
               ) : (
                 <>
                   <div id="section-point"><SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={(value) => { setPointId(value); setTime(null) }} /></div>
@@ -223,7 +256,18 @@ export default function Home() {
             </div>
 
             <aside className="sticky top-20" id="section-payment">
-              <BookingPaymentPanel mode={mode} breakdown={fare} dateLabel={dateLabel} timeLabel={time?.label12 || null} isValid={valid} isSubmitting={isSubmitting} onPay={() => void submit()} bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined} />
+              <BookingPaymentPanel
+                mode={mode}
+                breakdown={fare}
+                dateLabel={dateLabel}
+                timeLabel={time?.label12 || null}
+                isValid={valid}
+                isSubmitting={isSubmitting}
+                passengerName={passenger.name}
+                passengerPhone={passenger.phone}
+                onPaymentSuccess={handlePaymentSuccessAndSubmit}
+                bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined}
+              />
               {bookingTab === 'confirmed' && confirmedRide && (
                 <p className="mt-2 text-center text-xs font-semibold text-emerald-800">
                   Your ride is paired with {confirmedRide.existingDirection === 'K2I' ? 'Khargone → Indore' : 'Indore → Khargone'} on {dateLabel}.
@@ -247,7 +291,7 @@ export default function Home() {
                 )}
 
                 {bookingTab === 'confirmed' ? (
-                  <ConfirmedRidePicker direction={direction} selected={confirmedRide} onSelect={selectConfirmedRide} />
+                  <ConfirmedRidePicker direction={direction} selectedDate={date} selected={confirmedRide} onSelect={selectConfirmedRide} />
                 ) : (
                   <SectionDropPoint direction={direction} vehicle="sedan" daysAhead={0} travelDate={date} selectedPointId={pointId} onSelectPoint={(value) => { setPointId(value); setTime(null) }} />
                 )}
@@ -296,87 +340,21 @@ export default function Home() {
               </div>
             )}
 
-            {/* STEP 4: REVIEW & CONFIRM */}
+            {/* STEP 4: REVIEW & CONFIRM WITH ADVANCE PAYMENT */}
             {currentStep === 4 && (
               <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Native App Ride Card */}
-                <div className="rounded-3xl border-2 border-amber-400 bg-white p-5 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-                        <Car className="w-4 h-4 text-amber-800" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-black text-slate-900">Private Economy Sedan</div>
-                        <div className="text-[11px] text-slate-500">Up to 4 passengers · AC · Direct ride</div>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full">
-                      Pay in Cab
-                    </span>
-                  </div>
-
-                  {/* Route & Timing */}
-                  <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2.5 text-xs text-slate-700">
-                    <div className="flex items-center gap-2.5">
-                      <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Pickup</span>
-                        <strong className="text-slate-900 font-bold">{direction === 'K2I' ? 'Bus Stand Khargone' : point.name}</strong>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <MapPin className="h-4 w-4 text-rose-500 shrink-0" />
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Drop</span>
-                        <strong className="text-slate-900 font-bold">{direction === 'K2I' ? point.name : 'Khargone'}</strong>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-200/80 pt-2 flex items-center justify-between text-slate-600">
-                      <span>Date & Pickup Time</span>
-                      <strong className="text-slate-900">{dateLabel} at {time?.label12}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span>Passenger</span>
-                      <strong className="text-slate-900">{passenger.name} ({passenger.phone})</strong>
-                    </div>
-                  </div>
-
-                  {/* Price Breakdown */}
-                  <div className="space-y-1.5 text-xs text-slate-600 pt-1">
-                    <div className="flex justify-between">
-                      <span>Base route fare</span>
-                      <span className="font-bold text-slate-900">{formatRs(fare.baseFare)}</span>
-                    </div>
-                    {fare.dropPointExtra > 0 && (
-                      <div className="flex justify-between">
-                        <span>Drop point extra ({point.name})</span>
-                        <span className="font-bold text-slate-900">+{formatRs(fare.dropPointExtra)}</span>
-                      </div>
-                    )}
-                    {fare.nightSurcharge > 0 && (
-                      <div className="flex justify-between text-indigo-700">
-                        <span>Night pickup surcharge</span>
-                        <span className="font-bold">+{formatRs(fare.nightSurcharge)}</span>
-                      </div>
-                    )}
-                    <div className="border-t border-slate-200 pt-2.5 flex items-baseline justify-between text-slate-900">
-                      <div>
-                        <span className="text-sm font-extrabold block">Total Fare</span>
-                        <span className="text-[10px] text-emerald-700 font-semibold">Tolls included · Pay cash/UPI to driver</span>
-                      </div>
-                      <span className="text-2xl font-black text-slate-950">{formatRs(fare.totalFare)}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2 text-xs font-semibold text-emerald-900">
-                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Instant confirmation details will be sent directly to your WhatsApp!</span>
-                  </div>
-                </div>
+                <BookingPaymentPanel
+                  mode={mode}
+                  breakdown={fare}
+                  dateLabel={dateLabel}
+                  timeLabel={time?.label12 || null}
+                  isValid={valid}
+                  isSubmitting={isSubmitting}
+                  passengerName={passenger.name}
+                  passengerPhone={passenger.phone}
+                  onPaymentSuccess={handlePaymentSuccessAndSubmit}
+                  bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined}
+                />
               </div>
             )}
           </div>
@@ -444,15 +422,9 @@ export default function Home() {
             )}
 
             {currentStep === 4 && (
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => void submit()}
-                className="flex min-h-[46px] items-center gap-2 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white px-5 py-2.5 text-sm font-black shadow-md transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-              >
-                <span>{isSubmitting ? 'Booking…' : 'Book MarutiCab'}</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
+              <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-2 rounded-xl">
+                Complete Advance Above 👆
+              </span>
             )}
           </div>
         </div>

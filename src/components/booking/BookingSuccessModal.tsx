@@ -64,10 +64,10 @@ export function BookingSuccessModal({
           </span>
 
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Ride Request Saved!
+            Ride Confirmed &amp; Reserved!
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xs">
-            We received your private cab booking for <span className="font-bold text-slate-800">{passengerName}</span>.
+            Advance payment received for <span className="font-bold text-slate-800">{passengerName}</span>. Your private cab is confirmed.
           </p>
         </div>
 
@@ -87,7 +87,7 @@ export function BookingSuccessModal({
           </div>
           <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-slate-900 font-extrabold text-sm sm:text-base">
             <span>Total Fare</span>
-            <span className="text-emerald-700">{formatRs(totalFare)} (Pay in cab)</span>
+            <span className="text-emerald-700">{formatRs(totalFare)}</span>
           </div>
         </div>
 
@@ -95,7 +95,7 @@ export function BookingSuccessModal({
         <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-950 text-xs flex items-start gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <span>
-            <strong>No advance required.</strong> Tap below to open your booking receipt instantly in WhatsApp.
+            <strong>Advance payment verified.</strong> Driver details and payment receipt have been sent directly to your WhatsApp!
           </span>
         </div>
 
