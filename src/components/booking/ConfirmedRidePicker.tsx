@@ -239,4 +239,3 @@ export function ConfirmedRidePicker({ direction, selectedDate, selected, onSelec
     </section>
   )
 }
-}
