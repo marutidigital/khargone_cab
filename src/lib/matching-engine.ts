@@ -103,23 +103,17 @@ export async function secureAndConfirmMatch(params: {
       return { success: false, error: 'One of the bookings is already confirmed.' }
     }
 
-    // 2. Select or verify Driver & Vehicle
+    // 2. Select or verify Driver & Vehicle (only if explicitly assigned by admin)
     let driver = null
     if (params.driverId) {
       const { data: d } = await db.from('drivers').select('*').eq('id', params.driverId).single()
       driver = d
-    } else {
-      const { data: drivers } = await db.from('drivers').select('*').in('status', ['active', 'available']).limit(1)
-      driver = drivers?.[0] || { id: null, name: 'Mukesh Sharma', phone: '8878933778' }
     }
 
     let vehicle = null
     if (params.vehicleId) {
       const { data: v } = await db.from('vehicles').select('*').eq('id', params.vehicleId).single()
       vehicle = v
-    } else {
-      const { data: vehicles } = await db.from('vehicles').select('*').eq('availability_status', 'available').limit(1)
-      vehicle = vehicles?.[0] || { id: null, vehicle_model: 'Maruti Suzuki Dzire (AC Sedan)', registration_number: 'MP-10-CA-1001' }
     }
 
     // 3. Create record in matches table
@@ -130,7 +124,7 @@ export async function secureAndConfirmMatch(params: {
         booking_back: bookingBackId,
         driver_id: driver?.id || null,
         vehicle_id: vehicle?.id || null,
-        vehicle: vehicle?.vehicle_model || 'economy_sedan',
+        vehicle: vehicle?.vehicle_model || null,
         confirmed_at: new Date().toISOString(),
       })
       .select('id')
@@ -157,7 +151,7 @@ export async function secureAndConfirmMatch(params: {
       status: 'confirmed',
       matched_at: nowIso,
       confirmed_at: nowIso,
-      driver_name: driver?.name || 'Assigned Driver',
+      driver_name: driver?.name || null,
       driver_id: driver?.id || null,
       vehicle_id: vehicle?.id || null,
       updated_at: nowIso,
@@ -170,7 +164,7 @@ export async function secureAndConfirmMatch(params: {
       status: 'confirmed',
       matched_at: nowIso,
       confirmed_at: nowIso,
-      driver_name: driver?.name || 'Assigned Driver',
+      driver_name: driver?.name || null,
       driver_id: driver?.id || null,
       vehicle_id: vehicle?.id || null,
       updated_at: nowIso,
