@@ -120,6 +120,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Could not save the booking. Check that the Supabase migration is applied.' }, { status: 503 })
   }
 
+  // Record payment in public.payments
+  if (data.paymentId) {
+    await db.from('payments').insert({
+      booking_id: booking.id,
+      provider: 'razorpay',
+      provider_order_id: data.paymentOrderId || null,
+      provider_payment_id: data.paymentId,
+      amount: advancePaid,
+      payment_status: 'captured',
+      verified_at: new Date().toISOString(),
+    })
+  }
+
   if (data.confirmedRideId) {
     const { data: reserved, error: reservationError } = await db.rpc('reserve_match_candidate', {
       p_requester_booking_id: booking.id,

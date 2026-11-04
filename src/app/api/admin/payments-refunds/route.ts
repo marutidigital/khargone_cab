@@ -6,6 +6,58 @@ import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 export async function GET() {
   const db = createServiceClient()
 
+  // 1. Auto-sync recent captured payments directly from Razorpay
+  try {
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    if (keyId && keySecret) {
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
+      const rzRes = await fetch('https://api.razorpay.com/v1/payments?count=20', {
+        headers: { Authorization: `Basic ${auth}` },
+      })
+      if (rzRes.ok) {
+        const rzData = await rzRes.json()
+        for (const item of rzData.items || []) {
+          if (item.status === 'captured') {
+            const cleanContact = (item.contact || '').replace(/^\+91/, '').trim()
+            const { data: existing } = await db
+              .from('payments')
+              .select('id')
+              .eq('provider_payment_id', item.id)
+              .limit(1)
+
+            if (!existing || existing.length === 0) {
+              let matchedBookingId = null
+              if (cleanContact) {
+                const { data: bMatch } = await db
+                  .from('bookings')
+                  .select('id')
+                  .eq('phone', cleanContact)
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                matchedBookingId = bMatch?.[0]?.id || null
+              }
+
+              await db.from('payments').insert({
+                booking_id: matchedBookingId,
+                provider: 'razorpay',
+                provider_order_id: item.order_id || null,
+                provider_payment_id: item.id,
+                amount: item.amount / 100,
+                payment_status: 'captured',
+                verified_at: new Date(item.created_at * 1000).toISOString(),
+                created_at: new Date(item.created_at * 1000).toISOString(),
+              })
+            }
+          }
+        }
+      }
+    }
+  } catch (syncErr) {
+    console.warn('Razorpay auto-sync notice:', syncErr)
+  }
+
+  // 2. Query verified payments and refunds
   const { data: payments } = await db
     .from('payments')
     .select('*, bookings(booking_ref, passenger_name, phone, direction, total_fare)')
