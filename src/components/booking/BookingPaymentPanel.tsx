@@ -59,9 +59,12 @@ export function BookingPaymentPanel({
   const [paymentError, setPaymentError] = useState<string | null>(null)
 
   // Standard advance is Rs 500
-  // 99% coupon reduces Rs 500 advance to Rs 5 (minimum allowed by Razorpay is >= Rs 1 / 100 paise)
+  // Rs 2 coupon: MARUTI2, CAB2, TEST2, PAY2, TWO -> Rs 2 advance
+  // 99% coupon: MARUTI99, TEST99, CAB99 -> Rs 5 advance
+  const is2RsCoupon = appliedCoupon && ['MARUTI2', 'CAB2', 'TEST2', 'PAY2', 'TWO'].includes(appliedCoupon)
+  const is99Coupon = appliedCoupon && ['TEST99', 'MARUTI99', 'DISCOUNT99', 'CAB99', 'OFF99'].includes(appliedCoupon)
   const isCouponActive = Boolean(appliedCoupon)
-  const advanceAmount = isCouponActive ? 5 : 500
+  const advanceAmount = is2RsCoupon ? 2 : is99Coupon ? 5 : 500
   const balanceAmount = Math.max(0, breakdown.totalFare - advanceAmount)
 
   const handleApplyCoupon = (e: React.FormEvent) => {
@@ -74,14 +77,15 @@ export function BookingPaymentPanel({
       return
     }
 
-    // Supported 99% discount coupons
+    const valid2Coupons = ['MARUTI2', 'CAB2', 'TEST2', 'PAY2', 'TWO']
     const valid99Coupons = ['TEST99', 'MARUTI99', 'DISCOUNT99', 'CAB99', 'OFF99']
-    if (valid99Coupons.includes(code)) {
+
+    if (valid2Coupons.includes(code) || valid99Coupons.includes(code)) {
       setAppliedCoupon(code)
       setCouponInput('')
       setCouponError(null)
     } else {
-      setCouponError('Invalid coupon. Try MARUTI99 for 99% off advance.')
+      setCouponError('Invalid coupon. Try MARUTI2 for ₹2 payment or MARUTI99.')
     }
   }
 
@@ -300,8 +304,8 @@ export function BookingPaymentPanel({
               <div className="flex items-center gap-2 text-emerald-900">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <strong>{appliedCoupon}</strong> Applied: <strong>99% OFF Advance</strong>
-                  <div className="text-[10px] text-emerald-700">Pay only ₹5 now to confirm.</div>
+                  <strong>{appliedCoupon}</strong> Applied: <strong>{is2RsCoupon ? 'Special Promo: Pay Only ₹2' : '99% OFF Advance'}</strong>
+                  <div className="text-[10px] text-emerald-700">Pay only ₹{advanceAmount} now to confirm.</div>
                 </div>
               </div>
               <button
@@ -316,7 +320,7 @@ export function BookingPaymentPanel({
             <form onSubmit={handleApplyCoupon} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Enter promo code (MARUTI99)"
+                placeholder="Enter promo code (MARUTI2 or MARUTI99)"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                 className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 placeholder:normal-case placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#FBBF24]"

@@ -64,49 +64,34 @@ Thanks for trusting Maruti Cab Booking. ❤️`,
   cab_confirmed: {
     template_code: 'cab_confirmed',
     meta_template_name: 'cab_confirmed',
-    header_text: '🎉 Your Ride Is All Set!',
-    body_text: `Hey {{1}}! 😍
+    header_text: '🚕 Booking Confirmed · Maruti Cab',
+    body_text: `Hey {{1}}! 🎉
 
-Good news! We've found your return-ride match, and your ride is officially confirmed!
-
-Here are your travel details:
+Aapki Maruti Cab booking confirm ho gayi hai! 🚕💨
+Aapke safar ke liye opposite-direction return ride match ho chuki hai.
 
 🧾 Booking ID: {{2}}
 📍 Route: {{3}}
 📅 Travel Date: {{4}}
 ⏰ Pickup Time: {{5}}
 
-🚘 Your Cab Details
+💰 Total Fare: ₹{{6}}
+💵 Advance Paid: ₹{{7}}
+💳 Baaki Gaadi me Dena Hai: ₹{{8}}
 
-Vehicle: {{6}}
-Registration Number: {{7}}
+🚗 Driver & Car Details:
+Hum aapko driver ka naam, contact number aur gaadi ki details ride se thoda pehle WhatsApp par share kar denge.
 
-👨✈️ Your Driver
-
-Name: {{8}}
-Contact: {{9}}
-
-💰 Fare Details
-
-Total Fare: ₹{{10}}
-Advance Paid: ₹500
-Balance in Cab: ₹{{11}}
-
-Just be ready at your pickup location on time.
-
-Have a wonderful and safe trip! ❤️`,
-    footer_text: 'Happy journey with Maruti! ❤️',
+Kripya apne pickup time par taiyar rahein. Kisi bhi sahayata ke liye is message ka reply karein! ❤️`,
+    footer_text: 'Happy Journey · Maruti Cab Booking',
     variables: [
       'customer_name',
       'booking_id',
       'route',
       'travel_date',
       'pickup_time',
-      'vehicle_model',
-      'reg_number',
-      'driver_name',
-      'driver_phone',
       'total_fare',
+      'advance_paid',
       'balance_fare',
     ],
   },

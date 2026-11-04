@@ -178,7 +178,8 @@ export async function secureAndConfirmMatch(params: {
 
     // 7. Dispatch Template 3: cab_confirmed via WhatsApp to BOTH passengers!
     const outFare = bOut.total_fare || 2200
-    const outBalance = Math.max(0, outFare - (bOut.advance_paid || 500))
+    const outAdvance = bOut.advance_paid || 500
+    const outBalance = Math.max(0, outFare - outAdvance)
 
     await sendWhatsAppTemplateMessage({
       toPhone: bOut.phone,
@@ -189,18 +190,16 @@ export async function secureAndConfirmMatch(params: {
         'Khargone ➔ Indore',
         bOut.travel_date,
         String(bOut.pickup_time).slice(0, 5),
-        vehicle.vehicle_model,
-        vehicle.registration_number,
-        driver.name,
-        driver.phone,
         String(outFare),
+        String(outAdvance),
         String(outBalance),
       ],
       bookingId: bOut.id,
     })
 
     const backFare = bBack.total_fare || 1800
-    const backBalance = Math.max(0, backFare - (bBack.advance_paid || 500))
+    const backAdvance = bBack.advance_paid || 500
+    const backBalance = Math.max(0, backFare - backAdvance)
 
     await sendWhatsAppTemplateMessage({
       toPhone: bBack.phone,
@@ -211,11 +210,8 @@ export async function secureAndConfirmMatch(params: {
         'Indore ➔ Khargone',
         bBack.travel_date,
         String(bBack.pickup_time).slice(0, 5),
-        vehicle.vehicle_model,
-        vehicle.registration_number,
-        driver.name,
-        driver.phone,
         String(backFare),
+        String(backAdvance),
         String(backBalance),
       ],
       bookingId: bBack.id,
@@ -225,7 +221,7 @@ export async function secureAndConfirmMatch(params: {
     await notifyAdmin(
       `match_confirmed:${matchId}`,
       bookingOutId,
-      `🎉 RETURN MATCH CONFIRMED! #${bOut.booking_ref} (Khargone➔Indore) paired with #${bBack.booking_ref} (Indore➔Khargone). Driver: ${driver.name}, Cab: ${vehicle.registration_number}.`
+      `🎉 RETURN MATCH CONFIRMED! #${bOut.booking_ref} (Khargone➔Indore) paired with #${bBack.booking_ref} (Indore➔Khargone).`
     )
 
     return { success: true, matchId }
@@ -236,16 +232,62 @@ export async function secureAndConfirmMatch(params: {
 }
 
 /**
+ * Automatically searches for the oldest waiting opposite-direction booking (FIFO)
+ * on the same travel date. As soon as a match is found, immediately confirms the round-trip match
+ * and dispatches WhatsApp confirmation to both parties!
+ */
+export async function tryAutomaticFIFOMatch(bookingId: string): Promise<{ matched: boolean; matchId?: string }> {
+  const db = createServiceClient()
+  
+  // 1. Fetch current booking
+  const { data: bTarget } = await db
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .single()
+
+  if (!bTarget || bTarget.status !== 'waiting' || bTarget.match_id) {
+    return { matched: false }
+  }
+
+  const oppositeDirection = bTarget.direction === 'KI' ? 'IK' : 'KI'
+  const targetDate = bTarget.travel_date
+
+  // 2. Fetch candidates in opposite direction on same date ordered by created_at ASC (FIFO!)
+  const { data: candidates } = await db
+    .from('bookings')
+    .select('*')
+    .eq('direction', oppositeDirection)
+    .eq('travel_date', targetDate)
+    .eq('status', 'waiting')
+    .is('match_id', null)
+    .order('created_at', { ascending: true })
+
+  if (!candidates || candidates.length === 0) {
+    return { matched: false }
+  }
+
+  // Pick the oldest compatible candidate (First-Come, First-Served)
+  const candidate = candidates[0]
+
+  const outId = bTarget.direction === 'KI' ? bTarget.id : candidate.id
+  const backId = bTarget.direction === 'KI' ? candidate.id : bTarget.id
+
+  const res = await secureAndConfirmMatch({
+    bookingOutId: outId,
+    bookingBackId: backId,
+  })
+
+  if (res.success && res.matchId) {
+    return { matched: true, matchId: res.matchId }
+  }
+
+  return { matched: false }
+}
+
+/**
  * Quick helper to try matching a single booking immediately.
  */
 export async function tryMatchBookingAndConfirm(bookingId: string) {
-  const candidates = await findOppositeMatchCandidates(bookingId)
-  if (candidates.length > 0) {
-    const best = candidates[0]
-    return await secureAndConfirmMatch({
-      bookingOutId: best.bookingA.id,
-      bookingBackId: best.bookingB.id,
-    })
-  }
-  return null
+  return await tryAutomaticFIFOMatch(bookingId)
 }

@@ -6,6 +6,7 @@ import { calculateBookingFare, getMatchCutoffAt, isMatchDealWithinWindow, parseP
 import { PRICING_CONFIG } from '@/config/pricing'
 import { notify, notifyAdmin } from '@/lib/booking-notifications'
 import { sendBookingAutomation } from '@/lib/whatsapp-automation'
+import { tryAutomaticFIFOMatch } from '@/lib/matching-engine'
 
 const Input = z.object({
   direction: z.enum(['K2I', 'I2K']), mode: z.literal('match'),
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
   } else {
     // "no booking without advance payment"
     return NextResponse.json({
-      error: 'Advance payment of ₹500 (or ₹5 with coupon) is required to confirm your booking.'
+      error: 'Advance payment of ₹500 (or ₹2 with coupon) is required to confirm your booking.'
     }, { status: 400 })
   }
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
     passenger_name: data.name, phone: data.phone, passenger_count: data.passengers, address: data.address || null,
     consent_whatsapp: true, consent_at: new Date().toISOString(),
     consent_text: 'I agree to receive WhatsApp updates about this booking and accept the Terms and Refund Policy.',
-    base_fare: fare.baseFare, discount: data.couponCode ? 495 : 0, night_extra: fare.nightSurcharge,
+    base_fare: fare.baseFare, discount: data.couponCode ? (advancePaid === 2 ? 498 : 495) : 0, night_extra: fare.nightSurcharge,
     total_fare: fare.totalFare, advance_amount: advancePaid, advance_paid: advancePaid,
     is_night: fare.nightSurcharge > 0,
     extras: {
@@ -158,12 +159,14 @@ export async function POST(request: NextRequest) {
     const { data: pair } = await db.from('bookings').select('*').eq('match_id', matchId)
     for (const ride of pair ?? []) await notify('match_confirmed', ride.id).catch((error) => console.error('Match notification failed:', error))
   } else {
-    const { error: matchError } = await db.rpc('try_match_booking', { p_booking_id: booking.id, p_min_gap_hours: 4, p_max_gap_hours: 8 })
-    if (matchError) console.error('Automatic Match Deal search failed:', matchError)
-    const { data: refreshed } = await db.from('bookings').select('status,match_id').eq('id', booking.id).single()
-    if (refreshed?.status === 'matched' && refreshed.match_id) {
-      const { data: pair } = await db.from('bookings').select('id').eq('match_id', refreshed.match_id)
-      for (const ride of pair ?? []) void notify('match_confirmed', ride.id).catch((error) => console.error('Match notification failed:', error))
+    // Try automatic FIFO return match immediately!
+    try {
+      const fifoResult = await tryAutomaticFIFOMatch(booking.id)
+      if (fifoResult.matched) {
+        console.log(`Automatic FIFO match confirmed for ${booking.id}: match ${fifoResult.matchId}`)
+      }
+    } catch (fifoErr) {
+      console.warn('Automatic FIFO match notice:', fifoErr)
     }
   }
 
