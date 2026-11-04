@@ -114,7 +114,7 @@ export default function MyRidesPage() {
               My Rides & Booking Status
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Check live driver details, trip status, or cancel an active ride.
+              Check live driver details, trip status, and dispatch information.
             </p>
           </div>
 
@@ -155,14 +155,14 @@ export default function MyRidesPage() {
             <div className="flex items-center gap-2.5">
               <MessageCircle className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <span className="font-extrabold block">Instant WhatsApp Support & Cancellation</span>
+                <span className="font-extrabold block">MarutiCab WhatsApp Support</span>
                 <span className="text-[11px] text-emerald-800">
-                  Send <strong className="underline">CANCEL</strong> on WhatsApp to auto-cancel any ride.
+                  Contact operations directly on WhatsApp at <strong>+91 8878933778</strong> for trip assistance.
                 </span>
               </div>
             </div>
             <a
-              href="https://wa.me/917282316090?text=STATUS"
+              href="https://wa.me/918878933778?text=Namaste%20MarutiCab%2C%20mujhe%20booking%20status%20chahiye."
               target="_blank"
               rel="noopener noreferrer"
               className="bg-[#25D366] hover:bg-[#20bd5a] text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shrink-0"
@@ -233,10 +233,10 @@ export default function MyRidesPage() {
                         href={`/booking/${b.public_token}`}
                         className="flex-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl py-2 px-3 text-center text-xs font-bold text-slate-800 transition"
                       >
-                        View Full Details / Cancel
+                        View Full Details & Driver Info
                       </Link>
                       <a
-                        href={`https://wa.me/917282316090?text=${encodeURIComponent(
+                        href={`https://wa.me/918878933778?text=${encodeURIComponent(
                           `Hi MarutiCab, booking status for ${b.booking_ref}`
                         )}`}
                         target="_blank"

@@ -193,7 +193,7 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
                   <button
                     type="button"
                     onClick={() => setSelectedRideForBooking(ride)}
-                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2.5 text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2.5 text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span>Book Now</span>
                     <ArrowRight className="h-3.5 w-3.5" />

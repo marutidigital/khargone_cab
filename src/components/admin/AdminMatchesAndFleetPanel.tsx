@@ -137,7 +137,7 @@ export function AdminMatchesAndFleetPanel() {
             Match Manager & Fleet Dispatch
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Pair Khargone ➔ Indore with Indore ➔ Khargone return legs and assign sedan cabs.
+            Pair Khargone ➔ Indore with Indore ➔ Khargone return journeys and assign dedicated sedan cabs.
           </p>
         </div>
         <div className="flex gap-2">
@@ -301,10 +301,10 @@ export function AdminMatchesAndFleetPanel() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                       <div>
-                        <strong>Leg 1 (KI):</strong> #{m.booking_out?.booking_ref || 'OUT'} · {m.booking_out?.passenger_name} ({m.booking_out?.travel_date})
+                        <strong>Trip 1 (KI):</strong> #{m.booking_out?.booking_ref || 'OUT'} · {m.booking_out?.passenger_name} ({m.booking_out?.travel_date})
                       </div>
                       <div>
-                        <strong>Leg 2 (IK):</strong> #{m.booking_back?.booking_ref || 'BACK'} · {m.booking_back?.passenger_name} ({m.booking_back?.travel_date})
+                        <strong>Trip 2 (IK):</strong> #{m.booking_back?.booking_ref || 'BACK'} · {m.booking_back?.passenger_name} ({m.booking_back?.travel_date})
                       </div>
                     </div>
                   </div>

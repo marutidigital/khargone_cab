@@ -69,13 +69,12 @@ export async function POST(request: NextRequest) {
       crypto.timingSafeEqual(Buffer.from(generatedSignature), Buffer.from(data.paymentSignature))
 
     if (!isMatch) {
-      return NextResponse.json({ error: 'Razorpay payment signature could not be verified.' }, { status: 400 })
+      return NextResponse.json({ error: 'Online payment signature could not be verified.' }, { status: 400 })
     }
     advancePaid = data.advancePaid || 500
   } else {
-    // "no booking without advance payment"
     return NextResponse.json({
-      error: 'Advance payment of ₹500 (or ₹2 with coupon) is required to confirm your booking.'
+      error: 'Advance payment of ₹500 is required to confirm your booking.'
     }, { status: 400 })
   }
 
@@ -92,8 +91,6 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ error: 'This booking attempt is no longer active. Please start a new booking.' }, { status: 409 })
   }
-  const { data: samePhone, error: duplicatePhoneError } = await db.from('bookings').select('id').eq('phone', data.phone).eq('travel_date', data.date).in('status', ['pending_payment', 'waiting', 'matched', 'confirmed', 'no_match_decision']).limit(1)
-  if (!duplicatePhoneError && samePhone?.length) return NextResponse.json({ error: 'There is already an active booking for this phone number on that date. Contact us if you need another cab.' }, { status: 409 })
 
   const token = randomBytes(32).toString('base64url')
   const direction = data.direction === 'K2I' ? 'KI' : 'IK'
@@ -261,20 +258,20 @@ export async function POST(request: NextRequest) {
 
   if (savedBooking?.status === 'confirmed') {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
-    void notifyAdmin(`new-confirmed:${booking.id}`, booking.id, `New Confirmed Booking ${booking.booking_ref}: Advance of ₹${advancePaid} received via Razorpay (${data.paymentId}). Balance: ₹${balanceAmount}.`)
+    void notifyAdmin(`new-confirmed:${booking.id}`, booking.id, `🎉 Confirmed Booking #${booking.booking_ref}: ${data.name} (${data.phone}) - ${routeName} on ${data.date} at ${data.time}. Advance ₹${advancePaid} paid online. Balance: ₹${balanceAmount}. ⚠️ Action: Assign Driver & Vehicle!`)
   } else if (savedBooking?.status === 'waiting') {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
-    void notifyAdmin(`new-waiting:${booking.id}`, booking.id, 'New Match Deal booking is waiting for dispatch.')
+    void notifyAdmin(`new-waiting:${booking.id}`, booking.id, `🚨 New Waiting Booking #${booking.booking_ref}: ${data.name} (${data.phone}) - ${routeName} on ${data.date} at ${data.time}. Advance ₹${advancePaid} paid online. Waiting for return match.`)
   }
 
   const pointName = PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point
   const routeName = direction === 'KI' ? 'Khargone to Indore' : 'Indore to Khargone'
   const greetingHeader = isRepeatCustomer
     ? `🚕 *Welcome back, ${data.name}!* Thank you for choosing MarutiCab again.`
-    : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab is CONFIRMED.`
+    : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab request is received.`
 
-  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Pickup Time:* ${data.time}\n*Status:* Confirmed\n\n💳 *Advance Paid:* ₹${advancePaid} (Razorpay ID: ${data.paymentId})\n💵 *Balance to Driver:* ₹${balanceAmount} (Pay in cab)\n\nTrack / Cancel ride: https://maruticab.in/booking/${token}\nSupport: +91 72823 16090`
-  const whatsappUrl = `https://wa.me/917282316090?text=${encodeURIComponent(waText)}`
+  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Pickup Time:* ${data.time}\n*Status:* ${savedBooking?.status === 'confirmed' ? 'Confirmed & Scheduled' : 'Advance Paid · Matching Return Cab'}\n\n💳 *Advance Paid:* ₹${advancePaid} (Online Payment Received)\n💵 *Balance to Driver:* ₹${balanceAmount} (Pay in cab)\n\nView details: https://maruticab.in/booking/${token}\nSupport WhatsApp: +91 8878933778`
+  const whatsappUrl = `https://wa.me/918878933778?text=${encodeURIComponent(waText)}`
 
   return NextResponse.json({
     bookingRef: booking.booking_ref,

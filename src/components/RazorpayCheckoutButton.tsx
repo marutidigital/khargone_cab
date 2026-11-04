@@ -185,7 +185,7 @@ export function RazorpayCheckoutButton({
           ) : (
             <>
               <CreditCard className="w-4 h-4" />
-              <span>{buttonText || `Pay ₹${displayRupees} via Razorpay`}</span>
+              <span>{buttonText || `Pay ₹${displayRupees} Online`}</span>
             </>
           )}
         </button>

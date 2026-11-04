@@ -8,7 +8,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ to
     .eq('public_token', token).limit(1).single()
   if (error || !data) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
   const { data: driver } = data.driver_id
-    ? await createServiceClient().from('drivers').select('name,phone,vehicle_number').eq('id', data.driver_id).limit(1).single()
+    ? await createServiceClient().from('drivers').select('name,phone,vehicle_number,vehicle_model').eq('id', data.driver_id).limit(1).single()
     : { data: null }
   return NextResponse.json({ booking: { ...data, phone: `${String(data.phone).slice(0, 2)}••••••${String(data.phone).slice(-2)}`, driver: driver ?? null } }, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -63,6 +63,9 @@ export async function cancelUnconfirmedBooking(token: string) {
   const db = createServiceClient()
   const { data: booking } = await db.from('bookings').select('*').eq('public_token', token).limit(1).single()
   if (!booking) throw new Error('Booking not found.')
+  if (booking.status === 'confirmed' || booking.status === 'matched') {
+    throw new Error('Confirmed bookings cannot be cancelled or refunded as the cab schedule is locked. Please contact support on WhatsApp at +91 8878933778.')
+  }
   if (booking.status === 'cancelled' || booking.status === 'completed' || booking.status === 'refunded') {
     throw new Error(`This booking is already ${booking.status}.`)
   }

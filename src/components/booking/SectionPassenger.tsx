@@ -155,25 +155,30 @@ export function SectionPassenger({ maxPassengers, data, onChange, errors }: Prop
           </div>
         </div>
 
-        {/* WhatsApp Consent Checkbox (Required) */}
+        {/* WhatsApp & Booking Match Policy Checkbox (Required) */}
         <div className="pt-2">
-          <label className="flex items-start gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={data.consent}
-              onChange={(e) => onChange({ consent: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded text-amber-500 focus:ring-[#FBBF24] border-slate-300 cursor-pointer"
-            />
-            <span className="text-xs text-slate-600 leading-relaxed">
-              I agree to the <Link className="font-bold text-amber-900 underline" href="/terms">Terms</Link> and <Link className="font-bold text-amber-900 underline" href="/refund">Refund Policy</Link>. I agree to receive WhatsApp updates about this booking.
-            </span>
-          </label>
-          {errors.consent && (
-            <span className="text-xs text-rose-500 mt-1 flex items-center gap-1 font-medium pl-6">
-              <AlertCircle className="w-3.5 h-3.5" />
-              {errors.consent}
-            </span>
-          )}
+          <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-3.5 sm:p-4 shadow-xs">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.consent}
+                onChange={(e) => onChange({ consent: e.target.checked })}
+                className="mt-1 w-4 h-4 rounded text-amber-500 focus:ring-[#FBBF24] border-slate-300 cursor-pointer shrink-0"
+              />
+              <span className="text-xs sm:text-[13px] text-slate-900 leading-relaxed font-semibold">
+                हाँ, मैं समझता/समझती हूँ कि मेरी बुकिंग अभी कन्फर्म नहीं है — जब रिटर्न राइड मैच होगी तभी कन्फर्म होगी। यदि राइड मैच नहीं होती है, तो यात्रा समय से 6 घंटे पहले मुझे सूचित कर दिया जाएगा और ₹500 एडवांस तुरंत 100% पूरा रिफंड कर दिया जाएगा। तब तक मैं अपना बैकअप प्लान भी तैयार रखूँगा/रखूँगी।
+                <span className="block mt-1.5 text-[11px] font-normal text-slate-600">
+                  मैं व्हाट्सएप अपडेट्स पाने और <Link className="font-bold text-amber-950 underline" href="/terms">Terms</Link> व <Link className="font-bold text-amber-950 underline" href="/refund">Refund Policy</Link> से सहमत हूँ।
+                </span>
+              </span>
+            </label>
+            {errors.consent && (
+              <span className="text-xs text-rose-600 mt-2 flex items-center gap-1 font-bold pl-7">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {errors.consent}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </section>

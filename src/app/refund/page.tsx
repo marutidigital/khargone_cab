@@ -37,7 +37,7 @@ export default function RefundPage() {
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-sm text-emerald-950">
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
-              No advance is collected for new bookings. Pay the displayed fare in the cab after your ride is confirmed. Any advance paid on an older booking follows the refund terms shown in that booking.
+              An advance of ₹500 is collected online to submit your booking request. If no return ride is matched before the 6-hour cutoff, your advance is 100% refunded immediately. Once a booking is confirmed and scheduled with vehicle and driver, it is final and non-refundable.
             </div>
           </div>
 

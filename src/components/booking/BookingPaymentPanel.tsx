@@ -85,7 +85,7 @@ export function BookingPaymentPanel({
       setCouponInput('')
       setCouponError(null)
     } else {
-      setCouponError('Invalid coupon. Try MARUTI2 for ₹2 payment or MARUTI99.')
+      setCouponError('Invalid coupon code.')
     }
   }
 
@@ -268,7 +268,7 @@ export function BookingPaymentPanel({
             <div className="flex justify-between items-center text-amber-900 bg-amber-50/80 p-2 rounded-xl">
               <span className="font-extrabold flex items-center gap-1.5">
                 <CreditCard className="w-4 h-4 text-amber-600" />
-                Advance Online (Razorpay)
+                Advance Online Payment
               </span>
               <div className="text-right">
                 {isCouponActive && (
@@ -296,7 +296,6 @@ export function BookingPaymentPanel({
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
             <Tag className="w-3.5 h-3.5 text-amber-600" />
             <span>Have a Coupon Code?</span>
-            <span className="text-[10px] text-slate-400 font-normal">(e.g. MARUTI99)</span>
           </div>
 
           {appliedCoupon ? (
@@ -304,7 +303,7 @@ export function BookingPaymentPanel({
               <div className="flex items-center gap-2 text-emerald-900">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <strong>{appliedCoupon}</strong> Applied: <strong>{is2RsCoupon ? 'Special Promo: Pay Only ₹2' : '99% OFF Advance'}</strong>
+                  <strong>{appliedCoupon}</strong> Applied: <strong>Discount Verified</strong>
                   <div className="text-[10px] text-emerald-700">Pay only ₹{advanceAmount} now to confirm.</div>
                 </div>
               </div>
@@ -320,7 +319,7 @@ export function BookingPaymentPanel({
             <form onSubmit={handleApplyCoupon} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Enter promo code (MARUTI2 or MARUTI99)"
+                placeholder="Enter coupon code"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                 className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 placeholder:normal-case placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#FBBF24]"
@@ -341,7 +340,7 @@ export function BookingPaymentPanel({
 
         {/* Notice of advance payment */}
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-950">
-          <strong>Advance Booking Policy:</strong> We collect only <strong>{formatRs(advanceAmount)}</strong> advance online via Razorpay to reserve your cab. The remaining balance of <strong>{formatRs(balanceAmount)}</strong> is payable directly to your driver after ride completion.
+          <strong>Advance Booking Policy:</strong> We collect <strong>{formatRs(advanceAmount)}</strong> advance online payment to submit your booking request. The remaining balance of <strong>{formatRs(balanceAmount)}</strong> is payable directly to your driver in the cab.
         </p>
 
         {paymentError && (
@@ -372,7 +371,7 @@ export function BookingPaymentPanel({
         </button>
 
         <p className="mt-2 text-center text-[11px] text-slate-500">
-          🔒 100% Secure Razorpay checkout · No booking without advance payment
+          🔒 100% Secure Online Payment · Safe & Encrypted
         </p>
       </section>
     </>

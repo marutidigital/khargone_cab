@@ -182,10 +182,10 @@ export function ConfirmedRidePicker({ direction, selectedDate, selected, onSelec
                     <Clock3 className="h-3.5 w-3.5 text-slate-400" />
                     {formatTime(ride.existingTime)}
                   </div>
-                  <div className="mt-1 text-xs text-slate-500 font-medium">Return leg drop: {ride.pointName}</div>
+                  <div className="mt-1 text-xs text-slate-500 font-medium">Return journey drop: {ride.pointName}</div>
                 </div>
                 <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-800">
-                  Open Return Leg
+                  Available Return Cab
                 </span>
               </div>
               <div className="mt-4">

@@ -134,12 +134,12 @@ export function PublicMatchBookingModal({
     const code = couponCode.trim().toUpperCase()
     if (code === 'MARUTI2' || code === 'CAB2' || code === 'TEST2') {
       setAppliedCoupon(code)
-      setCouponNotice(`Coupon applied! Advance set to ₹2.00 for testing.`)
+      setCouponNotice('Coupon applied! Advance discount verified.')
       setErrorMsg(null)
     } else if (code) {
       setAppliedCoupon(null)
       setCouponNotice(null)
-      setErrorMsg('Invalid coupon code. Use MARUTI2 for ₹2 test payment.')
+      setErrorMsg('Invalid coupon code.')
     }
   }
 
@@ -300,7 +300,7 @@ export function PublicMatchBookingModal({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider text-amber-400">
-                Complete Return Leg
+                Complete Return Journey
               </span>
               <span className="rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 border border-emerald-500/30">
                 Instant Confirmation
@@ -513,7 +513,7 @@ export function PublicMatchBookingModal({
                   type="text"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="Promo Coupon (e.g. MARUTI2)"
+                  placeholder="Enter coupon code"
                   className="grow rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 uppercase"
                 />
                 <button
@@ -537,7 +537,7 @@ export function PublicMatchBookingModal({
           <div className="flex items-center gap-2 text-slate-600 text-[11px]">
             <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>
-              Secure Razorpay Checkout. Note: Confirmed round-trip bookings are strictly non-refundable once confirmed.
+              🔒 100% Secure Online Payment. Note: Confirmed bookings are final and non-refundable once confirmed.
             </span>
           </div>
         </div>

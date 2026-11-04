@@ -107,6 +107,32 @@ async function handleInbound(body: any) {
     const targetBooking = activeBookings?.[0]
 
     if (targetBooking) {
+      if (targetBooking.status === 'confirmed' || targetBooking.status === 'matched') {
+        const cannotCancelReply = [
+          `⚠️ *Booking Already Confirmed & Scheduled*`,
+          `Booking Ref: *${targetBooking.booking_ref}*`,
+          `Route: ${targetBooking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}`,
+          `Date: ${targetBooking.travel_date} at ${targetBooking.pickup_time}`,
+          `\n🙏 Aapki booking already confirm ho chuki hai aur opposite passenger ke saath dedicated cab lock ho chuki hai. Policy ke mutabik confirmed booking cancel ya refund nahi ho sakti.`,
+          `\nKisi bhi emergency ya support ke liye hamare operations team se direct baat karein:`,
+          `📞 Call / WhatsApp: +91 8878933778`,
+        ].join('\n')
+
+        await sendText({
+          to: phone,
+          body: cannotCancelReply,
+          bookingId: targetBooking.id,
+          eventVersion: `cannot_cancel_confirmed:${message.id}`,
+        })
+
+        await notifyAdmin(
+          `cancel_attempt_confirmed:${targetBooking.id}`,
+          targetBooking.id,
+          `⚠️ Customer attempted to cancel CONFIRMED booking ${targetBooking.booking_ref} via WhatsApp bot. Alerted that cancellation is disallowed.`
+        )
+        return
+      }
+
       const willRefund = (targetBooking.advance_paid || 0) > 0
       await db
         .from('bookings')

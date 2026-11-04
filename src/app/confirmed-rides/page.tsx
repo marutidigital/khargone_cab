@@ -63,8 +63,8 @@ export default function ConfirmedRidesPage() {
                   <strong className="text-base font-black text-white">₹2,200 Fare</strong>
                 </div>
                 <div className="rounded-2xl bg-slate-800/80 border border-slate-700 p-3 col-span-2 sm:col-span-1">
-                  <span className="text-[10px] uppercase font-bold text-emerald-400 block">Advance</span>
-                  <strong className="text-base font-black text-white">₹500 (or ₹2 with MARUTI2)</strong>
+                  <span className="text-[10px] uppercase font-bold text-emerald-400 block">Advance to Book</span>
+                  <strong className="text-base font-black text-white">₹500</strong>
                 </div>
               </div>
             </div>

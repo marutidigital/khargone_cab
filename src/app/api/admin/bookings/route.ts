@@ -150,19 +150,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (_action === 'assign_driver') {
-      const { data: booking } = await supabase.from('bookings').select('mode').eq('id', id).single()
-      if (booking?.mode === 'match') return NextResponse.json({ error: 'Use the Match Deal board to confirm this booking.' }, { status: 409 })
-      const { data: driver } = await supabase.from('drivers').select('id,name,status').eq('id', updates.driver_id).single()
+      const { data: driver } = await supabase.from('drivers').select('id,name,phone,vehicle_number,vehicle_model,status').eq('id', updates.driver_id).single()
       if (!driver || driver.status === 'inactive') return NextResponse.json({ error: 'Select an active driver.' }, { status: 400 })
       await updateBooking(id, {
         driver_id: updates.driver_id,
         driver_name: driver.name,
-        status: 'confirmed',
         updated_at: new Date().toISOString()
       })
       const { data: updated } = await supabase.from('bookings').select('*').eq('id', id).single()
-      if (updated) await notifyBooking(updated, 'booking_confirmed')
-      return NextResponse.json({ success: true })
+      if (updated?.match_id) {
+        // Also link same dedicated driver & vehicle to the return pair!
+        await supabase.from('bookings').update({
+          driver_id: driver.id,
+          driver_name: driver.name,
+          updated_at: new Date().toISOString()
+        }).eq('match_id', updated.match_id)
+      }
+      return NextResponse.json({ success: true, driverName: driver.name })
     }
 
     if (_action === 'assign_agent') {

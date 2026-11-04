@@ -300,7 +300,7 @@ export default function Home() {
                 passengerName={passenger.name}
                 passengerPhone={passenger.phone}
                 onPaymentSuccess={handlePaymentSuccessAndSubmit}
-                bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined}
+                bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return Journey' : undefined}
               />
               {bookingTab === 'confirmed' && confirmedRide && (
                 <p className="mt-2 text-center text-xs font-semibold text-emerald-800">
@@ -387,7 +387,7 @@ export default function Home() {
                   passengerName={passenger.name}
                   passengerPhone={passenger.phone}
                   onPaymentSuccess={handlePaymentSuccessAndSubmit}
-                  bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return leg' : undefined}
+                  bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return Journey' : undefined}
                 />
               </div>
             )}
@@ -437,7 +437,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => goToStep(2)}
-                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer"
+                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 px-4 sm:px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer whitespace-nowrap"
               >
                 <span>Select Date & Time</span>
                 <ArrowRight className="h-4 w-4" />
@@ -449,7 +449,7 @@ export default function Home() {
                 type="button"
                 disabled={!time}
                 onClick={() => goToStep(3)}
-                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed"
+                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 px-4 sm:px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
               >
                 <span>{time ? 'Passenger Details' : 'Select Time'}</span>
                 <ArrowRight className="h-4 w-4" />
@@ -461,7 +461,7 @@ export default function Home() {
                 type="button"
                 disabled={!isPassengerValid}
                 onClick={() => goToStep(4)}
-                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed"
+                className="flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 px-4 sm:px-5 py-2.5 text-xs font-black shadow-sm transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
               >
                 <span>Review Booking</span>
                 <ArrowRight className="h-4 w-4" />

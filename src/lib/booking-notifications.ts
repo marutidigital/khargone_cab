@@ -27,7 +27,7 @@ async function deliver(event: WhatsAppEvent, booking: Record<string, any>, recip
   const db = createServiceClient()
   const templateName = getTemplateName(event, booking.mode, recipientType)
   const template = WHATSAPP_TEMPLATES[templateName]
-  const recipient = recipientType === 'driver' ? options.driver?.phone || booking.driver_phone : recipientType === 'admin' ? process.env.ADMIN_WHATSAPP_NUMBER : booking.phone
+  const recipient = recipientType === 'driver' ? options.driver?.phone || booking.driver_phone : recipientType === 'admin' ? (process.env.ADMIN_WHATSAPP_NUMBER || '918878933778') : booking.phone
   const eventVersion = options.eventVersion || (event === 'match_confirmed' ? `driver:${booking.driver_id || options.driver?.id || 'unassigned'}` : 'v1')
   const idempotencyKey = `${booking.id}:${recipientType}:${templateName}:${eventVersion}`
   if (!recipient) {
@@ -130,7 +130,7 @@ export async function notifyAdmin(event: string, bookingId: string, alertText: s
   const db = createServiceClient()
   const { data: booking } = await db.from('bookings').select('*').eq('id', bookingId).limit(1).single()
   if (booking) return deliver('admin_alert', { ...booking, alert_event: alertText }, 'admin', { eventVersion: event })
-  const recipient = process.env.ADMIN_WHATSAPP_NUMBER
+  const recipient = process.env.ADMIN_WHATSAPP_NUMBER || '918878933778'
   if (!recipient) return { status: 'skipped', reason: 'Admin number is not configured.' }
   const idempotencyKey = `admin:${event}`
   const { error } = await db.from('notifications').insert({ booking_id: null, recipient_type: 'admin', template: 'admin_alert', status: 'queued', idempotency_key: idempotencyKey, event_version: event })

@@ -325,7 +325,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Live private cab test-phase pipeline · Khargone ↔ Indore
+              Dedicated Sedan Cab Service · Khargone ↔ Indore
             </p>
           </div>
         </div>
@@ -352,12 +352,12 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
               </button>
             ))}
           </nav>
-          {/* User info */}
+          {/* Operations info */}
           <div className="hidden md:flex flex-col text-right px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-            <span className="text-xs font-bold text-slate-800 truncate max-w-[200px]">
-              {user?.email}
+            <span className="text-xs font-bold text-slate-800">
+              Operations Desk
             </span>
-            <span className="text-[10px] text-emerald-700 font-bold">Verified Admin</span>
+            <span className="text-[10px] text-emerald-700 font-bold">Support: +91 8878933778</span>
           </div>
 
           {/* Refresh */}
