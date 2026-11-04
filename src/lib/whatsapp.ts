@@ -57,7 +57,9 @@ async function postToMeta(body: Record<string, unknown>) {
         continue
       }
     }
-    const error = new Error(`WhatsApp API error (${response.status}, code ${json.error?.code ?? 'unknown'}).`)
+    const errorMsg = json.error?.message || ''
+    const errorDetails = (json.error as any)?.error_data?.details || ''
+    const error = new Error(`WhatsApp API error (${response.status}, code ${json.error?.code ?? 'unknown'}): ${errorMsg} ${errorDetails}`.trim())
     Object.assign(error, { status: response.status, code: json.error?.code })
     throw error
   }
@@ -143,8 +145,15 @@ export async function sendInChatPaymentOrder({
         parameters: {
           reference_id: `KC_${bookingRef}_${Date.now()}`,
           type: 'digital-goods',
-          payment_type: 'upi',
-          payment_configuration_name: 'MarutiCabRazorpay',
+          payment_settings: [
+            {
+              type: 'payment_gateway',
+              payment_gateway: {
+                type: 'razorpay',
+                configuration_name: 'MarutiCabRazorpay',
+              },
+            },
+          ],
           currency: 'INR',
           total_amount: {
             value: amountPaise,
