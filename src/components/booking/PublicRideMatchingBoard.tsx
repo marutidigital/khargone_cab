@@ -3,15 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Car,
-  Clock,
   Calendar,
-  Users,
   ArrowRight,
-  ShieldCheck,
   RefreshCw,
-  Sparkles,
-  MapPin,
-  CheckCircle2,
 } from 'lucide-react'
 import { formatRs } from '@/config/pricing'
 import {
@@ -49,25 +43,25 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
   }, [fetchRides])
 
   // Filter rides strictly by the passenger's desired travel direction (oppositeDirection === activeTab)
-  // When activeTab is 'I2K', the visitor travels Indore ➔ Khargone (paired with waiting cab from Khargone ➔ Indore)
-  // When activeTab is 'K2I', the visitor travels Khargone ➔ Indore (paired with waiting cab from Indore ➔ Khargone)
+  // When activeTab is 'I2K', the visitor travels Indore ➔ Khargone
+  // When activeTab is 'K2I', the visitor travels Khargone ➔ Indore
   const filteredRides = rides.filter((r) => r.oppositeDirection === activeTab)
 
   const countI2K = rides.filter((r) => r.oppositeDirection === 'I2K').length
   const countK2I = rides.filter((r) => r.oppositeDirection === 'K2I').length
 
   return (
-    <section id="confirmed-rides-board" className="my-6 rounded-3xl border border-amber-300 bg-white p-5 sm:p-8 shadow-md">
+    <section id="confirmed-rides-board" className="my-6 rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-xs">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-xs">
-              ⚡ Confirmed Return Rides
+              ⚡ Confirmed Rides
             </span>
             <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Direct Return Pair
+              Live Available
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
@@ -75,7 +69,7 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
             <span>🚕</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            Select your travel direction below. These rides have an active cab waiting for an opposite passenger to complete the round journey.
+            Select your route below to book an available confirmed return ride.
           </p>
         </div>
 
@@ -95,16 +89,13 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
 
       {/* Direction Switch Tabs: Shows your travel route */}
       <div className="mt-5">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
-          Choose Your Travel Direction:
-        </label>
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5 max-w-lg">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5 max-w-md">
           <button
             type="button"
             onClick={() => setActiveTab('I2K')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-3 px-3 text-xs sm:text-sm font-black transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-black transition-all cursor-pointer ${
               activeTab === 'I2K'
-                ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-300'
+                ? 'bg-amber-400 text-slate-950 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -112,16 +103,16 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
             <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
               activeTab === 'I2K' ? 'bg-slate-950 text-amber-300' : 'bg-slate-200 text-slate-700'
             }`}>
-              {countI2K} available
+              {countI2K}
             </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('K2I')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-3 px-3 text-xs sm:text-sm font-black transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-black transition-all cursor-pointer ${
               activeTab === 'K2I'
-                ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-300'
+                ? 'bg-amber-400 text-slate-950 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -129,14 +120,14 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
             <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
               activeTab === 'K2I' ? 'bg-slate-950 text-amber-300' : 'bg-slate-200 text-slate-700'
             }`}>
-              {countK2I} available
+              {countK2I}
             </span>
           </button>
         </div>
       </div>
 
-      {/* Ride Cards List */}
-      <div className="mt-6">
+      {/* Ride Cards List: Simple and Minimal Design */}
+      <div className="mt-5">
         {loading && rides.length === 0 ? (
           <div className="py-12 text-center">
             <RefreshCw className="h-6 w-6 animate-spin text-amber-500 mx-auto mb-2" />
@@ -146,10 +137,10 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-8 text-center max-w-xl mx-auto">
             <Car className="h-8 w-8 text-slate-400 mx-auto mb-2" />
             <h4 className="text-sm font-bold text-slate-800">
-              No rides waiting in {activeTab === 'I2K' ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'} right now
+              No rides available for {activeTab === 'I2K' ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'} right now
             </h4>
             <p className="text-xs text-slate-500 mt-1">
-              Check the other tab or request this route using our booking form above! As soon as your booking is placed, your ride will appear here for return pairing.
+              Check the other tab or request a new booking above.
             </p>
           </div>
         ) : (
@@ -157,63 +148,34 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
             {filteredRides.map((ride) => (
               <div
                 key={ride.id}
-                className="group relative flex flex-col justify-between rounded-2xl border-2 border-amber-200 bg-white p-5 shadow-xs hover:border-amber-400 hover:shadow-lg transition-all"
+                className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-amber-400 hover:shadow-md transition-all"
               >
-                <div>
-                  {/* Card Header: Explicit Your Route */}
-                  <div className="mb-3 border-b border-slate-100 pb-2.5">
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Your Booking Route
-                      </span>
-                      <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 text-[9px] font-black uppercase">
-                        ✓ Opposite Leg Available
-                      </span>
-                    </div>
-
+                <div className="space-y-3">
+                  {/* Your Booking Route */}
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <div className="p-1 rounded-lg bg-amber-400 text-slate-950">
+                      <div className="p-1.5 rounded-lg bg-amber-400 text-slate-950">
                         <Car className="h-4 w-4" />
                       </div>
                       <strong className="text-base font-black text-slate-900">
                         {ride.oppositeRouteLabel}
                       </strong>
                     </div>
+
+                    <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                      Available
+                    </span>
                   </div>
 
-                  {/* Paired Details */}
-                  <div className="space-y-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100 mb-3">
-                    <div className="text-[10px] font-extrabold uppercase text-amber-800 flex items-center gap-1">
-                      <span>Paired Opposite Ride Info:</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-slate-800">
-                      <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
-                      <span className="font-bold">{ride.travelDateFormatted}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-slate-800">
-                      <Clock className="h-4 w-4 text-amber-600 shrink-0" />
-                      <span>Cab Arriving / Pickup:</span>
-                      <strong className="text-slate-900 font-extrabold">
-                        {ride.pickupTimeFormatted} ({ride.routeLabel})
-                      </strong>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-slate-600 text-[11px]">
-                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <span>Point:</span>
-                      <span className="font-semibold text-slate-800 truncate">{ride.dropName}</span>
-                    </div>
+                  {/* Travel Date */}
+                  <div className="flex items-center gap-2 text-xs text-slate-700 font-bold pt-1">
+                    <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>{ride.travelDateFormatted}</span>
                   </div>
-
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    🚖 Private 4-Seater Dedicated Sedan · No stranger co-passengers.
-                  </p>
                 </div>
 
-                {/* Card Footer: Pricing & Action */}
-                <div className="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between gap-2">
+                {/* Pricing & Booking Button */}
+                <div className="mt-5 border-t border-slate-100 pt-3.5 flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[10px] font-semibold text-slate-500 uppercase">
                       Fixed Fare
@@ -231,9 +193,9 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
                   <button
                     type="button"
                     onClick={() => setSelectedRideForBooking(ride)}
-                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2.5 text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2.5 text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
                   >
-                    <span>Book {ride.oppositeRouteLabel.split(' ➔ ')[0]} ➔</span>
+                    <span>Book Now</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>

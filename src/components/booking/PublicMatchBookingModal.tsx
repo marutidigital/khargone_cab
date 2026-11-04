@@ -331,35 +331,29 @@ export function PublicMatchBookingModal({
           )}
 
           {/* Inherited Details Card (Read-Only) */}
-          <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-4 space-y-2.5">
-            <div className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-              <Car className="h-3.5 w-3.5 text-amber-600" />
-              <span>Paired Waiting Journey Info</span>
-            </div>
+          <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-4 space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100 flex items-center gap-2">
+                <Car className="h-4 w-4 text-amber-700 shrink-0" />
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-500 block uppercase">
+                    Your Booking Route
+                  </span>
+                  <strong className="text-slate-900 font-bold">{ride.oppositeRouteLabel}</strong>
+                </div>
+              </div>
               <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100 flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-amber-700 shrink-0" />
                 <div>
                   <span className="text-[10px] font-semibold text-slate-500 block uppercase">
-                    Travel Date (Inherited)
+                    Travel Date
                   </span>
                   <strong className="text-slate-900 font-bold">{ride.travelDateFormatted}</strong>
                 </div>
               </div>
-              <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-700 shrink-0" />
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-500 block uppercase">
-                    Opposite Pickup Time
-                  </span>
-                  <strong className="text-slate-900 font-bold">
-                    {ride.pickupTimeFormatted} ({ride.routeLabel})
-                  </strong>
-                </div>
-              </div>
             </div>
             <p className="text-[11px] text-amber-800 font-medium">
-              💡 By booking this return leg, the dedicated sedan completes a full round-trip. Both rides become guaranteed.
+              💡 Private 4-seater dedicated AC Sedan. Confirmed round-trip booking.
             </p>
           </div>
 
@@ -425,19 +419,19 @@ export function PublicMatchBookingModal({
             </div>
           </div>
 
-          {/* Section: Select Pickup Time (Enforces Minimum 4-Hour Gap) */}
+          {/* Section: Select Pickup Time */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-amber-600" />
-                <span>Select Your Pickup Time (Min 4h Gap)</span>
+                <span>Select Your Pickup Time</span>
               </h4>
-              <span className="text-[10px] font-bold text-slate-500">
-                Paired with: {ride.pickupTimeFormatted}
+              <span className="text-[10px] font-bold text-emerald-700">
+                Instant Round-Trip Match
               </span>
             </div>
             <p className="text-[11px] text-slate-600">
-              To allow cab transit and passenger turnaround, your pickup must be at least 4 hours before or after the waiting ride.
+              Choose an available pickup time slot for your travel:
             </p>
 
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5 max-h-44 overflow-y-auto p-1 bg-slate-50 rounded-2xl border border-slate-200">
@@ -543,7 +537,7 @@ export function PublicMatchBookingModal({
           <div className="flex items-center gap-2 text-slate-600 text-[11px]">
             <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>
-              Secure Razorpay Checkout. 100% full refund if opposite schedule changes.
+              Secure Razorpay Checkout. Note: Confirmed round-trip bookings are strictly non-refundable once confirmed.
             </span>
           </div>
         </div>
