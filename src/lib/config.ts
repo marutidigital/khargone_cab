@@ -127,9 +127,9 @@ export function isMatchDealWithinWindow(date: string, time: string, now = new Da
 export function getMatchCutoffAt(date: string, time: string, now = new Date()): string | null {
   const pickup = parsePickupDateTime(date, time)
   if (!pickup) return null
-  const remainingMs = pickup.getTime() - now.getTime()
-  const decisionWindowMs = Math.min(BOOKING_CONFIG.matchCutoffHours * 60 * 60 * 1000, remainingMs / 2)
-  return new Date(pickup.getTime() - decisionWindowMs).toISOString()
+  // Business rule: Matching cutoff is strictly 6 hours prior to scheduled departure
+  const cutoffMs = pickup.getTime() - 6 * 60 * 60 * 1000
+  return new Date(cutoffMs).toISOString()
 }
 
 export function isCutoffExpired(cutoffAt: string | null | undefined, now = new Date()): boolean {

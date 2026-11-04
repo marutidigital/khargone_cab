@@ -53,7 +53,6 @@ export async function GET(request: NextRequest) {
       .eq('status', 'waiting')
       .is('match_id', null)
       .gte('travel_date', today)
-      .gt('cutoff_at', nowIso)
       .order('travel_date', { ascending: true })
       .order('pickup_time', { ascending: true })
       .limit(50)
@@ -64,7 +63,26 @@ export async function GET(request: NextRequest) {
       query = query.eq('direction', 'IK')
     }
 
-    const { data: bookings, error } = await query
+    const { data: rawBookings, error } = await query
+
+    if (error) {
+      console.error('Error fetching available public rides:', error)
+      return NextResponse.json({ rides: [] }, { status: 500 })
+    }
+
+    const nowTime = Date.now()
+    const bookings = (rawBookings || []).filter((b: any) => {
+      // Check 6-hour cutoff: Either database cutoff_at is in future, or pickup - 6h is in future
+      if (b.cutoff_at && new Date(b.cutoff_at).getTime() > nowTime) {
+        return true
+      }
+      const pickupTimeStr = String(b.pickup_time || '12:00').slice(0, 5)
+      const pickup = new Date(`${b.travel_date}T${pickupTimeStr}:00+05:30`)
+      if (!isNaN(pickup.getTime())) {
+        return pickup.getTime() - 6 * 60 * 60 * 1000 > nowTime
+      }
+      return false
+    })
 
     if (error) {
       console.error('Error fetching available public rides:', error)

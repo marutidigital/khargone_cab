@@ -197,9 +197,47 @@ export default function Home() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#F4F4F5] text-slate-900 antialiased flex flex-col justify-between">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 antialiased flex flex-col justify-between">
       <div>
         <Nav />
+
+        {/* Hero Banner Section - Desktop & Mobile */}
+        <section className="mx-auto w-full max-w-7xl px-3 sm:px-6 pt-4 sm:pt-6">
+          <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-slate-950 shadow-sm transition-all hover:shadow-md">
+            <div className="relative aspect-[16/9] w-full overflow-hidden">
+              <img
+                src="/hero-banner.jpg"
+                alt="MarutiCab - Smart Ride Solution Khargone ↔ Indore. Two Cities, One Smart Connection."
+                className="w-full h-full object-cover object-center"
+              />
+            </div>
+          </div>
+
+          {/* Quick Route Highlights & Shortcuts */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white border border-slate-200/80 p-3.5 sm:p-4 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs sm:text-sm font-bold text-slate-800">
+                ⚡ Active Khargone ↔ Indore Private Cabs · Dedicated Sedan Only
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="#confirmed-rides-board"
+                className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-black px-3.5 py-2 shadow-xs transition active:scale-95"
+              >
+                <span>⚡ Available Return Rides</span>
+              </a>
+              <a
+                href="#booking-section"
+                className="flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold px-3.5 py-2 shadow-xs transition active:scale-95"
+              >
+                <span>Book Custom Cab</span>
+              </a>
+            </div>
+          </div>
+        </section>
+
         <BookingStepper
           currentStep={currentStep}
           completedSteps={completedSteps}
@@ -207,62 +245,48 @@ export default function Home() {
           steps={APP_STEPS}
         />
 
-        <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-8 sm:py-8">
-          {/* Header */}
-          <header className="mb-4 sm:mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-            <div>
-              <h1 className="flex flex-wrap items-center gap-2 text-lg font-black tracking-tight sm:text-2xl">
-                MarutiCab Private Cab
-                <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-900">
-                  {direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
-                </span>
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                Private Economy Sedan · Doorstep/City Point drop · No stranger co-passengers
-              </p>
-            </div>
-            <div className="flex items-center gap-2 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" /> Only ₹500 Advance · Balance after ride
-            </div>
-          </header>
+        <main className="mx-auto w-full max-w-7xl px-3 py-6 sm:px-6 sm:py-10 space-y-10 sm:space-y-12">
+          {/* Public Ride Matching Board (Available Rides – Complete Your Round 🚕) */}
+          <PublicRideMatchingBoard
+            onBookingSuccess={(bookingRef: string, publicToken: string, whatsappUrl: string) => {
+              setSuccessData({
+                bookingRef,
+                publicToken,
+                whatsappUrl,
+              })
+            }}
+          />
 
-          {/* Special Top Action Banner for Confirmed Round-Trip Board */}
-          <div className="mb-6 rounded-2xl bg-white border-2 border-amber-300 p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-400 text-slate-950 shrink-0 shadow-xs">
-                <Sparkles className="h-5 w-5" />
-              </div>
+          {/* Booking Section Container */}
+          <section id="booking-section" className="scroll-mt-24">
+            {/* Header */}
+            <header className="mb-6 sm:mb-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <div className="flex items-center gap-2">
-                  <strong className="text-xs sm:text-sm font-black text-slate-900 block">
-                    Have Return Travel? Browse Confirmed Return Rides
-                  </strong>
-                  <span className="hidden sm:inline-block rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 border border-emerald-300">
-                    Live Opposite Rides
+                  <span className="rounded-full bg-slate-900 text-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                    New Cab Request
+                  </span>
+                  <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-amber-900">
+                    {direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-600 mt-0.5">
-                  Directly pair with an active cab waiting in the opposite direction. Guaranteed confirmation & dedicated sedan.
+                <h2 className="text-xl sm:text-3xl font-black tracking-tight text-slate-900 mt-1.5">
+                  Book Your Dedicated Private Cab
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                  Private Economy Sedan · Doorstep / City Point Drop · Zero stranger co-passengers
                 </p>
               </div>
-            </div>
+              <div className="flex items-center gap-2 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Only ₹500 Advance · Balance to Driver in Cab
+              </div>
+            </header>
 
-            <div className="flex items-center gap-2">
-              <Link
-                href="/confirmed-rides"
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-2.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-              >
-                <span>⚡ View Confirmed Rides Board</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </div>
-
-          {notice && (
-            <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
-              {notice}
-            </div>
-          )}
+            {notice && (
+              <div role="alert" className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+                {notice}
+              </div>
+            )}
 
           {/* Desktop Layout: 2-Column with Sticky Sidebar */}
           <div className="hidden lg:grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -392,20 +416,8 @@ export default function Home() {
               </div>
             )}
           </div>
-
-          {/* Public Ride Matching Board (Available Rides – Complete Your Round 🚕) */}
-          <div className="mt-8">
-            <PublicRideMatchingBoard
-              onBookingSuccess={(bookingRef: string, publicToken: string, whatsappUrl: string) => {
-                setSuccessData({
-                  bookingRef,
-                  publicToken,
-                  whatsappUrl,
-                })
-              }}
-            />
-          </div>
-        </main>
+        </section>
+      </main>
       </div>
 
       {/* Mobile Native Sticky Action Bar */}

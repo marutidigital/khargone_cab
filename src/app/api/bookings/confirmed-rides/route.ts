@@ -18,23 +18,31 @@ export async function GET(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'Choose a valid route.' }, { status: 400 })
 
   const direction: RouteDirection = parsed.data.direction
-  const opposite: RouteDirection = direction === 'K2I' ? 'I2K' : 'K2I'
+  const targetDbDirection = direction === 'K2I' ? 'IK' : 'KI'
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const lastDate = new Date(`${today}T00:00:00+05:30`)
   lastDate.setDate(lastDate.getDate() + 60)
   const through = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(lastDate)
   const db = createServiceClient()
-  const { data, error } = await db.from('bookings')
+  const { data: rawData, error } = await db.from('bookings')
     .select('id,direction,travel_date,pickup_time,drop_point,drop_name,cutoff_at')
-    .eq('mode', 'match').eq('status', 'waiting').is('match_id', null).eq('direction', opposite)
+    .eq('mode', 'match').eq('status', 'waiting').is('match_id', null)
+    .in('direction', [targetDbDirection, direction === 'K2I' ? 'I2K' : 'K2I'])
     .gte('travel_date', today).lte('travel_date', through)
-    .gt('cutoff_at', new Date().toISOString())
     .order('travel_date', { ascending: true }).order('pickup_time', { ascending: true }).limit(MAX_RIDES)
 
   if (error) {
     console.error('Confirmed ride lookup failed:', error)
     return NextResponse.json({ error: 'Upcoming rides are temporarily unavailable.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } })
   }
+
+  const nowTime = Date.now()
+  const data = (rawData ?? []).filter((ride: any) => {
+    if (ride.cutoff_at && new Date(ride.cutoff_at).getTime() > nowTime) return true
+    const pickupStr = String(ride.pickup_time || '12:00').slice(0, 5)
+    const pickup = new Date(`${ride.travel_date}T${pickupStr}:00+05:30`)
+    return !isNaN(pickup.getTime()) && pickup.getTime() - 6 * 60 * 60 * 1000 > nowTime
+  })
 
   const ids = (data ?? []).map((ride: { id: string }) => ride.id)
   const { data: reservations, error: reservationError } = ids.length
