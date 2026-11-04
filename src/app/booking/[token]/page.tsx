@@ -51,8 +51,8 @@ type BookingView = {
   driver: DriverInfo | null
 }
 
-const SUPPORT_PHONE = '8878933778'
-const SUPPORT_WA = '918878933778'
+const SUPPORT_PHONE = '7282316090'
+const SUPPORT_WA = '917282316090'
 
 export default function BookingStatusPage() {
   const { token } = useParams<{ token: string }>()

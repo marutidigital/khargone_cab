@@ -321,7 +321,7 @@ Book karne ke liye *1* (Khargone to Indore) ya *2* (Indore to Khargone) reply ka
     return `📞 *MarutiCab Customer Support:*
 
 Hamari dispatch team 24/7 uplabdh hai:
-• Call / WhatsApp: +91 8878933778
+• Call / WhatsApp: +91 72823 16090
 • Website: https://maruticab.in
 • Office: Bus Stand, Khargone (M.P.)
 
@@ -460,7 +460,7 @@ Reply with *1*, *2*, *3*, *4* or *5*.`
       )
 
       if (!ruleResult.canAcceptPending) {
-        return `⚠️ *Booking Not Allowed at this Time:*\n${ruleResult.rejectionReason}\n\nKripya koi doosra time select karein ya call karein: 8878933778.`
+        return `⚠️ *Booking Not Allowed at this Time:*\n${ruleResult.rejectionReason}\n\nKripya koi doosra time select karein ya call karein: +91 72823 16090.`
       }
 
       conv.data.rule_code = ruleResult.ruleCode

@@ -271,8 +271,8 @@ export async function POST(request: NextRequest) {
     ? `🚕 *Welcome back, ${data.name}!* Thank you for choosing MarutiCab again.`
     : `🚕 *Welcome to MarutiCab, ${data.name}!* Your private cab request is received.`
 
-  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Pickup Time:* ${data.time}\n*Status:* ${savedBooking?.status === 'confirmed' ? 'Confirmed & Scheduled' : 'Advance Paid · Matching Return Cab'}\n\n💳 *Advance Paid:* ₹${advancePaid} (Online Payment Received)\n💵 *Balance to Driver:* ₹${balanceAmount} (Pay in cab)\n\nView details: https://maruticab.in/booking/${token}\nSupport WhatsApp: +91 8878933778`
-  const whatsappUrl = `https://wa.me/918878933778?text=${encodeURIComponent(waText)}`
+  const waText = `${greetingHeader}\n\n*Booking Ref:* ${booking.booking_ref}\n*Route:* ${routeName}\n*Drop Point:* ${pointName}\n*Date:* ${data.date}\n*Pickup Time:* ${data.time}\n*Status:* ${savedBooking?.status === 'confirmed' ? 'Confirmed & Scheduled' : 'Advance Paid · Matching Return Cab'}\n\n💳 *Advance Paid:* ₹${advancePaid} (Online Payment Received)\n💵 *Balance to Driver:* ₹${balanceAmount} (Pay in cab)\n\nView details: https://maruticab.in/booking/${token}\nSupport WhatsApp: +91 72823 16090`
+  const whatsappUrl = `https://wa.me/917282316090?text=${encodeURIComponent(waText)}`
 
   return NextResponse.json({
     bookingRef: booking.booking_ref,

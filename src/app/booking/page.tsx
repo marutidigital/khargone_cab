@@ -20,7 +20,7 @@ export default function PassengerBookingsPage() {
     router.replace('/my-rides')
   }, [router])
 
-  const whatsapp = `https://wa.me/918878933778?text=${encodeURIComponent('Hi MarutiCab, I need help opening my booking.')}`
+  const whatsapp = `https://wa.me/917282316090?text=${encodeURIComponent('Hi MarutiCab, I need help opening my booking.')}`
 
   return <div className="min-h-screen bg-slate-50 text-slate-900"><Nav /><main className="mx-auto max-w-xl px-4 py-10 sm:py-16">
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-9">

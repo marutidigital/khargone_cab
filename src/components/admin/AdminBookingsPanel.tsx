@@ -222,7 +222,7 @@ export function AdminBookingsPanel() {
                 const whatsapp = `https://wa.me/${normalizePhone(booking.phone)}?text=${encodeURIComponent(`Hi ${booking.passenger_name}, we are checking your MarutiCab booking ${booking.booking_ref}.` )}`
                 const driverShareWa = assignedDriver
                   ? `https://wa.me/${normalizePhone(booking.phone)}?text=${encodeURIComponent(
-                      `🚕 *MarutiCab Dispatch Details*\nRef: #${booking.booking_ref}\nPassenger: ${booking.passenger_name}\nRoute: ${route}\nDate: ${booking.travel_date} at ${booking.pickup_time}\n\n👤 *Driver:* ${assignedDriver.name}\n📞 *Driver Contact:* ${assignedDriver.phone || 'In-cab'}\n🚘 *Dedicated Cab:* ${assignedDriver.vehicle_model || 'Dzire Sedan (AC)'} (${assignedDriver.vehicle_number})\n\n💵 *Balance to Driver:* ${formatRs(booking.balance_amount || Math.max(0, booking.total_fare - 500))} (Pay in cab)\n\nℹ️ *Policy Note:* Drop included up to selected destination. Extra run beyond destination charged at ₹13/km.\nSupport: +91 8878933778`
+                      `🚕 *MarutiCab Dispatch Details*\nRef: #${booking.booking_ref}\nPassenger: ${booking.passenger_name}\nRoute: ${route}\nDate: ${booking.travel_date} at ${booking.pickup_time}\n\n👤 *Driver:* ${assignedDriver.name}\n📞 *Driver Contact:* ${assignedDriver.phone || 'In-cab'}\n🚘 *Dedicated Cab:* ${assignedDriver.vehicle_model || 'Dzire Sedan (AC)'} (${assignedDriver.vehicle_number})\n\n💵 *Balance to Driver:* ${formatRs(booking.balance_amount || Math.max(0, booking.total_fare - 500))} (Pay in cab)\n\nℹ️ *Policy Note:* Drop included up to selected destination. Extra run beyond destination charged at ₹13/km.\nSupport: +91 72823 16090`
                     )}`
                   : null
 

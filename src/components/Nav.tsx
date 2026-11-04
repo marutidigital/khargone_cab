@@ -50,7 +50,7 @@ export function Nav() {
           </Link>
 
           <a
-            href="https://wa.me/918878933778?text=Namaste%20MarutiCab%2C%20mujhe%20cab%20booking%20support%20chahiye."
+            href="https://wa.me/917282316090?text=Namaste%20MarutiCab%2C%20mujhe%20cab%20booking%20support%20chahiye."
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-black px-2.5 py-1.5 rounded-full active:scale-95 transition-transform shadow-xs whitespace-nowrap"
@@ -81,7 +81,7 @@ export function Nav() {
           </Link>
 
           <a
-            href="https://wa.me/918878933778?text=Namaste%20MarutiCab%2C%20mujhe%20cab%20booking%20support%20chahiye."
+            href="https://wa.me/917282316090?text=Namaste%20MarutiCab%2C%20mujhe%20cab%20booking%20support%20chahiye."
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs sm:text-sm font-extrabold px-3 py-2 rounded-xl shadow-xs active:scale-95 transition-all whitespace-nowrap"

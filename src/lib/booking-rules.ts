@@ -161,7 +161,7 @@ export async function evaluateBookingLeadTime(
         evaluated_at: bookingCreatedAt.toISOString(),
       },
       customerExplanation:
-        'Aapki departure mein 6 ghante se kam bache hain. Nayi pending request accept nahi ho sakti. Kripya customer support (8878933778) par call karein.',
+        'Aapki departure mein 6 ghante se kam bache hain. Nayi pending request accept nahi ho sakti. Kripya customer support (+91 72823 16090) par call karein.',
     }
   }
 

@@ -357,7 +357,7 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
             <span className="text-xs font-bold text-slate-800">
               Operations Desk
             </span>
-            <span className="text-[10px] text-emerald-700 font-bold">Support: +91 8878933778</span>
+            <span className="text-[10px] text-emerald-700 font-bold">Support: +91 72823 16090</span>
           </div>
 
           {/* Refresh */}

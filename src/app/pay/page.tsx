@@ -7,8 +7,8 @@ import { ShieldCheck, CreditCard, CheckCircle2 } from 'lucide-react'
 
 export default function RazorpayDemoPage() {
   const [amount, setAmount] = useState(500)
-  const [name, setName] = useState('Avadh Bajaj')
-  const [phone, setPhone] = useState('8878933778')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
   const [verifiedPayment, setVerifiedPayment] = useState<{
     orderId: string
     paymentId: string

@@ -157,12 +157,12 @@ export default function MyRidesPage() {
               <div>
                 <span className="font-extrabold block">MarutiCab WhatsApp Support</span>
                 <span className="text-[11px] text-emerald-800">
-                  Contact operations directly on WhatsApp at <strong>+91 8878933778</strong> for trip assistance.
+                  Contact operations directly on WhatsApp at <strong>+91 72823 16090</strong> for trip assistance.
                 </span>
               </div>
             </div>
             <a
-              href="https://wa.me/918878933778?text=Namaste%20MarutiCab%2C%20mujhe%20booking%20status%20chahiye."
+              href="https://wa.me/917282316090?text=Namaste%20MarutiCab%2C%20mujhe%20booking%20status%20chahiye."
               target="_blank"
               rel="noopener noreferrer"
               className="bg-[#25D366] hover:bg-[#20bd5a] text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shrink-0"
@@ -236,7 +236,7 @@ export default function MyRidesPage() {
                         View Full Details & Driver Info
                       </Link>
                       <a
-                        href={`https://wa.me/918878933778?text=${encodeURIComponent(
+                        href={`https://wa.me/917282316090?text=${encodeURIComponent(
                           `Hi MarutiCab, booking status for ${b.booking_ref}`
                         )}`}
                         target="_blank"

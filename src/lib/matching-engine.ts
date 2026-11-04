@@ -211,11 +211,11 @@ export async function secureAndConfirmMatch(params: {
       bookingId: bBack.id,
     })
 
-    // 8. Notify Admin
+    // 8. Notify Admin directly with action required to assign driver & vehicle
     await notifyAdmin(
       `match_confirmed:${matchId}`,
       bookingOutId,
-      `🎉 RETURN MATCH CONFIRMED! #${bOut.booking_ref} (Khargone➔Indore) paired with #${bBack.booking_ref} (Indore➔Khargone).`
+      `🚨 *ACTION REQUIRED: ROUND MATCH CONFIRMED!* #${bOut.booking_ref} (${bOut.direction === 'KI' ? 'Khargone➔Indore' : 'Indore➔Khargone'}) is paired with #${bBack.booking_ref}. You need to connect new car and driver details in this confirmed round booking now!`
     )
 
     return { success: true, matchId }
