@@ -269,6 +269,11 @@ export function AdminBookingsPanel() {
                       <a href={`tel:${booking.phone}`} className="mt-1 block text-xs text-slate-500 hover:text-amber-800 font-medium">
                         {booking.phone}
                       </a>
+                      {booking.email && (
+                        <div className="mt-0.5 text-[11px] text-slate-400 font-mono truncate max-w-[180px]" title={booking.email}>
+                          {booking.email}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-800">{route}</div>

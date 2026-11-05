@@ -31,6 +31,7 @@ interface Props {
   bookingLabel?: string
   passengerName: string
   passengerPhone: string
+  passengerEmail?: string
   onPaymentSuccess: (paymentInfo: {
     orderId: string
     paymentId: string
@@ -50,6 +51,7 @@ export function BookingPaymentPanel({
   bookingLabel,
   passengerName,
   passengerPhone,
+  passengerEmail,
   onPaymentSuccess,
 }: Props) {
   const [couponInput, setCouponInput] = useState('')
@@ -143,6 +145,7 @@ export function BookingPaymentPanel({
         prefill: {
           name: passengerName,
           contact: passengerPhone,
+          ...(passengerEmail ? { email: passengerEmail } : {}),
         },
         theme: {
           color: '#FBBF24',

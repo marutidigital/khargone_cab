@@ -51,7 +51,7 @@ export default function Home() {
   const [confirmedRide, setConfirmedRide] = useState<ConfirmedRideSelection | null>(null)
   const mode: BookingMode = 'match'
   const [time, setTime] = useState<ExactTimeOption | null>(null)
-  const [passenger, setPassenger] = useState<PassengerFormData>({ name: '', phone: '', passengers: 1, consent: true, address: '' })
+  const [passenger, setPassenger] = useState<PassengerFormData>({ name: '', phone: '', email: '', passengers: 1, consent: true, address: '' })
   const [matchAvailability, setMatchAvailability] = useState<{ ready: boolean; count: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
@@ -157,6 +157,7 @@ export default function Home() {
           ...(bookingTab === 'confirmed' && confirmedRide ? { confirmedRideId: confirmedRide.id } : {}),
           name: passenger.name.trim(),
           phone: passenger.phone,
+          ...(passenger.email?.trim() ? { email: passenger.email.trim() } : {}),
           passengers: passenger.passengers,
           address: passenger.address,
           consent: passenger.consent,
@@ -323,6 +324,7 @@ export default function Home() {
                 isSubmitting={isSubmitting}
                 passengerName={passenger.name}
                 passengerPhone={passenger.phone}
+                passengerEmail={passenger.email}
                 onPaymentSuccess={handlePaymentSuccessAndSubmit}
                 bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return Journey' : undefined}
               />
@@ -410,6 +412,7 @@ export default function Home() {
                   isSubmitting={isSubmitting}
                   passengerName={passenger.name}
                   passengerPhone={passenger.phone}
+                  passengerEmail={passenger.email}
                   onPaymentSuccess={handlePaymentSuccessAndSubmit}
                   bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return Journey' : undefined}
                 />

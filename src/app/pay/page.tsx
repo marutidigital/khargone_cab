@@ -9,6 +9,7 @@ export default function RazorpayDemoPage() {
   const [amount, setAmount] = useState(500)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [verifiedPayment, setVerifiedPayment] = useState<{
     orderId: string
     paymentId: string
@@ -104,6 +105,19 @@ export default function RazorpayDemoPage() {
                       className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-400"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Email Address <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. rahul@example.com"
+                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
                 </div>
 
                 {/* Checkout Button Component */}
@@ -112,6 +126,7 @@ export default function RazorpayDemoPage() {
                     amountInRupees={amount}
                     customerName={name}
                     customerPhone={phone}
+                    customerEmail={email}
                     description={`MarutiCab Advance Payment (₹${amount})`}
                     buttonText={`Pay ₹${amount.toLocaleString('en-IN')} Online`}
                     onSuccess={(res) => setVerifiedPayment(res)}

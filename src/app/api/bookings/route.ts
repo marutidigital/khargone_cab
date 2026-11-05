@@ -13,6 +13,7 @@ const Input = z.object({
   point: z.enum(['rajendra', 'bhawarkua', 'railway', 'airport', 'rajwada']),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
+  email: z.string().trim().email().optional().or(z.literal('')).transform(val => val || undefined),
   passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
   consent: z.literal(true), idempotencyKey: z.string().min(12).max(100),
   confirmedRideId: z.string().uuid().optional(),
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
   const { data: booking, error: insertError } = await db.from('bookings').insert({
     direction, mode: data.mode, vehicle: 'economy_sedan', vehicle_type: 'sedan',
     drop_point: data.point, drop_name: PRICING_CONFIG.points.find((entry) => entry.id === data.point)?.name || data.point, travel_date: data.date, pickup_time: data.time,
-    passenger_name: data.name, phone: data.phone, passenger_count: data.passengers, address: data.address || null,
+    passenger_name: data.name, phone: data.phone, email: data.email || null, passenger_count: data.passengers, address: data.address || null,
     consent_whatsapp: true, consent_at: new Date().toISOString(),
     consent_text: 'I agree to receive WhatsApp updates about this booking and accept the Terms and Refund Policy.',
     base_fare: fare.baseFare, discount: data.couponCode ? (advancePaid === 2 ? 498 : 495) : 0, night_extra: fare.nightSurcharge,
@@ -265,6 +266,16 @@ export async function POST(request: NextRequest) {
   } else if (savedBooking?.status === 'waiting') {
     void sendBookingAutomation('booking_waiting', savedBooking).catch((error) => console.error('Booking WhatsApp automation failed:', error))
     void notifyAdmin(`new-waiting:${booking.id}`, booking.id, `🚨 New Waiting Booking #${booking.booking_ref}: ${data.name} (${data.phone}) - ${routeName} on ${data.date} at ${data.time}. Advance ₹${advancePaid} paid online. Waiting for return match.`)
+  }
+
+  // Send email confirmation if email was provided
+  if (data.email && savedBooking) {
+    try {
+      const { sendBookingEmail } = await import('@/lib/email')
+      void sendBookingEmail({ ...(savedBooking as any), email: data.email }).catch((err) => console.warn('Email dispatch notice:', err))
+    } catch (emailErr) {
+      console.warn('Booking email import notice:', emailErr)
+    }
   }
 
   const greetingHeader = isRepeatCustomer
