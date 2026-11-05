@@ -14,7 +14,6 @@ import { SectionPassenger, type PassengerFormData } from '@/components/booking/S
 import { BookingPaymentPanel } from '@/components/booking/BookingPaymentPanel'
 import { ConfirmedRidePicker, type ConfirmedRideSelection } from '@/components/booking/ConfirmedRidePicker'
 import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal'
-import { PublicRideMatchingBoard } from '@/components/booking/PublicRideMatchingBoard'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
 import { PRICING_CONFIG, formatRs, isNightTime } from '@/config/pricing'
@@ -247,17 +246,6 @@ export default function Home() {
         />
 
         <main className="mx-auto w-full max-w-7xl px-3 py-6 sm:px-6 sm:py-10 space-y-10 sm:space-y-12">
-          {/* Public Ride Matching Board (Available Rides – Complete Your Round 🚕) */}
-          <PublicRideMatchingBoard
-            onBookingSuccess={(bookingRef: string, publicToken: string, whatsappUrl: string) => {
-              setSuccessData({
-                bookingRef,
-                publicToken,
-                whatsappUrl,
-              })
-            }}
-          />
-
           {/* Booking Section Container */}
           <section id="booking-section" className="scroll-mt-24">
             {/* Header */}

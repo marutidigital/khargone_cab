@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, MessageCircle, Pause, Play, Plus, Save, Send, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, FileText, MessageCircle, Pause, Play, Plus, Save, Send, Trash2 } from 'lucide-react'
 import { getAdminApiHeaders } from '@/lib/admin-api'
 import type {
   WhatsAppAutomationConfig,
@@ -49,7 +49,7 @@ const EMPTY_DRAFT: Draft = {
   enabled: false,
 }
 
-export function WhatsAppAutomationPanel() {
+export function WhatsAppAutomationPanel({ onSwitchToTemplates }: { onSwitchToTemplates?: () => void } = {}) {
   const [config, setConfig] = useState<WhatsAppAutomationConfig>({ enabled: false, templates: [] })
   const [readiness, setReadiness] = useState<Readiness | null>(null)
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
@@ -235,6 +235,28 @@ export function WhatsAppAutomationPanel() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Quick link to live Meta Templates Panel with Sync */}
+      <div className="bg-amber-500/10 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-900">Looking for all WhatsApp Message Templates & Sync?</h3>
+            <p className="text-xs text-slate-600 font-medium">All live Meta approved templates, live preview, and the &quot;Sync Templates&quot; button are in the <strong>Templates</strong> tab.</p>
+          </div>
+        </div>
+        {onSwitchToTemplates && (
+          <button
+            onClick={onSwitchToTemplates}
+            type="button"
+            className="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap"
+          >
+            Open Templates Tab (Sync & All Templates) ➔
+          </button>
+        )}
       </div>
 
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}

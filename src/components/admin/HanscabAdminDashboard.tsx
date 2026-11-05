@@ -411,7 +411,12 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
       {activeView === 'rules' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminBookingRulesPanel /></main>}
       {activeView === 'templates' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminTemplatesPanel /></main>}
       {activeView === 'customers' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminCustomersPanel /></main>}
-      {activeView === 'whatsapp' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><WhatsAppAutomationPanel /><WhatsAppOperationsPanel /></main>}
+      {activeView === 'whatsapp' && (
+        <main className="max-w-7xl mx-auto space-y-6 mt-6">
+          <WhatsAppAutomationPanel onSwitchToTemplates={() => setActiveView('templates')} />
+          <WhatsAppOperationsPanel />
+        </main>
+      )}
     </div>
   )
 }
