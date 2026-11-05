@@ -28,7 +28,6 @@ import {
   Sliders,
   Route,
   CreditCard,
-  FileText,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase-client'
 import type { Lead, LeadStage } from '@/types'
@@ -40,7 +39,6 @@ import { WhatsAppOperationsPanel } from '@/components/admin/WhatsAppOperationsPa
 import { AdminBookingRulesPanel } from '@/components/admin/AdminBookingRulesPanel'
 import { AdminMatchesAndFleetPanel } from '@/components/admin/AdminMatchesAndFleetPanel'
 import { AdminPaymentsAndRefundsPanel } from '@/components/admin/AdminPaymentsAndRefundsPanel'
-import { AdminTemplatesPanel } from '@/components/admin/AdminTemplatesPanel'
 
 interface Props {
   user: any
@@ -56,7 +54,7 @@ const STAGE_OPTIONS: { id: LeadStage; label: string; color: string }[] = [
 ]
 
 export function HanscabAdminDashboard({ user, onSignOut }: Props) {
-  const [activeView, setActiveView] = useState<'bookings' | 'matches' | 'payments' | 'rules' | 'templates' | 'customers' | 'whatsapp' | 'leads'>('bookings')
+  const [activeView, setActiveView] = useState<'bookings' | 'matches' | 'payments' | 'rules' | 'customers' | 'whatsapp' | 'leads'>('bookings')
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -337,7 +335,6 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
               ['matches', 'Matches & Fleet', Route],
               ['payments', 'Payments & Refunds', CreditCard],
               ['rules', 'Rules Engine', Sliders],
-              ['templates', 'Templates', FileText],
               ['customers', 'Customers (CRM)', Users],
               ['whatsapp', 'WhatsApp', MessageSquareText],
             ] as const).map(([view, label, Icon]) => (
@@ -409,11 +406,10 @@ export function HanscabAdminDashboard({ user, onSignOut }: Props) {
       {activeView === 'matches' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminMatchesAndFleetPanel /></main>}
       {activeView === 'payments' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminPaymentsAndRefundsPanel /></main>}
       {activeView === 'rules' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminBookingRulesPanel /></main>}
-      {activeView === 'templates' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminTemplatesPanel /></main>}
       {activeView === 'customers' && <main className="max-w-7xl mx-auto space-y-6 mt-6"><AdminCustomersPanel /></main>}
       {activeView === 'whatsapp' && (
         <main className="max-w-7xl mx-auto space-y-6 mt-6">
-          <WhatsAppAutomationPanel onSwitchToTemplates={() => setActiveView('templates')} />
+          <WhatsAppAutomationPanel />
           <WhatsAppOperationsPanel />
         </main>
       )}

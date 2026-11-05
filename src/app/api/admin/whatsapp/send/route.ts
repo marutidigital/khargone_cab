@@ -1,59 +1,180 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeAdminRequest } from '@/lib/admin-auth'
-import { getWhatsAppAutomationConfig, getWhatsAppReadiness } from '@/lib/whatsapp-automation'
-import { sendTemplateMessage } from '@/lib/whatsapp'
 import { createServiceClient } from '@/lib/supabase-server'
-import { randomUUID } from 'node:crypto'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const auth = await authorizeAdminRequest(req)
   if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status })
 
   try {
-    const readiness = getWhatsAppReadiness()
-    if (!readiness.canSend) {
-      return NextResponse.json({
-        error: 'Sending is paused. Verify the number, resolve its quality status, and configure the server credentials first.',
-      }, { status: 409 })
-    }
-
     const body = await req.json()
-    const templateId = typeof body?.templateId === 'string' ? body.templateId : ''
+    const templateName = String(body?.templateName || body?.templateId || '').trim()
     const rawPhone = typeof body?.phone === 'string' ? body.phone : ''
     const digits = rawPhone.replace(/\D/g, '')
     const phone = digits.length === 10 ? `91${digits}` : digits
     const parameters = Array.isArray(body?.parameters)
-      ? body.parameters.filter((item: unknown) => typeof item === 'string').map((item: string) => item.trim())
+      ? body.parameters.map((item: unknown) => String(item ?? '').trim())
       : []
 
     if (!/^91[6-9]\d{9}$/.test(phone)) {
-      return NextResponse.json({ error: 'Enter a valid Indian WhatsApp number.' }, { status: 400 })
+      return NextResponse.json({ error: 'Enter a valid 10-digit Indian WhatsApp number.' }, { status: 400 })
     }
 
-    const config = await getWhatsAppAutomationConfig()
-    const template = config.templates.find((item: { id: string; approved: boolean }) => item.id === templateId && item.approved)
-    if (!template) {
-      return NextResponse.json({ error: 'Choose a template marked approved in WhatsApp Manager.' }, { status: 400 })
+    if (!templateName) {
+      return NextResponse.json({ error: 'Please select a template to send.' }, { status: 400 })
     }
-    if (parameters.length !== template.parameterFields.length || parameters.some((item: string) => item.length > 1024)) {
-      return NextResponse.json({ error: 'Enter one value for each template parameter.' }, { status: 400 })
+
+    const token = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '1379464058575093'
+    const wabaId = process.env.WHATSAPP_WABA_ID
+
+    if (!token || token.includes('dummy')) {
+      if (process.env.WHATSAPP_MOCK === 'true') {
+        return NextResponse.json({ success: true, messageId: `mock_${Date.now()}`, mock: true })
+      }
+      return NextResponse.json({ error: 'WhatsApp API credentials are not configured on the server.' }, { status: 500 })
     }
 
     const db = createServiceClient()
-    const idempotencyKey = `admin-manual:${randomUUID()}`
-    const { error: logError } = await db.from('notifications').insert({ booking_id: null, recipient_type: 'customer', template: template.metaName, status: 'queued', idempotency_key: idempotencyKey, event_version: 'admin-manual' })
-    if (logError) return NextResponse.json({ error: 'Could not create a send log. Apply the WhatsApp migration and retry.' }, { status: 503 })
-    try {
-      const result = await sendTemplateMessage({ to: phone, template, parameters }) as { messages?: { id?: string }[] }
-      const messageId = result?.messages?.[0]?.id ?? null
-      await db.from('notifications').update({ status: 'sent', wa_message_id: messageId, provider_message_id: messageId, sent_at: new Date().toISOString() }).eq('idempotency_key', idempotencyKey)
-      return NextResponse.json({ success: true, messageId })
-    } catch (error) {
-      await db.from('notifications').update({ status: 'failed', error: error instanceof Error ? error.message.slice(0, 500) : 'WhatsApp send failed.' }).eq('idempotency_key', idempotencyKey)
-      throw error
+
+    // 1. Try to find template in Supabase whatsapp_message_templates table
+    const { data: dbTpl } = await db
+      .from('whatsapp_message_templates')
+      .select('*')
+      .or(`template_code.eq.${templateName.toLowerCase()},meta_template_name.eq.${templateName}`)
+      .limit(1)
+      .maybeSingle()
+
+    let metaName = dbTpl?.meta_template_name || templateName
+    let langCode = dbTpl?.language || 'en'
+    let hasFlow = Boolean(
+      dbTpl?.category === 'FLOW' ||
+      dbTpl?.variables?.includes('__has_flow__') ||
+      templateName.toLowerCase().includes('flow')
+    )
+
+    // 2. If not found in DB or flow status unknown, inspect Meta Graph API
+    if (wabaId && (!dbTpl || !hasFlow)) {
+      try {
+        const metaRes = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/message_templates?name=${templateName}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (metaRes.ok) {
+          const metaJson = await metaRes.json()
+          const mt = metaJson?.data?.find((t: any) => t.name === templateName) || metaJson?.data?.[0]
+          if (mt) {
+            metaName = mt.name
+            langCode = mt.language || langCode
+            const buttonsComp = mt.components?.find((c: any) => c.type === 'BUTTONS')
+            if (buttonsComp?.buttons?.some((b: any) => b.type === 'FLOW')) {
+              hasFlow = true
+            }
+          }
+        }
+      } catch (metaErr) {
+        console.warn('Meta template lookup warning:', metaErr)
+      }
     }
-  } catch (error) {
+
+    // 3. Build payload components
+    const components: any[] = []
+
+    if (parameters.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: parameters.map((val: string) => ({ type: 'text', text: val })),
+      })
+    }
+
+    if (hasFlow) {
+      components.push({
+        type: 'button',
+        sub_type: 'flow',
+        index: '0',
+        parameters: [
+          {
+            type: 'action',
+            action: {
+              flow_token: `flow_${Date.now()}`,
+            },
+          },
+        ],
+      })
+    }
+
+    const payload: any = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: phone,
+      type: 'template',
+      template: {
+        name: metaName,
+        language: { code: langCode },
+        ...(components.length ? { components } : {}),
+      },
+    }
+
+    const sendUrl = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`
+
+    let sendRes = await fetch(sendUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    let sendJson = await sendRes.json()
+
+    // Auto-retry with language fallback (en <-> en_US)
+    if (!sendRes.ok && sendJson?.error?.code === 132001) {
+      const fallbackLang = langCode === 'en' ? 'en_US' : 'en'
+      payload.template.language.code = fallbackLang
+      sendRes = await fetch(sendUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+      sendJson = await sendRes.json()
+    }
+
+    if (!sendRes.ok) {
+      const msg = sendJson?.error?.message || 'Failed to send template.'
+      const details = sendJson?.error?.error_data?.details || ''
+      return NextResponse.json({
+        error: `${msg} ${details}`.trim(),
+        details: sendJson?.error,
+      }, { status: 400 })
+    }
+
+    const messageId = sendJson?.messages?.[0]?.id || null
+
+    // Record notification log
+    await db.from('notifications').insert({
+      booking_id: null,
+      recipient_type: 'customer',
+      template: metaName,
+      status: 'sent',
+      wa_message_id: messageId,
+      provider_message_id: messageId,
+      idempotency_key: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      event_version: 'admin_manual',
+    }).catch(() => null)
+
+    return NextResponse.json({
+      success: true,
+      messageId,
+      template: metaName,
+      phone,
+    })
+  } catch (error: any) {
     console.error('WhatsApp template send failed:', error)
-    return NextResponse.json({ error: 'WhatsApp could not send this template message.' }, { status: 502 })
+    return NextResponse.json({ error: error.message || 'WhatsApp send failed.' }, { status: 500 })
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeAdminRequest } from '@/lib/admin-auth'
+import { createServiceClient } from '@/lib/supabase-server'
 import {
   getWhatsAppAutomationConfig,
   getWhatsAppReadiness,
@@ -73,11 +74,13 @@ export async function GET(req: NextRequest) {
   if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status })
 
   try {
-    const [config, readiness] = await Promise.all([
+    const db = createServiceClient()
+    const [config, readiness, { data: dbTemplates }] = await Promise.all([
       getWhatsAppAutomationConfig(),
       Promise.resolve(getWhatsAppReadiness()),
+      db.from('whatsapp_message_templates').select('*').order('template_code', { ascending: true }),
     ])
-    return NextResponse.json({ config, readiness })
+    return NextResponse.json({ config, readiness, allTemplates: dbTemplates || [] })
   } catch (error) {
     console.error('WhatsApp template config read failed:', error)
     return NextResponse.json({ error: 'Could not load WhatsApp templates.' }, { status: 500 })
