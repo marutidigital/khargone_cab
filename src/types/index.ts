@@ -46,6 +46,7 @@ export interface Booking {
   driver_id?: string | null
   driver_name?: string | null
   vehicle_model?: string | null
+  extras?: any
   created_at: string
   updated_at: string
 }

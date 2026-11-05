@@ -99,6 +99,53 @@ export async function sendInteractiveButtons({ to, body, buttons, bookingId, eve
   } }, bookingId, eventVersion })
 }
 
+export async function sendFlowMessage({
+  to,
+  flowId = process.env.WHATSAPP_FLOW_ID || '1585365243178046',
+  ctaText = 'Book Cab Now',
+  headerText = '🚖 Maruti Cab Booking',
+  bodyText = 'Khargone ⇄ Indore · Ujjain · Omkareshwar.\nTap below to fill your pickup details in 30 seconds.',
+  bookingId,
+  eventVersion,
+}: {
+  to: string
+  flowId?: string
+  ctaText?: string
+  headerText?: string
+  bodyText?: string
+  bookingId?: string | null
+  eventVersion?: string
+}) {
+  const phone = normalizeWhatsAppPhone(to)
+  return sendLoggedFreeform({
+    phone,
+    message: {
+      type: 'interactive',
+      interactive: {
+        type: 'flow',
+        header: { type: 'text', text: headerText },
+        body: { text: bodyText },
+        footer: { text: '100% On-Time Pickup · MarutiCab 🚕' },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_token: `flow_${Date.now()}`,
+            flow_id: flowId,
+            flow_cta: ctaText,
+            flow_action: 'navigate',
+            flow_action_payload: {
+              screen: 'BOOK_CAB',
+            },
+          },
+        },
+      },
+    },
+    bookingId,
+    eventVersion,
+  })
+}
+
 export async function sendInChatPaymentOrder({
   to,
   amountInRs,

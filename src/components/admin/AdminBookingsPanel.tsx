@@ -263,6 +263,13 @@ export function AdminBookingsPanel() {
                         <CalendarDays className="h-3.5 w-3.5" />
                         {booking.created_at?.slice(0, 10) || '—'}
                       </div>
+                      {booking.extras?.booked_via === 'whatsapp_flow' && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                            📱 WhatsApp Flow
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-900">{booking.passenger_name}</div>
