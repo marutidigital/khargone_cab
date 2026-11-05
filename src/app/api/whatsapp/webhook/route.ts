@@ -1,4 +1,4 @@
-import { after, NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { extractWhatsAppStatuses, formatIncomingMessage, normalizeWhatsAppPhone, parseWhatsAppActionPayload, sendText, verifyWhatsAppWebhookSignature } from '@/lib/whatsapp'
 import { notifyAdmin, notify } from '@/lib/booking-notifications'
@@ -51,7 +51,7 @@ async function handleInbound(body: any) {
     wa_message_id: message.id, wa_id: phone, text: message.text.slice(0, 4000), message_type: message.type,
     received_at: receivedAt, booking_id: booking?.id || null,
   })
-  if (insertError) return // Meta can redeliver the same message.
+  if (insertError && insertError.code === '23505') return // Duplicate redelivery from Meta.
   await db.from('whatsapp_phone_preferences').upsert({ wa_id: phone, last_inbound_at: receivedAt, updated_at: new Date().toISOString() }, { onConflict: 'wa_id' })
   if (booking) await db.from('bookings').update({ last_inbound_at: receivedAt }).eq('phone', phone.slice(-10))
 
@@ -60,40 +60,109 @@ async function handleInbound(body: any) {
   const statusUrl = booking?.public_token ? `${process.env.APP_BASE_URL || 'https://maruticab.in'}/booking/${booking.public_token}` : null
 
   // ── INCOMING WHATSAPP FLOW SUBMISSION (Native in-chat form completed) ──
-  const flowJsonRaw = message.flowReply?.response_json || (message.text.startsWith('{') && message.text.includes('"route"') ? message.text : null)
+  const flowJsonRaw = message.flowReply?.response_json || (typeof message.text === 'string' && message.text.trim().startsWith('{') && message.text.trim().endsWith('}') ? message.text.trim() : null)
   if (flowJsonRaw) {
     try {
-      const flowData = JSON.parse(flowJsonRaw)
-      if (flowData.route || flowData.travel_date || flowData.passenger_name || flowData.date || flowData.name) {
-        const custName = String(flowData.passenger_name || flowData.name || 'Passenger').trim()
-        const custPhone = String(flowData.passenger_phone || flowData.phone || phone.slice(-10)).replace(/\D/g, '').slice(-10)
-        const custEmail = String(flowData.passenger_email || flowData.email || '').trim() || null
-        const routeVal = String(flowData.route || 'khargone_to_indore')
-        const vehicleVal = String(flowData.vehicle || 'sedan')
-        const travelDate = String(flowData.travel_date || flowData.date || new Date().toISOString().slice(0, 10))
-        const pickupTime = String(flowData.pickup_time || flowData.time || '09:00 AM')
-        const pickupAddress = String(flowData.pickup_address || flowData.address || '')
+      const flowData = typeof flowJsonRaw === 'string' ? JSON.parse(flowJsonRaw) : flowJsonRaw
+      if (flowData && typeof flowData === 'object' && Object.keys(flowData).length > 0) {
+        const custName = String(
+          flowData.passenger_name ||
+          flowData.name ||
+          flowData.full_name ||
+          flowData.customer_name ||
+          'Passenger'
+        ).trim()
 
-        const isSuv = vehicleVal.toLowerCase().includes('suv') || vehicleVal.toLowerCase().includes('ertiga')
-        const isUjjain = routeVal.toLowerCase().includes('ujjain')
-        const isOmkareshwar = routeVal.toLowerCase().includes('omkareshwar')
-        const baseFare = isOmkareshwar ? 1800 : (isUjjain ? 2800 : (isSuv ? 2850 : 2200))
-        const totalFare = isSuv && !isOmkareshwar && !isUjjain ? 2850 : baseFare
+        const custPhone = String(
+          flowData.passenger_phone ||
+          flowData.phone ||
+          flowData.mobile ||
+          flowData.contact ||
+          phone.slice(-10)
+        ).replace(/\D/g, '').slice(-10)
 
-        const direction = routeVal.toLowerCase().startsWith('indore') ? 'indore_to_khargone' : 'khargone_to_indore'
-        const bookingRef = `KC${Math.floor(1000 + Math.random() * 9000)}`
+        const custEmail = String(
+          flowData.passenger_email ||
+          flowData.email ||
+          ''
+        ).trim() || null
 
-        const { data: newBooking } = await db.from('bookings').insert({
+        const rawRoute = String(
+          flowData.route ||
+          flowData.selected_route ||
+          flowData.trip ||
+          (flowData.from && flowData.to ? `${flowData.from}_to_${flowData.to}` : 'khargone_to_indore')
+        ).toLowerCase()
+
+        const isUjjain = rawRoute.includes('ujjain')
+        const isOmkareshwar = rawRoute.includes('omkareshwar')
+        const isIndoreToKhargone = rawRoute.startsWith('indore') || rawRoute.includes('i2k') || rawRoute.includes('indore_to_khargone')
+
+        // DB requires direction to be strictly 'KI' or 'IK'
+        const direction = isIndoreToKhargone ? 'IK' : 'KI'
+
+        // Route pricing (Maruti Cab dedicated Sedan AC)
+        const baseFare = isOmkareshwar ? 1800 : (isUjjain ? 2800 : 2200)
+        const totalFare = baseFare
+        const advanceAmount = 500
+        const balanceAmount = Math.max(0, totalFare - advanceAmount)
+
+        const routeLabel = isOmkareshwar
+          ? (isIndoreToKhargone ? 'Omkareshwar ➔ Khargone' : 'Khargone ➔ Omkareshwar')
+          : (isUjjain
+              ? (isIndoreToKhargone ? 'Ujjain ➔ Khargone' : 'Khargone ➔ Ujjain')
+              : (isIndoreToKhargone ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'))
+
+        const travelDate = String(
+          flowData.travel_date ||
+          flowData.date ||
+          flowData.trip_date ||
+          new Date().toISOString().slice(0, 10)
+        )
+
+        const rawTime = String(
+          flowData.pickup_time ||
+          flowData.time ||
+          flowData.departure_time ||
+          '09:00 AM'
+        )
+
+        // Helper to format pickup_time for Postgres time column
+        let dbPickupTime = '09:00:00'
+        const matchTime = rawTime.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i)
+        if (matchTime) {
+          let hours = parseInt(matchTime[1], 10)
+          const mins = matchTime[2]
+          const ampm = (matchTime[3] || '').toUpperCase()
+          if (ampm === 'PM' && hours < 12) hours += 12
+          if (ampm === 'AM' && hours === 12) hours = 0
+          dbPickupTime = `${String(hours).padStart(2, '0')}:${mins}:00`
+        }
+
+        const pickupAddress = String(
+          flowData.pickup_address ||
+          flowData.address ||
+          flowData.pickup_location ||
+          flowData.pickup ||
+          ''
+        ).trim()
+
+        const bookingRef = `KC${Math.floor(10000 + Math.random() * 90000)}`
+        const { randomBytes } = await import('node:crypto')
+        const publicToken = randomBytes(32).toString('base64url')
+        const idempotencyKey = randomBytes(16).toString('hex')
+
+        const { data: newBooking, error: bookingErr } = await db.from('bookings').insert({
           booking_ref: bookingRef,
           status: 'pending_payment',
           direction,
           mode: 'match',
-          vehicle: isSuv ? 'suv_ertiga' : 'economy_sedan',
-          vehicle_type: isSuv ? 'suv' : 'sedan',
+          vehicle: 'economy_sedan',
+          vehicle_type: 'sedan',
           drop_point: 'rajendra',
-          drop_name: 'City Center',
+          drop_name: 'City Point Drop',
           travel_date: travelDate,
-          pickup_time: pickupTime,
+          pickup_time: dbPickupTime,
           passenger_name: custName,
           phone: custPhone,
           email: custEmail,
@@ -103,36 +172,55 @@ async function handleInbound(body: any) {
           consent_at: new Date().toISOString(),
           base_fare: totalFare,
           total_fare: totalFare,
-          advance_amount: 500,
-          balance_amount: Math.max(0, totalFare - 500),
+          advance_amount: advanceAmount,
+          balance_amount: balanceAmount,
+          public_token: publicToken,
+          idempotency_key: idempotencyKey,
           extras: { booked_via: 'whatsapp_flow', flow_response: flowData },
         }).select().single()
 
+        if (bookingErr) {
+          console.error('WhatsApp Flow booking insert error:', bookingErr)
+        }
+
         if (newBooking) {
-          const routeLabel = routeVal.replace(/_/g, ' ').toUpperCase()
           const { sendInChatPaymentOrder, sendText } = await import('@/lib/whatsapp')
-          await sendInChatPaymentOrder({
-            to: phone,
-            amountInRs: 500,
-            bookingRef: newBooking.booking_ref,
-            bookingId: newBooking.id,
-            customerName: custName,
-            routeName: routeLabel,
-            travelDate,
-            pickupTime,
-          }).catch(async () => {
-            await sendText({
+
+          // Attempt native in-chat UPI payment order
+          try {
+            await sendInChatPaymentOrder({
               to: phone,
-              body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai.\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Date & Time:* ${travelDate} at ${pickupTime}\n💰 *Total Fare:* ₹${totalFare}\n💵 *Advance Amount:* ₹500\n\nNeeche diye link se 1 minute me payment complete karein:\nhttps://www.maruticab.in/pay?ref=${newBooking.booking_ref}`,
+              amountInRs: advanceAmount,
+              bookingRef: newBooking.booking_ref,
+              bookingId: newBooking.id,
+              customerName: custName,
+              routeName: routeLabel,
+              travelDate,
+              pickupTime: rawTime,
             })
+          } catch (orderErr) {
+            console.warn('In-chat payment order notice:', orderErr)
+          }
+
+          // Always send the confirmation text message with the direct payment link
+          // This guarantees WhatsApp Web (desktop) & all mobile devices receive the instant 1-minute checkout link
+          await sendText({
+            to: phone,
+            body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai. 🙏\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Travel Date:* ${travelDate} at ${rawTime}\n🚘 *Vehicle:* Maruti Dzire / Dedicated AC Sedan (4 Seater)\n💰 *Total Fare:* ₹${totalFare.toLocaleString('en-IN')}\n💵 *Advance Amount:* ₹${advanceAmount} (Baaki ₹${balanceAmount.toLocaleString('en-IN')} driver ko cab me dena hai)\n\nNeeche diye link par click karke 1 minute me advance payment karein taaki aapki cab confirm ho jaye:\n👉 https://www.maruticab.in/pay?ref=${newBooking.booking_ref}\n\n🛡️ 100% Refund Guarantee agar match confirm nahi hota.\n📞 24x7 Helpline: +91 72823 16090`,
+            bookingId: newBooking.id,
+            eventVersion: `flow_confirm:${newBooking.booking_ref}`,
           })
 
-          void notifyAdmin(`flow-booking:${newBooking.id}`, newBooking.id, `🚨 New WhatsApp Flow Booking #${newBooking.booking_ref}: ${custName} (${custPhone}) - ${routeLabel} on ${travelDate} at ${pickupTime}. Awaiting ₹500 advance.`)
+          void notifyAdmin(
+            `flow-booking:${newBooking.id}`,
+            newBooking.id,
+            `🚨 New WhatsApp Flow Booking #${newBooking.booking_ref}: ${custName} (${custPhone}) - ${routeLabel} on ${travelDate} at ${rawTime}. Fare: ₹${totalFare}, Advance ₹${advanceAmount} pending.`
+          )
           return
         }
       }
     } catch (e) {
-      console.warn('WhatsApp flow response parse notice:', e)
+      console.error('WhatsApp flow response processing error:', e)
     }
   }
 
@@ -410,7 +498,9 @@ export async function POST(request: NextRequest) {
     for (const message of messages) {
       if (!message?.id) continue
       const { error } = await db.from('whatsapp_webhook_events').insert({ wa_message_id: String(message.id), event_type: `inbound:${message.type || 'unknown'}` })
-      if (!error) await handleInbound({ entry: [{ changes: [{ value: { messages: [message] } }] }] })
+      if (!error || error.code !== '23505') {
+        await handleInbound({ entry: [{ changes: [{ value: { messages: [message] } }] }] })
+      }
     }
     for (const status of statuses) {
       if (!status?.id) continue
@@ -418,8 +508,12 @@ export async function POST(request: NextRequest) {
       await db.from('whatsapp_webhook_events').upsert({ wa_message_id: key, event_type: `status:${status.status}`, processed_at: new Date().toISOString() }, { onConflict: 'wa_message_id' })
     }
   }
-  after(async () => {
-    await work().catch((error) => { console.error('WhatsApp webhook event processing failed:', error instanceof Error ? error.message : 'unknown error') })
-  })
+
+  try {
+    await work()
+  } catch (error) {
+    console.error('WhatsApp webhook event processing failed:', error instanceof Error ? error.message : 'unknown error')
+  }
+
   return NextResponse.json({ received: true })
 }

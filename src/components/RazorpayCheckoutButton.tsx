@@ -19,7 +19,7 @@ interface RazorpayCheckoutButtonProps {
   customerPhone?: string
   customerEmail?: string
   notes?: Record<string, string>
-  onSuccess?: (paymentResult: { orderId: string; paymentId: string }) => void
+  onSuccess?: (paymentResult: { orderId: string; paymentId: string; signature?: string }) => void
   onFailure?: (error: string) => void
   className?: string
   buttonText?: string
@@ -129,6 +129,7 @@ export function RazorpayCheckoutButton({
             onSuccess?.({
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
             })
           } catch (err: any) {
             setErrorMessage(err.message || 'Payment verification error.')
