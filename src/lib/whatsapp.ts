@@ -259,18 +259,20 @@ export function parseWhatsAppActionPayload(value: string): { action: 'REFUND' | 
   return match ? { action: match[1] as 'REFUND' | 'UPGRADE', token: match[2] } : null
 }
 
-export function formatIncomingMessage(body: any): { id: string; phone: string; text: string; timestamp: string; type: string; order?: any } | null {
+export function formatIncomingMessage(body: any): { id: string; phone: string; text: string; timestamp: string; type: string; order?: any; flowReply?: any } | null {
   const message = body?.entry?.flatMap((entry: any) => entry?.changes ?? [])
     .flatMap((change: any) => change?.value?.messages ?? [])[0]
   if (!message?.id || !message?.from) return null
+  const flowReply = message.interactive?.nfm_reply
   const text = message.text?.body
     ?? message.button?.text
     ?? message.interactive?.button_reply?.title
     ?? message.interactive?.list_reply?.title
+    ?? flowReply?.response_json
     ?? message.order?.text
     ?? ''
   const payload = message.button?.payload ?? message.interactive?.button_reply?.id ?? message.interactive?.list_reply?.id
-  return { id: String(message.id), phone: String(message.from), text: String(payload || text), timestamp: String(message.timestamp || ''), type: String(message.type || 'unknown'), order: message.order }
+  return { id: String(message.id), phone: String(message.from), text: String(payload || text), timestamp: String(message.timestamp || ''), type: String(message.type || 'unknown'), order: message.order, flowReply }
 }
 
 export function extractWhatsAppStatuses(body: any) {

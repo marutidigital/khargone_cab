@@ -59,6 +59,83 @@ async function handleInbound(body: any) {
   const action = parseWhatsAppActionPayload(message.text)
   const statusUrl = booking?.public_token ? `${process.env.APP_BASE_URL || 'https://maruticab.in'}/booking/${booking.public_token}` : null
 
+  // ── INCOMING WHATSAPP FLOW SUBMISSION (Native in-chat form completed) ──
+  const flowJsonRaw = message.flowReply?.response_json || (message.text.startsWith('{') && message.text.includes('"route"') ? message.text : null)
+  if (flowJsonRaw) {
+    try {
+      const flowData = JSON.parse(flowJsonRaw)
+      if (flowData.route || flowData.travel_date || flowData.passenger_name || flowData.date || flowData.name) {
+        const custName = String(flowData.passenger_name || flowData.name || 'Passenger').trim()
+        const custPhone = String(flowData.passenger_phone || flowData.phone || phone.slice(-10)).replace(/\D/g, '').slice(-10)
+        const custEmail = String(flowData.passenger_email || flowData.email || '').trim() || null
+        const routeVal = String(flowData.route || 'khargone_to_indore')
+        const vehicleVal = String(flowData.vehicle || 'sedan')
+        const travelDate = String(flowData.travel_date || flowData.date || new Date().toISOString().slice(0, 10))
+        const pickupTime = String(flowData.pickup_time || flowData.time || '09:00 AM')
+        const pickupAddress = String(flowData.pickup_address || flowData.address || '')
+
+        const isSuv = vehicleVal.toLowerCase().includes('suv') || vehicleVal.toLowerCase().includes('ertiga')
+        const isUjjain = routeVal.toLowerCase().includes('ujjain')
+        const isOmkareshwar = routeVal.toLowerCase().includes('omkareshwar')
+        const baseFare = isOmkareshwar ? 1800 : (isUjjain ? 2800 : (isSuv ? 2850 : 2200))
+        const totalFare = isSuv && !isOmkareshwar && !isUjjain ? 2850 : baseFare
+
+        const direction = routeVal.toLowerCase().startsWith('indore') ? 'indore_to_khargone' : 'khargone_to_indore'
+        const bookingRef = `KC${Math.floor(1000 + Math.random() * 9000)}`
+
+        const { data: newBooking } = await db.from('bookings').insert({
+          booking_ref: bookingRef,
+          status: 'pending_payment',
+          direction,
+          mode: 'match',
+          vehicle: isSuv ? 'suv_ertiga' : 'economy_sedan',
+          vehicle_type: isSuv ? 'suv' : 'sedan',
+          drop_point: 'rajendra',
+          drop_name: 'City Center',
+          travel_date: travelDate,
+          pickup_time: pickupTime,
+          passenger_name: custName,
+          phone: custPhone,
+          email: custEmail,
+          passenger_count: 1,
+          address: pickupAddress || null,
+          consent_whatsapp: true,
+          consent_at: new Date().toISOString(),
+          base_fare: totalFare,
+          total_fare: totalFare,
+          advance_amount: 500,
+          balance_amount: Math.max(0, totalFare - 500),
+          extras: { booked_via: 'whatsapp_flow', flow_response: flowData },
+        }).select().single()
+
+        if (newBooking) {
+          const routeLabel = routeVal.replace(/_/g, ' ').toUpperCase()
+          const { sendInChatPaymentOrder, sendText } = await import('@/lib/whatsapp')
+          await sendInChatPaymentOrder({
+            to: phone,
+            amountInRs: 500,
+            bookingRef: newBooking.booking_ref,
+            bookingId: newBooking.id,
+            customerName: custName,
+            routeName: routeLabel,
+            travelDate,
+            pickupTime,
+          }).catch(async () => {
+            await sendText({
+              to: phone,
+              body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai.\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Date & Time:* ${travelDate} at ${pickupTime}\n💰 *Total Fare:* ₹${totalFare}\n💵 *Advance Amount:* ₹500\n\nNeeche diye link se 1 minute me payment complete karein:\nhttps://www.maruticab.in/pay?ref=${newBooking.booking_ref}`,
+            })
+          })
+
+          void notifyAdmin(`flow-booking:${newBooking.id}`, newBooking.id, `🚨 New WhatsApp Flow Booking #${newBooking.booking_ref}: ${custName} (${custPhone}) - ${routeLabel} on ${travelDate} at ${pickupTime}. Awaiting ₹500 advance.`)
+          return
+        }
+      }
+    } catch (e) {
+      console.warn('WhatsApp flow response parse notice:', e)
+    }
+  }
+
   // ── IN-CHAT WHATSAPP PAYMENT COMPLETED (Meta WhatsApp Pay with Razorpay) ──
   if (message.type === 'order' || message.order) {
     const orderRef = String(message.order?.reference_id || message.order?.order_id || '')
