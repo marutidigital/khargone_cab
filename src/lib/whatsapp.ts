@@ -208,19 +208,15 @@ async function sendLoggedFreeform({ phone, message, bookingId, eventVersion }: {
   const idempotencyKey = `freeform:${bookingId || phone}:${version}`
   const { error } = await db.from('notifications').insert({ booking_id: bookingId || null, recipient_type: 'customer', template: 'free_text_reply', status: 'queued', idempotency_key: idempotencyKey, event_version: version })
   if (error) return { skipped: true, reason: 'This reply was already logged or notification storage is unavailable.' }
-  if (!await isCustomerServiceWindowOpen(phone)) {
-    console.warn(`WhatsApp free-text skipped outside service window for …${phone.slice(-4)}.`)
-    await db.from('notifications').update({ status: 'skipped', error: 'No open 24-hour customer-service window.' }).eq('idempotency_key', idempotencyKey)
-    return { skipped: true, reason: 'No open 24-hour customer-service window.' }
-  }
   try {
     const response = await postToMeta({ messaging_product: 'whatsapp', to: phone, ...message }) as { messages?: { id?: string }[] }
     const messageId = response.messages?.[0]?.id || null
     await db.from('notifications').update({ status: 'sent', wa_message_id: messageId, provider_message_id: messageId, sent_at: new Date().toISOString() }).eq('idempotency_key', idempotencyKey)
     return response
-  } catch (error) {
-    await db.from('notifications').update({ status: 'failed', error: error instanceof Error ? error.message.slice(0, 500) : 'WhatsApp free-text failed.' }).eq('idempotency_key', idempotencyKey)
-    throw error
+  } catch (error: any) {
+    console.error(`WhatsApp message postToMeta error for …${phone.slice(-4)}:`, error?.message || error)
+    await db.from('notifications').update({ status: 'failed', error: error instanceof Error ? error.message.slice(0, 500) : 'WhatsApp message failed.' }).eq('idempotency_key', idempotencyKey)
+    return { skipped: true, reason: error?.message || 'WhatsApp message failed.' }
   }
 }
 

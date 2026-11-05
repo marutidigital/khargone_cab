@@ -82,15 +82,26 @@ async function handleInbound(body: any) {
           advance_paid: amountVal,
           advance_amount: amountVal,
           balance_amount: Math.max(0, (targetBooking.total_fare || 1800) - amountVal),
-          payment_id: transId || `wa_pay_${Date.now()}`,
-          payment_status: 'paid',
           updated_at: new Date().toISOString(),
           extras: {
             ...(targetBooking.extras || {}),
             paid_via: 'whatsapp_in_chat_pay',
+            payment_id: transId || `wa_pay_${Date.now()}`,
+            payment_status: 'paid',
             whatsapp_order: message.order,
           },
         }).eq('id', targetBooking.id)
+
+        // Record in payments table
+        await db.from('payments').insert({
+          booking_id: targetBooking.id,
+          provider: 'razorpay',
+          provider_order_id: String(message.order?.order_id || `order_${targetBooking.booking_ref}`),
+          provider_payment_id: transId || `wa_pay_${Date.now()}`,
+          amount: amountVal,
+          payment_status: 'captured',
+          verified_at: new Date().toISOString(),
+        })
 
         // Try automatic return match
         try {

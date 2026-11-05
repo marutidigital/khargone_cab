@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
           templateCode: 'payment_received',
           variables: [
             booking.passenger_name || 'Passenger',
+            String(amountRupees || 2),
             booking.booking_ref,
             paymentId || 'RZP_OK',
             routeLabel,
@@ -121,6 +122,26 @@ export async function POST(request: NextRequest) {
           ],
           bookingId: booking.id,
         })
+
+        // Also send direct text confirmation if needed
+        try {
+          const { sendText } = await import('@/lib/whatsapp')
+          await sendText({
+            to: booking.phone,
+            body: `🎉 *Advance Payment Received (₹${amountRupees})!* 🥳\n\nHey ${booking.passenger_name || 'Passenger'}! Aapka advance payment mil gaya hai.\n🧾 *Booking ID:* #${booking.booking_ref}\n🔖 *Payment Ref:* ${paymentId}\n📍 *Route:* ${routeLabel}\n📅 *Travel Date:* ${booking.travel_date || ''}\n\nAapki ride officially confirm hone ke liye return-ride match check shuru ho gaya hai! 🚕💨`,
+            bookingId: booking.id,
+            eventVersion: `pay_direct:${paymentId}`,
+          })
+          // Send internal notification strictly to Admin (8878933778)
+          await sendText({
+            to: '8878933778',
+            body: `💰 *NEW PAYMENT RECEIVED (₹${amountRupees})* 🚕\n\nBooking: #${booking.booking_ref}\nPassenger: ${booking.passenger_name || 'Passenger'} (${booking.phone})\nRoute: ${routeLabel}\nPayment ID: ${paymentId}`,
+            bookingId: booking.id,
+            eventVersion: `admin_pay:${paymentId}`,
+          })
+        } catch (waErr) {
+          console.warn('Direct confirmation text notice:', waErr)
+        }
 
         // Notify Admin of verified advance payment
         await notifyAdmin(
