@@ -125,7 +125,7 @@ export function AdminBookingsPanel() {
     finally { setSavingId(null) }
   }
 
-  const sendInChatPayment = async (booking: Booking) => {
+  const sendInChatPayment = async (booking: Booking, amount?: number, coupon?: string) => {
     setSavingId(booking.id)
     setError(null)
     setNotice(null)
@@ -133,11 +133,11 @@ export function AdminBookingsPanel() {
       const response = await fetch('/api/admin/whatsapp/send-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id }),
+        body: JSON.stringify({ bookingId: booking.id, amount, coupon }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Failed to send WhatsApp payment')
-      setNotice(`✅ WhatsApp payment order sent to ${booking.phone}!`)
+      setNotice(`✅ WhatsApp payment order (₹${result.amount || amount || 500}) sent to ${booking.phone}!`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send WhatsApp payment.')
     } finally {
@@ -343,15 +343,26 @@ export function AdminBookingsPanel() {
 
                         {/* Send WhatsApp In-Chat Payment Order */}
                         {booking.payment_status !== 'paid' && !(booking.advance_paid && booking.advance_paid >= (booking.advance_amount || 500)) && booking.status !== 'cancelled' && (
-                          <button
-                            type="button"
-                            disabled={savingId === booking.id}
-                            onClick={() => void sendInChatPayment(booking)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-2.5 py-1.5 text-xs font-bold transition shadow-xs disabled:opacity-50"
-                            title="Send ₹500 In-Chat Payment Request to customer WhatsApp"
-                          >
-                            <span>💳 Send In-Chat UPI</span>
-                          </button>
+                          <div className="flex flex-col gap-1 w-full max-w-[210px]">
+                            <button
+                              type="button"
+                              disabled={savingId === booking.id}
+                              onClick={() => void sendInChatPayment(booking)}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-2.5 py-1 text-xs font-bold transition shadow-xs disabled:opacity-50"
+                              title="Send ₹500 In-Chat Payment Request to customer WhatsApp"
+                            >
+                              <span>💳 Send UPI (₹500)</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={savingId === booking.id}
+                              onClick={() => void sendInChatPayment(booking, 2, 'MARUTI2')}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 px-2 py-1 text-[11px] font-black transition shadow-xs disabled:opacity-50 border border-amber-500/30"
+                              title="Send ₹2 Test In-Chat UPI using MARUTI2 coupon"
+                            >
+                              <span>🧪 Send ₹2 (MARUTI2)</span>
+                            </button>
+                          </div>
                         )}
 
                         {/* Status update selector */}

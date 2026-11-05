@@ -59,19 +59,19 @@ export default function RazorpayDemoPage() {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                     Select Amount
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[500, 1800, 2200].map((amt) => (
+                  <div className="grid grid-cols-4 gap-2">
+                    {[2, 500, 1800, 2200].map((amt) => (
                       <button
                         key={amt}
                         type="button"
                         onClick={() => setAmount(amt)}
-                        className={`py-2 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                        className={`py-2 px-2 rounded-xl text-xs font-black border transition-all cursor-pointer ${
                           amount === amt
                             ? 'bg-amber-400 border-amber-500 text-slate-950 shadow-xs'
                             : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
-                        ₹{amt.toLocaleString('en-IN')}
+                        {amt === 2 ? '₹2 (Test)' : `₹${amt.toLocaleString('en-IN')}`}
                       </button>
                     ))}
                   </div>

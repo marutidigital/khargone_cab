@@ -328,6 +328,48 @@ Hamari dispatch team 24/7 uplabdh hai:
 Nayi booking shuru karne ke liye *HI* ya *1* bhejein.`
   }
 
+  // ── GLOBAL COMMAND: COUPON CODE (MARUTI2 / CAB2 / TEST2) ──
+  const couponMatch = upper.match(/^(?:COUPON\s+)?(MARUTI2|CAB2|TEST2|MARUTI99|CAB99|TEST99)$/)
+  if (couponMatch) {
+    const code = couponMatch[1]
+    const is2Rs = ['MARUTI2', 'CAB2', 'TEST2'].includes(code)
+    const newAdvance = is2Rs ? 2 : 5
+    conv.data.coupon_code = code
+    conv.data.advance_amount = newAdvance
+    if (conv.data.total_fare) {
+      conv.data.balance_amount = Math.max(0, conv.data.total_fare - newAdvance)
+    }
+
+    // If already waiting for payment or booking already exists, update booking & resend ₹2 card
+    if (conv.data.booking_id) {
+      const isKI = conv.data.direction === 'KI'
+      const routeName = isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+      await db.from('bookings').update({
+        advance_amount: newAdvance,
+        balance_amount: Math.max(0, (conv.data.total_fare || (isKI ? 2200 : 1800)) - newAdvance),
+        discount: is2Rs ? 498 : 495,
+        extras: { coupon_code: code },
+      }).eq('id', conv.data.booking_id)
+
+      await sendInChatPaymentOrder({
+        to: conv.phone,
+        amountInRs: newAdvance,
+        bookingRef: String(conv.data.booking_ref || 'KC000'),
+        bookingId: String(conv.data.booking_id),
+        customerName: String(conv.data.customer_name || 'Passenger'),
+        routeName,
+        travelDate: String(conv.data.travel_date || ''),
+        pickupTime: String(conv.data.pickup_time || ''),
+      })
+
+      await saveConversation(conv)
+      return `🎉 *Coupon ${code} Applied Successfully!* ⚡\n\nAapka advance payment reduce hokar sirf *₹${newAdvance}* ho gaya hai (Test Mode).\n\n📱 Upar naya *"Review and Pay"* card bhej diya gaya hai. Us par click karke Google Pay / PhonePe se ₹${newAdvance} pay karein!`
+    }
+
+    await saveConversation(conv)
+    return `🎉 *Coupon ${code} Applied!* Aapki booking ke liye advance payment discount hokar sirf *₹${newAdvance}* ho gaya hai.\n\nAage badhne ke liye apni details bhejein ya *1* / *2* select karein.`
+  }
+
   // ── GLOBAL COMMAND: RESET CONVERSATION ──
   if (upper === 'RESET' || upper === 'NEW' || upper === 'MENU' || upper === 'START') {
     conv.state = 'IDLE'
@@ -577,8 +619,9 @@ async function buildSummaryMessage(conv: ConversationState): Promise<string> {
   const isKI = conv.data.direction === 'KI'
   const routeName = isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
   const fare = conv.data.total_fare || (isKI ? 2200 : 1800)
-  const advance = 500
-  const balance = fare - advance
+  const is2Rs = ['MARUTI2', 'CAB2', 'TEST2'].includes(String(conv.data.coupon_code || '')) || conv.data.advance_amount === 2
+  const advance = is2Rs ? 2 : (conv.data.advance_amount || 500)
+  const balance = Math.max(0, fare - advance)
 
   return `🚕 *MarutiCab Booking Summary*
 
@@ -593,17 +636,17 @@ async function buildSummaryMessage(conv: ConversationState): Promise<string> {
 
 💰 *Fare Breakdown:*
 • Total Fixed Fare: *₹${fare.toLocaleString('en-IN')}* (Tolls Included)
-• Advance to Reserve: *₹${advance}*
+• Advance to Reserve: *₹${advance}* ${advance < 500 ? `(🎉 Coupon ${conv.data.coupon_code || 'MARUTI2'} Applied)` : ''}
 • Remaining in Cab: *₹${balance.toLocaleString('en-IN')}* (To driver)
 
 ⏱️ *Matching Deadline:*
 *${conv.data.matching_deadline_kolkata || 'Applicable Cutoff'}*
 
 💡 *Refund Policy:*
-Booking submit karne ke liye ₹500 advance zaroori hai. Agar deadline tak suitable return-ride match nahi milta hai, to booking cancel ho jayegi aur aapka poora ₹500 refund bina kisi deduction ke initiate ho jayega.
+Booking submit karne ke liye ₹${advance} advance zaroori hai. Agar deadline tak suitable return-ride match nahi milta hai, to booking cancel ho jayegi aur aapka poora ₹${advance} refund bina kisi deduction ke initiate ho jayega.
 
 *Kya sabhi details sahi hain?*
-1️⃣ *Confirm & Pay ₹500 Advance*
+1️⃣ *Confirm & Pay ₹${advance} Advance*
 2️⃣ *Edit Details*
 3️⃣ *Cancel*
 
@@ -617,8 +660,9 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
   const db = createServiceClient()
   const isKI = conv.data.direction === 'KI'
   const fare = conv.data.total_fare || (isKI ? 2200 : 1800)
-  const advance = 500
-  const balance = fare - advance
+  const is2Rs = ['MARUTI2', 'CAB2', 'TEST2'].includes(String(conv.data.coupon_code || '')) || conv.data.advance_amount === 2
+  const advance = is2Rs ? 2 : (conv.data.advance_amount || 500)
+  const balance = Math.max(0, fare - advance)
   const bookingRef = `KC${Math.floor(10000 + Math.random() * 90000)}`
   const publicToken = crypto.randomUUID().replace(/-/g, '')
 
@@ -649,6 +693,7 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
       passenger_count: conv.data.passenger_count || 1,
       base_fare: fare,
       total_fare: fare,
+      discount: advance < 500 ? (500 - advance) : 0,
       advance_amount: advance,
       advance_paid: 0,
       balance_amount: balance,
@@ -661,6 +706,7 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
         pickup_address: conv.data.pickup_address,
         drop_address: conv.data.drop_address,
         created_via: 'whatsapp_bot',
+        coupon_code: conv.data.coupon_code || (is2Rs ? 'MARUTI2' : null),
       },
     })
     .select('id,booking_ref')
@@ -672,7 +718,7 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
   }
 
   // 2. Generate Razorpay Payment Link
-  let paymentUrl = `https://maruticab.in/pay?booking=${bookingRef}&amount=500`
+  let paymentUrl = `https://maruticab.in/pay?booking=${bookingRef}&amount=${advance}`
   try {
     const linkResult = await createRazorpayPaymentLink({
       amount: advance,
@@ -735,10 +781,10 @@ async function handleCreatePaymentLinkAndBooking(conv: ConversationState): Promi
 
   return `💳 *Aapki Booking Request Saved (#${bookingRef})*
 
-Ride reserve karne ke liye ₹500 advance pay karein:
+Ride reserve karne ke liye ₹${advance} advance pay karein:
 • Upar diye gaye *"Review and Pay"* card par click karke WhatsApp me hi UPI (GPay / PhonePe / Paytm) se pay karein.
 • Ya iss direct link se pay karein:
 🔗 *Payment Link:* ${paymentUrl}
 
-⚠️ *Zaroori:* Payment verify hone ke baad hi hamara matching engine return ride match karega. Agar deadline tak match nahi milta, to full ₹500 turant refund ho jayega.`
+⚠️ *Zaroori:* Payment verify hone ke baad hi hamara matching engine return ride match karega. Agar deadline tak match nahi milta, to full ₹${advance} turant refund ho jayega.`
 }
