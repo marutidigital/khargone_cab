@@ -99,8 +99,9 @@ async function handleInbound(body: any) {
         // DB requires direction to be strictly 'KI' or 'IK'
         const direction = isIndoreToKhargone ? 'IK' : 'KI'
 
-        // Route pricing (Maruti Cab dedicated Sedan AC: Khargone ⇄ Indore)
-        const totalFare = 2200
+        // Route pricing (Maruti Cab dedicated Sedan AC)
+        // Khargone ➔ Indore: ₹2,200 | Indore ➔ Khargone: ₹1,800
+        const totalFare = isIndoreToKhargone ? 1800 : 2200
         const advanceAmount = 500
         const balanceAmount = Math.max(0, totalFare - advanceAmount)
 
