@@ -4,6 +4,9 @@ import { getMatchCutoffAt } from '@/lib/config'
 import { sendText } from '@/lib/whatsapp'
 import { notifyAdmin } from '@/lib/booking-notifications'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest) {
   try {
     const db = createServiceClient()

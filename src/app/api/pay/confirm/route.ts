@@ -5,6 +5,9 @@ import { notifyAdmin } from '@/lib/booking-notifications'
 import { tryAutomaticFIFOMatch } from '@/lib/matching-engine'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest) {
   try {
     const keySecret = process.env.RAZORPAY_KEY_SECRET
