@@ -94,24 +94,17 @@ async function handleInbound(body: any) {
           (flowData.from && flowData.to ? `${flowData.from}_to_${flowData.to}` : 'khargone_to_indore')
         ).toLowerCase()
 
-        const isUjjain = rawRoute.includes('ujjain')
-        const isOmkareshwar = rawRoute.includes('omkareshwar')
         const isIndoreToKhargone = rawRoute.startsWith('indore') || rawRoute.includes('i2k') || rawRoute.includes('indore_to_khargone')
 
         // DB requires direction to be strictly 'KI' or 'IK'
         const direction = isIndoreToKhargone ? 'IK' : 'KI'
 
-        // Route pricing (Maruti Cab dedicated Sedan AC)
-        const baseFare = isOmkareshwar ? 1800 : (isUjjain ? 2800 : 2200)
-        const totalFare = baseFare
+        // Route pricing (Maruti Cab dedicated Sedan AC: Khargone ⇄ Indore)
+        const totalFare = 2200
         const advanceAmount = 500
         const balanceAmount = Math.max(0, totalFare - advanceAmount)
 
-        const routeLabel = isOmkareshwar
-          ? (isIndoreToKhargone ? 'Omkareshwar ➔ Khargone' : 'Khargone ➔ Omkareshwar')
-          : (isUjjain
-              ? (isIndoreToKhargone ? 'Ujjain ➔ Khargone' : 'Khargone ➔ Ujjain')
-              : (isIndoreToKhargone ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'))
+        const routeLabel = isIndoreToKhargone ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'
 
         const travelDate = String(
           flowData.travel_date ||

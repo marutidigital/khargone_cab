@@ -32,14 +32,7 @@ export async function GET(req: NextRequest) {
   const booking = bookings[0]
 
   const isIK = booking.direction === 'IK'
-  const isUjjain = String(booking.extras?.flow_response?.route || '').includes('ujjain')
-  const isOmkareshwar = String(booking.extras?.flow_response?.route || '').includes('omkareshwar')
-
-  const routeLabel = isOmkareshwar
-    ? (isIK ? 'Omkareshwar ➔ Khargone' : 'Khargone ➔ Omkareshwar')
-    : (isUjjain
-        ? (isIK ? 'Ujjain ➔ Khargone' : 'Khargone ➔ Ujjain')
-        : (isIK ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'))
+  const routeLabel = isIK ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'
 
   return NextResponse.json({
     success: true,

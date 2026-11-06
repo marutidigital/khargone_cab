@@ -104,7 +104,7 @@ export async function sendFlowMessage({
   flowId = process.env.WHATSAPP_FLOW_ID || '1585365243178046',
   ctaText = 'Book Cab Now',
   headerText = '🚖 Maruti Cab Booking',
-  bodyText = 'Khargone ⇄ Indore · Ujjain · Omkareshwar.\nTap below to fill your pickup details in 30 seconds.',
+  bodyText = 'Dedicated Private AC Sedan (Khargone ⇄ Indore).\nTap below to fill your pickup details in 30 seconds.',
   bookingId,
   eventVersion,
 }: {
