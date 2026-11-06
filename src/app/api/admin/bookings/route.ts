@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ bookings: data || [] })
+
+  const { data: matches } = await supabase
+    .from('matches')
+    .select('id, booking_out, booking_back, driver_id, vehicle_id, vehicle, confirmed_at, drivers(id, name, phone)')
+    .order('created_at', { ascending: false })
+
+  return NextResponse.json({ bookings: data || [], matches: matches || [] })
 }
 
 export async function POST(req: NextRequest) {

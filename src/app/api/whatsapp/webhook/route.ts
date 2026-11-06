@@ -59,6 +59,26 @@ async function handleInbound(body: any) {
   const action = parseWhatsAppActionPayload(message.text)
   const statusUrl = booking?.public_token ? `${process.env.APP_BASE_URL || 'https://maruticab.in'}/booking/${booking.public_token}` : null
 
+  // ── DRIVER INTERACTIVE BUTTONS & LIFECYCLE ──
+  const isDriverButton =
+    normalizedText.startsWith('DRIVER_CALLED:') ||
+    normalizedText.startsWith('DRIVER_BOARDED:') ||
+    normalizedText.startsWith('DRIVER_DROPPED:') ||
+    normalizedText.includes('BAAT HO GAYI') ||
+    normalizedText.includes('BAITH GAYE') ||
+    normalizedText.includes('DROP KAR DIYA') ||
+    normalizedText.includes('DROP HO GAYA')
+
+  if (isDriverButton) {
+    try {
+      const { handleDriverLifecycleWebhook } = await import('@/lib/driver-dispatch-lifecycle')
+      const handled = await handleDriverLifecycleWebhook(message.text, phone)
+      if (handled) return
+    } catch (driverErr) {
+      console.error('Driver lifecycle webhook processing error:', driverErr)
+    }
+  }
+
   // ── INCOMING WHATSAPP FLOW SUBMISSION (Native in-chat form completed) ──
   const flowJsonRaw = message.flowReply?.response_json || (typeof message.text === 'string' && message.text.trim().startsWith('{') && message.text.trim().endsWith('}') ? message.text.trim() : null)
   if (flowJsonRaw) {

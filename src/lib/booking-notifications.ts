@@ -127,6 +127,19 @@ export async function notify(event: WhatsAppEvent, bookingId: string, options: {
 
 /** Send to an admin-configured number for operational alerts. */
 export async function notifyAdmin(event: string, bookingId: string, alertText: string) {
+  // Direct fail-safe text delivery to admin so admin alerts NEVER get skipped by template approvals
+  try {
+    const { sendText } = await import('@/lib/whatsapp')
+    await sendText({
+      to: '8878933778',
+      body: `🚨 *MARUTICAB ADMIN ALERT* 🚕\n\n${alertText}`,
+      bookingId: bookingId || undefined,
+      eventVersion: `admin_direct:${event}`,
+    })
+  } catch (directErr) {
+    console.warn('Direct admin text alert notice:', directErr)
+  }
+
   const db = createServiceClient()
   const { data: booking } = await db.from('bookings').select('*').eq('id', bookingId).limit(1).single()
   if (booking) return deliver('admin_alert', { ...booking, alert_event: alertText }, 'admin', { eventVersion: event })

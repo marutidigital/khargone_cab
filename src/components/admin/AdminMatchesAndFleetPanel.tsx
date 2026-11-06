@@ -13,14 +13,21 @@ import {
   RefreshCw,
   X,
   Save,
+  Edit3,
+  AlertCircle,
+  Phone,
+  Send,
 } from 'lucide-react'
 import { formatRs } from '@/config/pricing'
+import { EditTimeModal } from '@/components/admin/EditTimeModal'
+import { AssignDriverModal } from '@/components/admin/AssignDriverModal'
 
 export function AdminMatchesAndFleetPanel() {
   const [matches, setMatches] = useState<any[]>([])
   const [waitingKI, setWaitingKI] = useState<any[]>([])
   const [waitingIK, setWaitingIK] = useState<any[]>([])
   const [vehicles, setVehicles] = useState<any[]>([])
+  const [drivers, setDrivers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pairing, setPairing] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
@@ -28,6 +35,11 @@ export function AdminMatchesAndFleetPanel() {
   // Selection state for manual pair
   const [selectedKI, setSelectedKI] = useState<string | null>(null)
   const [selectedIK, setSelectedIK] = useState<string | null>(null)
+
+  // Modals state
+  const [editingBooking, setEditingBooking] = useState<any | null>(null)
+  const [assigningMatch, setAssigningMatch] = useState<any | null>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   // Add vehicle modal
   const [showAddVehicle, setShowAddVehicle] = useState(false)
@@ -37,12 +49,15 @@ export function AdminMatchesAndFleetPanel() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [mRes, vRes] = await Promise.all([
+      const [mRes, vRes, dRes] = await Promise.all([
         fetch('/api/admin/matches'),
         fetch('/api/admin/vehicles'),
+        fetch('/api/drivers?status=active'),
       ])
       const mData = await mRes.json()
       const vData = await vRes.json()
+      const dData = await dRes.json()
+
       if (mRes.ok) {
         setMatches(mData.matches || [])
         setWaitingKI(mData.waitingKI || [])
@@ -50,6 +65,9 @@ export function AdminMatchesAndFleetPanel() {
       }
       if (vRes.ok) {
         setVehicles(vData.vehicles || [])
+      }
+      if (dRes.ok) {
+        setDrivers(dData.drivers || [])
       }
     } catch (err) {
       console.error('Error fetching matches/fleet:', err)
@@ -61,6 +79,9 @@ export function AdminMatchesAndFleetPanel() {
   useEffect(() => {
     void fetchData()
   }, [])
+
+  const selectedKIBooking = waitingKI.find((b) => b.id === selectedKI) || null
+  const selectedIKBooking = waitingIK.find((b) => b.id === selectedIK) || null
 
   const handleConfirmPair = async () => {
     if (!selectedKI || !selectedIK) return
@@ -80,12 +101,13 @@ export function AdminMatchesAndFleetPanel() {
       setToast({ message: 'Rides paired successfully! WhatsApp confirmation sent to both passengers.', type: 'success' })
       setSelectedKI(null)
       setSelectedIK(null)
+      setShowConfirmModal(false)
       await fetchData()
     } catch (err: any) {
       setToast({ message: err.message || 'Error pairing rides', type: 'error' })
     } finally {
       setPairing(false)
-      setTimeout(() => setToast(null), 4000)
+      setTimeout(() => setToast(null), 5000)
     }
   }
 
@@ -119,13 +141,16 @@ export function AdminMatchesAndFleetPanel() {
     <div className="space-y-6">
       {toast && (
         <div
-          className={`p-3 rounded-xl text-xs font-bold border flex items-center justify-between ${
+          className={`p-3.5 rounded-xl text-xs font-bold border flex items-center justify-between shadow-xs animate-in fade-in ${
             toast.type === 'error'
               ? 'bg-rose-50 text-rose-800 border-rose-300'
               : 'bg-emerald-50 text-emerald-800 border-emerald-300'
           }`}
         >
           <span>{toast.message}</span>
+          <button type="button" onClick={() => setToast(null)} className="text-slate-400 hover:text-slate-700">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -137,7 +162,7 @@ export function AdminMatchesAndFleetPanel() {
             Match Manager & Fleet Dispatch
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Pair Khargone ➔ Indore with Indore ➔ Khargone return journeys and assign dedicated sedan cabs.
+            Pair Khargone ➔ Indore with Indore ➔ Khargone return journeys, edit schedules, and assign dedicated sedan cabs.
           </p>
         </div>
         <div className="flex gap-2">
@@ -150,7 +175,8 @@ export function AdminMatchesAndFleetPanel() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="flex items-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-xs"
+            className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600"
+            title="Refresh"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -158,10 +184,7 @@ export function AdminMatchesAndFleetPanel() {
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
-          <span>Loading dispatch data...</span>
-        </div>
+        <div className="p-12 text-center text-xs text-slate-500">Loading matches and fleet data…</div>
       ) : (
         <div className="space-y-6">
           {/* Pair Builder Action Bar */}
@@ -170,18 +193,26 @@ export function AdminMatchesAndFleetPanel() {
               <div className="flex items-center gap-3 text-xs">
                 <div>
                   <span className="font-bold text-slate-500 block">Outward (Khargone ➔ Indore):</span>
-                  <span className="font-extrabold text-slate-900">{selectedKI ? 'Selected ✓' : 'Please select a ride below'}</span>
+                  <span className="font-extrabold text-slate-900">
+                    {selectedKIBooking
+                      ? `#${selectedKIBooking.booking_ref} · ${selectedKIBooking.passenger_name} (${String(selectedKIBooking.pickup_time).slice(0, 5)}) ✓`
+                      : 'Please select a ride below'}
+                  </span>
                 </div>
-                <ArrowRight className="w-4 h-4 text-amber-600" />
+                <ArrowRight className="w-4 h-4 text-amber-600 shrink-0" />
                 <div>
                   <span className="font-bold text-slate-500 block">Return (Indore ➔ Khargone):</span>
-                  <span className="font-extrabold text-slate-900">{selectedIK ? 'Selected ✓' : 'Please select a ride below'}</span>
+                  <span className="font-extrabold text-slate-900">
+                    {selectedIKBooking
+                      ? `#${selectedIKBooking.booking_ref} · ${selectedIKBooking.passenger_name} (${String(selectedIKBooking.pickup_time).slice(0, 5)}) ✓`
+                      : 'Please select a ride below'}
+                  </span>
                 </div>
               </div>
               <button
                 type="button"
                 disabled={!selectedKI || !selectedIK || pairing}
-                onClick={handleConfirmPair}
+                onClick={() => setShowConfirmModal(true)}
                 className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 shadow-sm"
               >
                 {pairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -205,29 +236,48 @@ export function AdminMatchesAndFleetPanel() {
                   waitingKI.map((b) => (
                     <div
                       key={b.id}
-                      onClick={() => setSelectedKI(selectedKI === b.id ? null : b.id)}
-                      className={`p-3 text-xs space-y-1 cursor-pointer transition ${
+                      className={`p-3 text-xs space-y-1 transition ${
                         selectedKI === b.id ? 'bg-amber-100/70 border-l-4 border-amber-500' : 'hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex justify-between font-bold">
-                        <span>#{b.booking_ref} · {b.passenger_name}</span>
-                        <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                      <div
+                        onClick={() => setSelectedKI(selectedKI === b.id ? null : b.id)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex justify-between font-bold">
+                          <span>#{b.booking_ref} · {b.passenger_name}</span>
+                          <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
                       </div>
-                      <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
+
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-[10px] text-slate-500">
-                          {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
-                        </span>
-                        {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
-                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
-                            🌐 Public Board: Active
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500">
+                            {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
                           </span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
-                            🔒 Private / Pending
-                          </span>
-                        )}
+                          {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                            <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
+                              🌐 Public Board: Active
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
+                              🔒 Private / Pending
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingBooking(b)
+                          }}
+                          className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Edit Time</span>
+                        </button>
                       </div>
                     </div>
                   ))
@@ -248,29 +298,48 @@ export function AdminMatchesAndFleetPanel() {
                   waitingIK.map((b) => (
                     <div
                       key={b.id}
-                      onClick={() => setSelectedIK(selectedIK === b.id ? null : b.id)}
-                      className={`p-3 text-xs space-y-1 cursor-pointer transition ${
+                      className={`p-3 text-xs space-y-1 transition ${
                         selectedIK === b.id ? 'bg-amber-100/70 border-l-4 border-amber-500' : 'hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex justify-between font-bold">
-                        <span>#{b.booking_ref} · {b.passenger_name}</span>
-                        <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                      <div
+                        onClick={() => setSelectedIK(selectedIK === b.id ? null : b.id)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex justify-between font-bold">
+                          <span>#{b.booking_ref} · {b.passenger_name}</span>
+                          <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
                       </div>
-                      <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
+
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-[10px] text-slate-500">
-                          {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
-                        </span>
-                        {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
-                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
-                            🌐 Public Board: Active
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500">
+                            {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
                           </span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
-                            🔒 Private / Pending
-                          </span>
-                        )}
+                          {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                            <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
+                              🌐 Public Board: Active
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
+                              🔒 Private / Pending
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingBooking(b)
+                          }}
+                          className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Edit Time</span>
+                        </button>
                       </div>
                     </div>
                   ))
@@ -281,34 +350,104 @@ export function AdminMatchesAndFleetPanel() {
 
           {/* Confirmed Round-Trip Matches */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-800 uppercase tracking-wide">
-              Confirmed Paired Matches ({matches.length})
+            <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-800 uppercase tracking-wide flex items-center justify-between">
+              <span>Confirmed Paired Matches ({matches.length})</span>
+              <span className="text-slate-500 font-normal">Each pair shares 1 dedicated sedan cab & driver</span>
             </div>
-            <div className="divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
+            <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto">
               {matches.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">No matches confirmed yet.</div>
               ) : (
-                matches.map((m) => (
-                  <div key={m.id} className="p-4 text-xs space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-slate-900 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Match #{String(m.id).slice(0, 8)}
-                      </span>
-                      <span className="text-slate-500">
-                        {new Date(m.confirmed_at || m.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div>
-                        <strong>Trip 1 (KI):</strong> #{m.booking_out?.booking_ref || 'OUT'} · {m.booking_out?.passenger_name} ({m.booking_out?.travel_date})
+                matches.map((m) => {
+                  const bOut = m.booking_out
+                  const bBack = m.booking_back
+                  const hasDriver = Boolean(m.driver_id || m.drivers?.name)
+
+                  return (
+                    <div key={m.id} className="p-4 text-xs space-y-3">
+                      <div className="flex flex-wrap justify-between items-center gap-2">
+                        <span className="font-bold text-slate-900 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Match #{String(m.id).slice(0, 8)}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-500 font-normal">
+                            {new Date(m.confirmed_at || m.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                          </span>
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {hasDriver ? (
+                            <div className="flex items-center gap-1.5 bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-xl font-bold">
+                              <Car className="w-3.5 h-3.5" />
+                              <span>{m.drivers?.name} ({m.drivers?.phone})</span>
+                            </div>
+                          ) : (
+                            <span className="flex items-center gap-1 bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-xl font-bold animate-pulse">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              Driver Pending
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setAssigningMatch(m)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-1 rounded-xl text-xs flex items-center gap-1 shadow-xs transition"
+                          >
+                            <Car className="w-3.5 h-3.5" />
+                            <span>{hasDriver ? 'Change Driver' : 'Assign Driver & Car'}</span>
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <strong>Trip 2 (IK):</strong> #{m.booking_back?.booking_ref || 'BACK'} · {m.booking_back?.passenger_name} ({m.booking_back?.travel_date})
+
+                      {/* Both Trips Details */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between font-bold text-slate-900">
+                            <span>Trip 1 (KI): #{bOut?.booking_ref || 'OUT'} · {bOut?.passenger_name}</span>
+                            {bOut && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingBooking(bOut)}
+                                className="text-amber-800 hover:text-amber-950 p-1 hover:bg-amber-100 rounded"
+                                title="Edit Trip 1 Time"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-600">
+                            📅 {bOut?.travel_date} at <strong>{String(bOut?.pickup_time).slice(0, 5)}</strong> · 📞 {bOut?.phone}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            Drop: {bOut?.drop_name} · Cash to collect: ₹{Math.max(0, (bOut?.total_fare || 2200) - (bOut?.advance_paid || 500))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 sm:border-l sm:border-slate-200 sm:pl-3">
+                          <div className="flex items-center justify-between font-bold text-slate-900">
+                            <span>Trip 2 (IK): #{bBack?.booking_ref || 'BACK'} · {bBack?.passenger_name}</span>
+                            {bBack && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingBooking(bBack)}
+                                className="text-amber-800 hover:text-amber-950 p-1 hover:bg-amber-100 rounded"
+                                title="Edit Trip 2 Time"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-600">
+                            📅 {bBack?.travel_date} at <strong>{String(bBack?.pickup_time).slice(0, 5)}</strong> · 📞 {bBack?.phone}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            Drop: {bBack?.drop_name} · Cash to collect: ₹{Math.max(0, (bBack?.total_fare || 1800) - (bBack?.advance_paid || 500))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>
@@ -317,18 +456,18 @@ export function AdminMatchesAndFleetPanel() {
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
             <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-800 uppercase tracking-wide flex justify-between">
               <span>Fleet Vehicles ({vehicles.length})</span>
-              <span className="text-slate-500">Sedan Dedicated (4-seater)</span>
+              <span className="text-slate-500 font-normal">Sedan Dedicated (4-seater)</span>
             </div>
             <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {vehicles.map((v) => (
                 <div key={v.id} className="border border-slate-200 rounded-xl p-3 text-xs bg-slate-50 space-y-1">
                   <div className="flex justify-between font-bold text-slate-900">
                     <span>{v.registration_number}</span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">
                       {v.availability_status}
                     </span>
                   </div>
-                  <p className="text-slate-600">{v.vehicle_model}</p>
+                  <p className="text-slate-600 font-medium">{v.vehicle_model}</p>
                   <span className="text-[10px] text-slate-400">Capacity: {v.seating_capacity} passengers</span>
                 </div>
               ))}
@@ -337,7 +476,120 @@ export function AdminMatchesAndFleetPanel() {
         </div>
       )}
 
-      {/* Add Vehicle Modal */}
+      {/* ── CONFIRM ROUND-TRIP MATCH REVIEW MODAL ── */}
+      {showConfirmModal && selectedKIBooking && selectedIKBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 max-w-lg w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>Confirm Round-Trip Match Pair</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Review schedule and pair outward & return rides into one dedicated cab round trip.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs space-y-1">
+                <div className="flex justify-between items-center font-bold text-amber-950">
+                  <span>Outward Trip: Khargone ➔ Indore</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingBooking(selectedKIBooking)}
+                    className="text-[11px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded flex items-center gap-1"
+                  >
+                    <Edit3 className="w-3 h-3" /> Adjust Time
+                  </button>
+                </div>
+                <div className="font-extrabold text-sm text-slate-900">
+                  #{selectedKIBooking.booking_ref} · {selectedKIBooking.passenger_name}
+                </div>
+                <div className="text-slate-600">
+                  📅 {selectedKIBooking.travel_date} at <strong>{String(selectedKIBooking.pickup_time).slice(0, 5)}</strong> · 📞 {selectedKIBooking.phone}
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 text-xs space-y-1">
+                <div className="flex justify-between items-center font-bold text-emerald-950">
+                  <span>Return Trip: Indore ➔ Khargone</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingBooking(selectedIKBooking)}
+                    className="text-[11px] font-bold text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded flex items-center gap-1"
+                  >
+                    <Edit3 className="w-3 h-3" /> Adjust Time
+                  </button>
+                </div>
+                <div className="font-extrabold text-sm text-slate-900">
+                  #{selectedIKBooking.booking_ref} · {selectedIKBooking.passenger_name}
+                </div>
+                <div className="text-slate-600">
+                  📅 {selectedIKBooking.travel_date} at <strong>{String(selectedIKBooking.pickup_time).slice(0, 5)}</strong> · 📞 {selectedIKBooking.phone}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={pairing}
+                onClick={handleConfirmPair}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-5 py-2.5 text-xs rounded-xl flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                {pairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Yes, Confirm Round-Trip Match</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT TIME MODAL ── */}
+      {editingBooking && (
+        <EditTimeModal
+          isOpen={Boolean(editingBooking)}
+          booking={editingBooking}
+          onClose={() => setEditingBooking(null)}
+          onSuccess={() => {
+            setToast({ message: `Time updated successfully for #${editingBooking.booking_ref}!`, type: 'success' })
+            void fetchData()
+          }}
+        />
+      )}
+
+      {/* ── ASSIGN DRIVER & CAR MODAL ── */}
+      {assigningMatch && (
+        <AssignDriverModal
+          isOpen={Boolean(assigningMatch)}
+          match={assigningMatch}
+          drivers={drivers}
+          vehicles={vehicles}
+          onClose={() => setAssigningMatch(null)}
+          onSuccess={() => {
+            setToast({ message: `Driver & Car assigned successfully to Match #${String(assigningMatch.id).slice(0, 8)}! WhatsApp duty sent.`, type: 'success' })
+            void fetchData()
+          }}
+        />
+      )}
+
+      {/* ── ADD VEHICLE MODAL ── */}
       {showAddVehicle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <form
@@ -358,7 +610,7 @@ export function AdminMatchesAndFleetPanel() {
                 required
                 value={newReg}
                 onChange={(e) => setNewReg(e.target.value.toUpperCase())}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 uppercase"
               />
             </div>
             <div>
@@ -382,9 +634,9 @@ export function AdminMatchesAndFleetPanel() {
               </button>
               <button
                 type="submit"
-                className="bg-[#FBBF24] text-slate-950 font-black px-4 py-2 rounded-xl text-xs"
+                className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs"
               >
-                Add Vehicle
+                Save Vehicle
               </button>
             </div>
           </form>

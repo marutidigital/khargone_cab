@@ -124,7 +124,7 @@ export async function secureAndConfirmMatch(params: {
         booking_back: bookingBackId,
         driver_id: driver?.id || null,
         vehicle_id: vehicle?.id || null,
-        vehicle: vehicle?.vehicle_model || null,
+        vehicle: 'economy_sedan',
         confirmed_at: new Date().toISOString(),
       })
       .select('id')

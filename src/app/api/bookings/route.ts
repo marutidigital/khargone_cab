@@ -268,6 +268,30 @@ export async function POST(request: NextRequest) {
     void notifyAdmin(`new-waiting:${booking.id}`, booking.id, `🚨 New Waiting Booking #${booking.booking_ref}: ${data.name} (${data.phone}) - ${routeName} on ${data.date} at ${data.time}. Advance ₹${advancePaid} paid online. Waiting for return match.`)
   }
 
+  // Direct WhatsApp Confirmation to Customer & Admin (fail-safe)
+  try {
+    const { sendText } = await import('@/lib/whatsapp')
+    const customerPhone = String(data.phone).replace(/\D/g, '').slice(-10)
+
+    // Send Customer Confirmation WhatsApp message
+    await sendText({
+      to: customerPhone,
+      body: `🚕 *Maruti Cab Booking Mil Gayi!* 🥳\n\nHey *${data.name}*! Aapki cab booking request receive ho gayi hai.\n\n🧾 *Booking ID:* #${booking.booking_ref}\n📍 *Route:* ${routeName}\n📍 *Pickup/Drop:* ${pointName}\n📅 *Travel Date:* ${data.date}\n⏰ *Pickup Time:* ${data.time}\n\n💳 *Advance Paid:* ₹${advancePaid} (Online Received)\n💵 *Balance to Driver:* ₹${balanceAmount} (Gaadi me dena hai)\n\n🔗 *Live Ride Status & Tracking:*\nhttps://maruticab.in/booking/${token}\n\n📞 24x7 Helpline: +91 72823 16090\n*Maruti Cab — Khargone ⇄ Indore Dedicated Sedan Service* 🚗`,
+      bookingId: booking.id,
+      eventVersion: `booking_create:${booking.id}`,
+    })
+
+    // Send Admin Notification to 8878933778
+    await sendText({
+      to: '8878933778',
+      body: `💰 *NEW ONLINE BOOKING (₹${advancePaid} Advance)* 🚕\n\nBooking: #${booking.booking_ref}\nPassenger: ${data.name} (${data.phone})\nRoute: ${routeName}\nDate: ${data.date} at ${data.time}\nAdvance: ₹${advancePaid} (Online)\nBalance: ₹${balanceAmount}\nPayment ID: ${data.paymentId || 'N/A'}\nStatus: ${savedBooking?.status || 'waiting'}\n\nDashboard: https://maruticab.in/admin`,
+      bookingId: booking.id,
+      eventVersion: `admin_booking_create:${booking.id}`,
+    })
+  } catch (waErr) {
+    console.warn('Direct WhatsApp confirmation dispatch notice:', waErr)
+  }
+
   // Send email confirmation if email was provided
   if (data.email && savedBooking) {
     try {
