@@ -1,0 +1,159 @@
+{
+  "version": "7.3",
+  "routing_model": {
+    "BOOK_CAB": []
+  },
+  "screens": [
+    {
+      "id": "BOOK_CAB",
+      "title": "Book Cab",
+      "terminal": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "booking_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "🚖 Book Maruti Cab"
+              },
+              {
+                "type": "TextBody",
+                "text": "Khargone ⇄ Indore Dedicated Sedan Service\nVehicle: Private AC Sedan (Dzire / Amaze) · 4-Seater"
+              },
+              {
+                "type": "Dropdown",
+                "name": "route",
+                "label": "Select Travel Route",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "khargone_to_indore",
+                    "title": "Khargone to Indore",
+                    "description": "Dedicated Sedan AC · ₹2,200 (₹500 Adv)"
+                  },
+                  {
+                    "id": "indore_to_khargone",
+                    "title": "Indore to Khargone",
+                    "description": "Dedicated Sedan AC · ₹1,800 (₹500 Adv)"
+                  }
+                ]
+              },
+              {
+                "type": "DatePicker",
+                "name": "travel_date",
+                "label": "Travel Date",
+                "required": true
+              },
+              {
+                "type": "Dropdown",
+                "name": "pickup_time",
+                "label": "Pickup Time",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "06:00 AM",
+                    "title": "06:00 AM",
+                    "description": "Early Morning"
+                  },
+                  {
+                    "id": "08:00 AM",
+                    "title": "08:00 AM",
+                    "description": "Morning"
+                  },
+                  {
+                    "id": "10:00 AM",
+                    "title": "10:00 AM",
+                    "description": "Morning"
+                  },
+                  {
+                    "id": "12:00 PM",
+                    "title": "12:00 PM",
+                    "description": "Noon"
+                  },
+                  {
+                    "id": "02:00 PM",
+                    "title": "02:00 PM",
+                    "description": "Afternoon"
+                  },
+                  {
+                    "id": "04:00 PM",
+                    "title": "04:00 PM",
+                    "description": "Evening"
+                  },
+                  {
+                    "id": "06:00 PM",
+                    "title": "06:00 PM",
+                    "description": "Evening"
+                  },
+                  {
+                    "id": "08:00 PM",
+                    "title": "08:00 PM",
+                    "description": "Night"
+                  },
+                  {
+                    "id": "10:00 PM",
+                    "title": "10:00 PM",
+                    "description": "Late Night"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "passenger_name",
+                "label": "Full Name",
+                "input-type": "text",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "passenger_phone",
+                "label": "Mobile Number",
+                "input-type": "phone",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "passenger_email",
+                "label": "Email (Optional)",
+                "input-type": "email",
+                "required": false
+              },
+              {
+                "type": "TextInput",
+                "name": "pickup_address",
+                "label": "Pickup & Drop Address Details",
+                "input-type": "text",
+                "required": true
+              },
+              {
+                "type": "TextCaption",
+                "text": "💳 Only ₹500 advance via WhatsApp UPI in chat after submitting. Balance fare payable in cab to driver."
+              },
+              {
+                "type": "Footer",
+                "label": "Confirm & Book Cab",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "route": "${form.route}",
+                    "vehicle": "sedan",
+                    "travel_date": "${form.travel_date}",
+                    "pickup_time": "${form.pickup_time}",
+                    "passenger_name": "${form.passenger_name}",
+                    "passenger_phone": "${form.passenger_phone}",
+                    "passenger_email": "${form.passenger_email}",
+                    "pickup_address": "${form.pickup_address}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
