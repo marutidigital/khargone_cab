@@ -15,6 +15,9 @@ import {
   CloudLightning,
   ShieldAlert,
   UserCheck,
+  UploadCloud,
+  Send,
+  Clock,
 } from 'lucide-react'
 
 interface WhatsAppTemplate {
@@ -36,6 +39,8 @@ export function AdminTemplatesPanel() {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [pushingAll, setPushingAll] = useState(false)
+  const [pushingCode, setPushingCode] = useState<string | null>(null)
   const [savingCode, setSavingCode] = useState<string | null>(null)
   const [deletingCode, setDeletingCode] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('booking_received')
@@ -89,6 +94,60 @@ export function AdminTemplatesPanel() {
       setMsg({ type: 'error', text: e?.message || 'Sync error' })
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handlePushAllToMeta = async () => {
+    if (!window.confirm('Submit all WhatsApp utility templates directly to Meta for review? Meta AI will review them automatically.')) return
+    setPushingAll(true)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/admin/templates/push-to-meta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ push_all: true }),
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        setMsg({ type: 'success', text: json.message || 'All templates submitted to Meta!' })
+        fetchTemplates()
+      } else {
+        setMsg({ type: 'error', text: json.error || 'Failed to submit templates to Meta' })
+      }
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e?.message || 'Network error submitting to Meta' })
+    } finally {
+      setPushingAll(false)
+    }
+  }
+
+  const handlePushSingleToMeta = async () => {
+    if (!activeTemplate) return
+    setPushingCode(activeTemplate.template_code)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/admin/templates/push-to-meta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_code: activeTemplate.template_code }),
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        setMsg({
+          type: 'success',
+          text: json.message || `Template "${activeTemplate.template_code}" processed with Meta!`,
+        })
+        fetchTemplates()
+      } else {
+        setMsg({
+          type: 'error',
+          text: json.error || json.message || 'Failed to submit template to Meta',
+        })
+      }
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e?.message || 'Network error' })
+    } finally {
+      setPushingCode(null)
     }
   }
 
@@ -224,15 +283,26 @@ export function AdminTemplatesPanel() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Submit All to Meta Button */}
+          <button
+            onClick={handlePushAllToMeta}
+            disabled={pushingAll}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+            title="Submit all utility templates directly to Meta Graph API for review"
+          >
+            <UploadCloud className={`w-3.5 h-3.5 ${pushingAll ? 'animate-bounce' : ''}`} />
+            <span>{pushingAll ? 'Submitting to Meta...' : 'Submit All to Meta'}</span>
+          </button>
+
           {/* Sync Button */}
           <button
             onClick={handleSyncTemplates}
             disabled={syncing}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition shadow-xs cursor-pointer"
-            title="Sync live with Meta Graph API and seed standard templates"
+            title="Sync live status with Meta Graph API"
           >
             <CloudLightning className={`w-3.5 h-3.5 ${syncing ? 'animate-bounce text-slate-900' : ''}`} />
-            <span>{syncing ? 'Syncing...' : 'Sync Templates'}</span>
+            <span>{syncing ? 'Syncing...' : 'Sync Status'}</span>
           </button>
 
           {/* Add Template Button */}
@@ -370,17 +440,31 @@ export function AdminTemplatesPanel() {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                       {activeTemplate.category || 'UTILITY'}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                      {activeTemplate.approval_status || 'APPROVED'}
-                    </span>
+                    {activeTemplate.approval_status === 'APPROVED' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Meta Approved
+                      </span>
+                    ) : activeTemplate.approval_status === 'PENDING' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                        <Clock className="w-3 h-3 text-amber-600" /> Under Meta Review
+                      </span>
+                    ) : activeTemplate.approval_status === 'REJECTED' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full">
+                        <AlertTriangle className="w-3 h-3 text-rose-600" /> Meta Rejected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                        Not Submitted
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-base font-black text-slate-900 mt-1 font-mono">
                     {activeTemplate.template_code}
                   </h3>
                 </div>
 
-                <div className="flex items-center gap-2.5">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 mr-1">
                     <input
                       type="checkbox"
                       checked={activeTemplate.active}
@@ -390,13 +474,24 @@ export function AdminTemplatesPanel() {
                     Active
                   </label>
 
+                  {/* Submit to Meta Button */}
+                  <button
+                    onClick={handlePushSingleToMeta}
+                    disabled={pushingCode === activeTemplate.template_code}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+                    title="Submit this template directly to Meta WhatsApp Cloud API for review"
+                  >
+                    <Send className={`w-3.5 h-3.5 ${pushingCode === activeTemplate.template_code ? 'animate-spin' : ''}`} />
+                    <span>{pushingCode === activeTemplate.template_code ? 'Submitting...' : 'Submit to Meta'}</span>
+                  </button>
+
                   <button
                     onClick={handleSave}
                     disabled={savingCode === activeTemplate.template_code}
                     className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-xl transition shadow-xs cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    {savingCode === activeTemplate.template_code ? 'Saving...' : 'Save Template'}
+                    {savingCode === activeTemplate.template_code ? 'Saving...' : 'Save'}
                   </button>
 
                   <button
@@ -408,6 +503,14 @@ export function AdminTemplatesPanel() {
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete
                   </button>
+                </div>
+              </div>
+
+              {/* Informational Tip Banner */}
+              <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 flex items-start gap-2.5 text-xs text-blue-900">
+                <UploadCloud className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <span className="font-bold">1-Click Meta Review:</span> Click <strong>&quot;Submit to Meta&quot;</strong> to send this template directly to Meta&apos;s automated review system. Meta AI typically approves UTILITY templates in <strong>1 to 5 minutes</strong>.
                 </div>
               </div>
 
