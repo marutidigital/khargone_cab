@@ -268,6 +268,45 @@ export function AdminBookingsPanel() {
     }
   }
 
+  const handleQuickPairBookings = async (b1: Booking, b2: Booking) => {
+    const outBooking = b1.direction === 'KI' ? b1 : b2
+    const backBooking = b1.direction === 'KI' ? b2 : b1
+    if (!window.confirm(`Pair #${outBooking.booking_ref} (${outBooking.passenger_name}) with #${backBooking.booking_ref} (${backBooking.passenger_name}) as confirmed round trip?`)) return
+    try {
+      const res = await fetch('/api/admin/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booking_out_id: outBooking.id,
+          booking_back_id: backBooking.id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to pair bookings.')
+      setNotice(`Round-trip match confirmed for #${outBooking.booking_ref} and #${backBooking.booking_ref}!`)
+      await loadBookings()
+    } catch (err: any) {
+      setError(err?.message || 'Error pairing bookings')
+    }
+  }
+
+  const handleRefundAllExpired = async () => {
+    if (!window.confirm('Process refund for all waiting bookings whose cutoff time / travel date has passed?')) return
+    try {
+      const res = await fetch('/api/admin/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _action: 'refund_all_expired' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to refund expired bookings.')
+      setNotice(data.message || 'Expired bookings refunded successfully.')
+      await loadBookings()
+    } catch (err: any) {
+      setError(err?.message || 'Error processing refunds')
+    }
+  }
+
   const countByStatus = (status: BookingStatus) => bookings.filter((booking) => booking.status === status).length
 
   return (
@@ -539,12 +578,23 @@ export function AdminBookingsPanel() {
 
             {/* Section B: Single / Waiting Bookings (Looking for Match) */}
             <div className="border-t border-slate-200 pt-6">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400" />
                   <span>Unpaired & Waiting Bookings ({unpairedBookings.length})</span>
                 </h3>
-                <span className="text-xs text-slate-500">Bookings not yet paired into a round trip</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {unpairedBookings.some((b) => b.status === 'waiting' && b.travel_date < new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())) && (
+                    <button
+                      type="button"
+                      onClick={handleRefundAllExpired}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 font-bold px-3 py-1 rounded-xl text-xs flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      💸 Refund All Expired Rides
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-500">Bookings not yet paired into a round trip</span>
+                </div>
               </div>
 
               {unpairedBookings.length === 0 ? (
@@ -555,6 +605,12 @@ export function AdminBookingsPanel() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {unpairedBookings.map((b) => {
                     const isKI = b.direction === 'KI'
+                    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+                    const isDatePassed = b.travel_date && b.travel_date < todayStr
+                    const compatibleOpposite = unpairedBookings.find(
+                      (other) => other.id !== b.id && other.status === 'waiting' && other.direction !== b.direction
+                    )
+
                     return (
                       <div
                         key={b.id}
@@ -592,6 +648,39 @@ export function AdminBookingsPanel() {
                           <span>Adv: <strong className="text-emerald-700">{formatRs(b.advance_paid || 500)}</strong></span>
                           <span>Balance: <strong>{formatRs(b.balance_amount || Math.max(0, b.total_fare - 500))}</strong></span>
                         </div>
+
+                        {/* Quick Manual Pair Action Button */}
+                        {b.status === 'waiting' && compatibleOpposite && (
+                          <div className="pt-2 border-t border-emerald-100 flex items-center justify-between gap-2 flex-wrap bg-emerald-50/50 p-2 rounded-xl">
+                            <span className="text-[10px] font-bold text-emerald-900">
+                              ⚡ Return match available: #{compatibleOpposite.booking_ref}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void handleQuickPairBookings(b, compatibleOpposite)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Pair with #{compatibleOpposite.booking_ref}</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Expired / Cutoff Passed Refund Button */}
+                        {b.status === 'waiting' && isDatePassed && (
+                          <div className="pt-2 border-t border-rose-100 flex items-center justify-between gap-2 bg-rose-50/60 p-2 rounded-xl">
+                            <span className="text-[10px] font-bold text-rose-800">
+                              ⏰ Cutoff passed without match ({b.travel_date})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void refundBooking(b)}
+                              className="bg-rose-600 hover:bg-rose-700 text-white font-black px-3 py-1 rounded-lg text-xs flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              💸 Refund ₹{b.advance_paid || 500}
+                            </button>
+                          </div>
+                        )}
 
                         {/* Send UPI button if unpaid */}
                         {b.payment_status !== 'paid' && !(b.advance_paid && b.advance_paid >= (b.advance_amount || 500)) && (
@@ -798,8 +887,11 @@ export function AdminBookingsPanel() {
           isOpen={Boolean(editingBooking)}
           booking={editingBooking}
           onClose={() => setEditingBooking(null)}
-          onSuccess={() => {
+          onSuccess={(updatedBooking?: any) => {
             setNotice(`Schedule for #${editingBooking.booking_ref} updated successfully!`)
+            if (updatedBooking) {
+              setBookings((prev) => prev.map((b) => (b.id === updatedBooking.id ? { ...b, ...updatedBooking } : b)))
+            }
             void loadBookings()
           }}
         />

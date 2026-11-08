@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Clock, Calendar, Loader2, CheckCircle2 } from 'lucide-react'
 
 interface EditTimeModalProps {
@@ -20,6 +20,14 @@ export function EditTimeModal({ isOpen, booking, onClose, onSuccess }: EditTimeM
   const [notifyCustomer, setNotifyCustomer] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (booking) {
+      setPickupTime(String(booking.pickup_time || '12:00').slice(0, 5))
+      setTravelDate(String(booking.travel_date || new Date().toISOString().slice(0, 10)))
+      setError(null)
+    }
+  }, [booking])
 
   if (!isOpen || !booking) return null
 

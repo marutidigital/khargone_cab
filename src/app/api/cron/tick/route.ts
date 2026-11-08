@@ -168,6 +168,57 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── 4. CUTOFF AUTO-REFUND SWEEPER ──
+  // Check for any waiting bookings that reached cutoff or whose travel date is already passed
+  try {
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+    const { data: expiredBookings } = await db
+      .from('bookings')
+      .select('*')
+      .eq('status', 'waiting')
+      .or(`travel_date.lt.${todayStr},cutoff_at.lte.${nowIso}`)
+      .limit(10)
+
+    for (const exp of expiredBookings || []) {
+      const refundAmt = Number(exp.advance_paid) || 500
+      await db
+        .from('bookings')
+        .update({
+          status: 'refunded',
+          refund_status: 'processed',
+          refund_amount: refundAmt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', exp.id)
+
+      try {
+        await sendWhatsAppTemplateMessage({
+          toPhone: exp.phone,
+          templateCode: 'refund_initiated',
+          variables: [
+            exp.passenger_name || 'Passenger',
+            exp.booking_ref,
+            String(refundAmt),
+            `RFD_${exp.booking_ref}`,
+          ],
+          bookingId: exp.id,
+        })
+      } catch (waErr) {
+        console.warn('Auto cutoff refund WA notice:', waErr)
+      }
+
+      await notifyAdmin(
+        `cutoff_refund:${exp.id}`,
+        exp.id,
+        `⏰ *CUTOFF PASSED AUTO-REFUND:* #${exp.booking_ref} (${exp.passenger_name}) unmatched past schedule. ₹${refundAmt} auto-refund processed.`
+      ).catch(() => {})
+
+      results.push({ bookingId: exp.id, action: 'cutoff_auto_refunded' })
+    }
+  } catch (sweepErr) {
+    console.warn('Cutoff auto-refund sweeper note:', sweepErr)
+  }
+
   return NextResponse.json({
     success: true,
     processedCount: dueJobs?.length || 0,

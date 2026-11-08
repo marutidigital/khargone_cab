@@ -132,6 +132,23 @@ export function AdminMatchesAndFleetPanel() {
     }
   }
 
+  const handleRefundBooking = async (b: any) => {
+    if (!confirm(`Refund booking #${b.booking_ref} (${b.passenger_name})?`)) return
+    try {
+      const res = await fetch('/api/admin/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _action: 'refund', id: b.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Refund failed')
+      setToast({ message: `Refund processed for #${b.booking_ref}!`, type: 'success' })
+      await fetchData()
+    } catch (err: any) {
+      setToast({ message: err.message, type: 'error' })
+    }
+  }
+
   useEffect(() => {
     void fetchData()
   }, [])
@@ -277,6 +294,33 @@ export function AdminMatchesAndFleetPanel() {
             </div>
           )}
 
+          {/* Quick 1-Click Banner if exactly 1 KI and 1 IK waiting */}
+          {waitingKI.length === 1 && waitingIK.length === 1 && !selectedKI && !selectedIK && (
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm animate-in fade-in">
+              <div>
+                <div className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-slate-900" />
+                  <span>1-Click Round Trip Available!</span>
+                </div>
+                <div className="text-xs font-medium mt-0.5">
+                  Pair <strong>#{waitingKI[0].booking_ref} ({waitingKI[0].passenger_name})</strong> with <strong>#{waitingIK[0].booking_ref} ({waitingIK[0].passenger_name})</strong>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedKI(waitingKI[0].id)
+                  setSelectedIK(waitingIK[0].id)
+                  setShowConfirmModal(true)
+                }}
+                className="bg-slate-950 hover:bg-slate-900 text-white font-black px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Pair Both Rides Now</span>
+              </button>
+            </div>
+          )}
+
           {/* Pending Rides for Matching (2 Columns) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Outward Waiting Column */}
@@ -289,54 +333,101 @@ export function AdminMatchesAndFleetPanel() {
                 {waitingKI.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">No waiting requests</div>
                 ) : (
-                  waitingKI.map((b) => (
-                    <div
-                      key={b.id}
-                      className={`p-3 text-xs space-y-1 transition ${
-                        selectedKI === b.id ? 'bg-amber-100/70 border-l-4 border-amber-500' : 'hover:bg-slate-50'
-                      }`}
-                    >
+                  waitingKI.map((b) => {
+                    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+                    const isPastDate = b.travel_date && b.travel_date < todayStr
+
+                    return (
                       <div
-                        onClick={() => setSelectedKI(selectedKI === b.id ? null : b.id)}
-                        className="cursor-pointer"
+                        key={b.id}
+                        className={`p-3 text-xs space-y-1.5 transition ${
+                          selectedKI === b.id ? 'bg-amber-100/70 border-l-4 border-amber-500' : 'hover:bg-slate-50'
+                        }`}
                       >
-                        <div className="flex justify-between font-bold">
-                          <span>#{b.booking_ref} · {b.passenger_name}</span>
-                          <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-500">
-                            {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
-                          </span>
-                          {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
-                            <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
-                              🌐 Public Board: Active
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
-                              🔒 Private / Pending
-                            </span>
-                          )}
+                        <div>
+                          <div className="flex justify-between font-bold">
+                            <span>#{b.booking_ref} · {b.passenger_name}</span>
+                            <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditingBooking(b)
-                          }}
-                          className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1"
-                        >
-                          <Edit3 className="w-2.5 h-2.5" />
-                          <span>Edit Time</span>
-                        </button>
+                        <div className="flex items-center justify-between pt-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500">
+                              {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
+                            </span>
+                            {isPastDate ? (
+                              <span className="rounded-full bg-rose-100 text-rose-800 px-1.5 py-0.5 text-[9px] font-bold border border-rose-200">
+                                ⏰ Date Passed
+                              </span>
+                            ) : b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                              <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
+                                🌐 Public Board: Active
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
+                                🔒 Private / Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: Explicit Select, Pair with Return, Edit Time, Refund */}
+                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 flex-wrap gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedKI(selectedKI === b.id ? null : b.id)}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                                selectedKI === b.id
+                                  ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {selectedKI === b.id ? '✓ Selected' : '◯ Select to Pair'}
+                            </button>
+
+                            {selectedIK && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedKI(b.id)
+                                  setShowConfirmModal(true)
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                ⚡ Pair with Selected Return
+                              </button>
+                            )}
+
+                            {isPastDate && (
+                              <button
+                                type="button"
+                                onClick={() => handleRefundBooking(b)}
+                                className="text-[10px] font-bold text-rose-800 hover:text-rose-950 bg-rose-100 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                                title="Trip date has passed without match. Refund booking."
+                              >
+                                💸 Refund ₹{b.advance_paid || 500}
+                              </button>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingBooking(b)
+                            }}
+                            className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-100 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-2.5 h-2.5" />
+                            <span>Edit Time</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -351,51 +442,102 @@ export function AdminMatchesAndFleetPanel() {
                 {waitingIK.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">No waiting requests</div>
                 ) : (
-                  waitingIK.map((b) => (
-                    <div
-                      key={b.id}
-                      className={`p-3 text-xs space-y-1 transition ${
-                        selectedIK === b.id ? 'bg-amber-100/70 border-l-4 border-amber-500' : 'hover:bg-slate-50'
-                      }`}
-                    >
+                  waitingIK.map((b) => {
+                    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+                    const isPastDate = b.travel_date && b.travel_date < todayStr
+
+                    return (
                       <div
-                        onClick={() => setSelectedIK(selectedIK === b.id ? null : b.id)}
-                        className="cursor-pointer"
+                        key={b.id}
+                        className={`p-3 text-xs space-y-1.5 transition ${
+                          selectedIK === b.id ? 'bg-amber-100/70 border-l-4 border-amber-500' : 'hover:bg-slate-50'
+                        }`}
                       >
-                        <div className="flex justify-between font-bold">
-                          <span>#{b.booking_ref} · {b.passenger_name}</span>
-                          <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                        <div>
+                          <div className="flex justify-between font-bold">
+                            <span>#{b.booking_ref} · {b.passenger_name}</span>
+                            <span className="text-amber-900">{b.travel_date} at {String(b.pickup_time).slice(0, 5)}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
                         </div>
-                        <p className="text-[11px] text-slate-500 truncate">{b.address || b.drop_name}</p>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500">
+                              {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
+                            </span>
+                            {isPastDate ? (
+                              <span className="rounded-full bg-rose-100 text-rose-800 px-1.5 py-0.5 text-[9px] font-bold border border-rose-200">
+                                ⏰ Date Passed
+                              </span>
+                            ) : b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                              <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
+                                🌐 Public Board: Active
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
+                                🔒 Private / Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: Explicit Select, Pair with Outward, Edit Time, Refund */}
+                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 flex-wrap gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedIK(selectedIK === b.id ? null : b.id)}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                                selectedIK === b.id
+                                  ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {selectedIK === b.id ? '✓ Selected' : '◯ Select to Pair'}
+                            </button>
+
+                            {selectedKI && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedIK(b.id)
+                                  setShowConfirmModal(true)
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                ⚡ Pair with Selected Outward
+                              </button>
+                            )}
+
+                            {isPastDate && (
+                              <button
+                                type="button"
+                                onClick={() => handleRefundBooking(b)}
+                                className="text-[10px] font-bold text-rose-800 hover:text-rose-950 bg-rose-100 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                                title="Trip date has passed without match. Refund booking."
+                              >
+                                💸 Refund ₹{b.advance_paid || 500}
+                              </button>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingBooking(b)
+                            }}
+                            className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-100 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-2.5 h-2.5" />
+                            <span>Edit Time</span>
+                          </button>
+                        </div>
                       </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-500">
-                            {b.cutoff_at ? `Cutoff: ${new Date(b.cutoff_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : `Adv: ₹${b.advance_paid || 500}`}
-                          </span>
-                          {b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
-                            <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
-                              🌐 Public Board: Active
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-100 text-slate-600 px-1.5 py-0.5 text-[9px] font-semibold border border-slate-300">
-                              🔒 Private / Pending
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditingBooking(b)
-                          }}
-                          className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1"
-                        >
-                          <Edit3 className="w-2.5 h-2.5" />
-                          <span>Edit Time</span>
-                        </button>
+                    )
+                  })
+                )}
                       </div>
                     </div>
                   ))
@@ -701,8 +843,12 @@ export function AdminMatchesAndFleetPanel() {
           isOpen={Boolean(editingBooking)}
           booking={editingBooking}
           onClose={() => setEditingBooking(null)}
-          onSuccess={() => {
+          onSuccess={(updatedBooking?: any) => {
             setToast({ message: `Time updated successfully for #${editingBooking.booking_ref}!`, type: 'success' })
+            if (updatedBooking) {
+              setWaitingKI((prev) => prev.map((b) => (b.id === updatedBooking.id ? { ...b, ...updatedBooking } : b)))
+              setWaitingIK((prev) => prev.map((b) => (b.id === updatedBooking.id ? { ...b, ...updatedBooking } : b)))
+            }
             void fetchData()
           }}
         />

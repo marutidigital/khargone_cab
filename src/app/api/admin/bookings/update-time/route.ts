@@ -90,12 +90,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Notify Admin of schedule modification
+    // Notify Admin of schedule modification (fail-safe)
     await notifyAdmin(
       `time_update:${booking.id}`,
       booking.id,
       `✏️ Admin schedule update for #${booking.booking_ref} (${booking.passenger_name}): New time ${cleanTime.slice(0, 5)} on ${cleanDate}.`
-    )
+    ).catch((err) => console.warn('Admin WA alert failed in update-time:', err))
 
     return NextResponse.json({
       success: true,

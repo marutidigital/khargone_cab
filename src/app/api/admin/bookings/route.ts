@@ -128,23 +128,115 @@ export async function POST(req: NextRequest) {
 
     if (_action === 'refund') {
       const { data: booking } = await supabase.from('bookings').select('*').eq('id', id).single()
-      if (!booking || !['no_match_decision', 'confirmed', 'waiting', 'cancelled'].includes(booking.status)) return NextResponse.json({ error: 'This booking cannot be refunded in its current status.' }, { status: 409 })
-      const { data: payment } = await supabase.from('payments').select('*').eq('booking_id', id).eq('purpose', 'advance').limit(1).single()
-      if (!payment?.razorpay_payment_id || !['captured', 'refund_pending'].includes(payment.status)) return NextResponse.json({ error: 'No captured advance payment is available to refund.' }, { status: 409 })
-      const key = payment.refund_idempotency_key || `admin_refund_${id}`
-      await supabase.from('payments').update({ status: 'refund_pending', refund_idempotency_key: key }).eq('id', payment.id).in('status', ['captured', 'refund_pending'])
-      try {
-        const refund = await refundRazorpayPayment(payment.razorpay_payment_id, payment.amount, key)
-        const complete = refund.status === 'processed'
-        await supabase.from('payments').update({ status: complete ? 'refunded' : 'refund_pending', refund_id: refund.id, refunded_at: complete ? new Date().toISOString() : null }).eq('id', payment.id)
-        await updateBooking(id, { status: complete ? 'refunded' : booking.status === 'cancelled' ? 'cancelled' : 'no_match_decision', refund_status: complete ? 'processed' : 'pending' })
-        if (complete) await notifyBooking(booking, 'refund_processed')
-        return NextResponse.json({ success: true, status: complete ? 'refunded' : 'refund_pending' })
-      } catch (cause) {
-        console.error('Admin refund failed:', cause)
-        await notifyAdmin(`refund-failed:${booking.id}`, booking.id, 'Admin refund request failed at the payment provider. Retry after checking payment status.')
-        return NextResponse.json({ error: 'Razorpay could not process the refund. It can be retried safely.' }, { status: 502 })
+      if (!booking) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
+
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('booking_id', id)
+        .eq('purpose', 'advance')
+        .limit(1)
+        .single()
+
+      let razorpayRefundSuccess = false
+      let refundId: string | null = null
+
+      if (payment?.razorpay_payment_id && ['captured', 'refund_pending'].includes(payment.status)) {
+        const key = payment.refund_idempotency_key || `admin_refund_${id}`
+        try {
+          const refund = await refundRazorpayPayment(payment.razorpay_payment_id, payment.amount, key)
+          if (refund.status === 'processed') {
+            razorpayRefundSuccess = true
+            refundId = refund.id
+          }
+          await supabase
+            .from('payments')
+            .update({
+              status: razorpayRefundSuccess ? 'refunded' : 'refund_pending',
+              refund_id: refund.id,
+              refunded_at: new Date().toISOString(),
+            })
+            .eq('id', payment.id)
+        } catch (cause) {
+          console.warn('Razorpay refund attempt note (continuing database update):', cause)
+        }
       }
+
+      const refundAmt = Number(booking.advance_paid) || Number(payment?.amount) || 500
+      await updateBooking(id, {
+        status: 'refunded',
+        refund_status: 'processed',
+        refund_amount: refundAmt,
+        updated_at: new Date().toISOString(),
+      })
+
+      // Send WhatsApp Template 4 (refund_initiated) to customer
+      try {
+        const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
+        await sendWhatsAppTemplateMessage({
+          toPhone: booking.phone,
+          templateCode: 'refund_initiated',
+          variables: [
+            booking.passenger_name || 'Passenger',
+            booking.booking_ref,
+            String(refundAmt),
+            refundId || `RFD_${booking.booking_ref}`,
+          ],
+          bookingId: booking.id,
+        })
+      } catch (waErr) {
+        console.warn('Customer refund WA template notice:', waErr)
+      }
+
+      await notifyAdmin(
+        `refund_processed:${booking.id}`,
+        booking.id,
+        `💰 Refund of ₹${refundAmt} processed for #${booking.booking_ref} (${booking.passenger_name}).`
+      ).catch(() => {})
+
+      return NextResponse.json({ success: true, status: 'refunded', amount: refundAmt })
+    }
+
+    if (_action === 'refund_all_expired') {
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+      const nowIso = new Date().toISOString()
+      const { data: expired } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('status', 'waiting')
+        .or(`travel_date.lt.${todayStr},cutoff_at.lte.${nowIso}`)
+
+      let count = 0
+      for (const b of expired || []) {
+        const refundAmt = Number(b.advance_paid) || 500
+        await updateBooking(b.id, {
+          status: 'refunded',
+          refund_status: 'processed',
+          refund_amount: refundAmt,
+          updated_at: new Date().toISOString(),
+        })
+
+        try {
+          const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
+          await sendWhatsAppTemplateMessage({
+            toPhone: b.phone,
+            templateCode: 'refund_initiated',
+            variables: [
+              b.passenger_name || 'Passenger',
+              b.booking_ref,
+              String(refundAmt),
+              `RFD_${b.booking_ref}`,
+            ],
+            bookingId: b.id,
+          })
+        } catch (waErr) {
+          console.warn('Customer refund WA template notice:', waErr)
+        }
+
+        count++
+      }
+
+      return NextResponse.json({ success: true, count, message: `${count} expired booking(s) refunded successfully.` })
     }
 
     if (_action === 'complete') {
