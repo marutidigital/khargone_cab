@@ -253,6 +253,96 @@ Kripya client se turant connect karein aur unka issue solve karein!`,
     footer_text: 'MarutiCab Customer First ❤️',
     variables: ['customer_name', 'phone', 'booking_ref', 'message_text'],
   },
+  provider_availability_request: {
+    template_code: 'provider_availability_request',
+    meta_template_name: 'provider_availability_request',
+    header_text: '🚕 MarutiCab Round Trip Duty',
+    body_text: `Namaste {{1}} ji! MarutiCab ke liye Khargone ⇄ Indore round trip duty available hai.
+
+Date: {{2}}
+Leg 1: {{3}} (Pickup {{4}})
+Leg 2: {{5}} (Pickup {{6}})
+
+Kya aapki gaadi chalegi? Kripya agle 1 ghante me Yes ya No batayein:`,
+    footer_text: 'MarutiCab Dispatch Operations 🚖',
+    variables: ['provider_name', 'travel_date', 'leg1_route', 'leg1_pickup', 'leg2_route', 'leg2_pickup'],
+  },
+  provider_car_driver_details: {
+    template_code: 'provider_car_driver_details',
+    meta_template_name: 'provider_car_driver_details',
+    header_text: '🚘 Gaadi & Driver Details',
+    body_text: `Dhanyavad {{1}} ji! Khargone ⇄ Indore trip confirm karne ke liye kripya Driver Name, Mobile Number, Car Model aur Vehicle Number enter karein.`,
+    footer_text: 'MarutiCab Dispatch Desk 🚕',
+    variables: ['provider_name'],
+  },
+  provider_details_reminder: {
+    template_code: 'provider_details_reminder',
+    meta_template_name: 'provider_details_reminder',
+    header_text: '⏰ Driver Details Reminder',
+    body_text: `Namaste {{1}} ji, aapne Khargone ⇄ Indore trip confirm kiya tha. Kripya driver aur gaadi ki details jaldi share karein taaki booking lock ho sake.`,
+    footer_text: 'MarutiCab Fleet Management',
+    variables: ['provider_name'],
+  },
+  provider_trip_completed_thanks: {
+    template_code: 'provider_trip_completed_thanks',
+    meta_template_name: 'provider_trip_completed_thanks',
+    header_text: '🎉 Round Trip Complete!',
+    body_text: `MarutiCab: Dono rides successfully complete ho gayi hain. Aapke sahyog ke liye dhanyavad! Agli booking par hum aapse WhatsApp par connect karenge.`,
+    footer_text: 'MarutiCab Partner Network ❤️',
+    variables: [],
+  },
+  customer_feedback_buttons: {
+    template_code: 'customer_feedback_buttons',
+    meta_template_name: 'customer_feedback_buttons',
+    header_text: '⭐ Kaisa Raha Safar?',
+    body_text: `Namaste {{1}}! Aapka {{2}} ka safar complete ho gaya hai. Driver bhaiya ({{3}}) aur safar ka anubhav kaisa raha? Kripya rating dein:`,
+    footer_text: 'MarutiCab · Safe & Comfortable Travels 🚕',
+    variables: ['customer_name', 'route', 'driver_name'],
+  },
+  customer_cancellation_confirmed: {
+    template_code: 'customer_cancellation_confirmed',
+    meta_template_name: 'customer_cancellation_confirmed',
+    header_text: '✅ Booking Cancelled',
+    body_text: `Namaste {{1}}, aapki booking #{{2}} cancel ho gayi hai. Advance ₹{{3}} bina kisi deduction ke aapke account me 5-7 din me credit ho jayega.`,
+    footer_text: 'MarutiCab 100% Refund Guarantee 🛡️',
+    variables: ['customer_name', 'booking_ref', 'refund_amount'],
+  },
+  customer_partner_cancelled_rematch: {
+    template_code: 'customer_partner_cancelled_rematch',
+    meta_template_name: 'customer_partner_cancelled_rematch',
+    header_text: '⚠️ Re-Matching Alert',
+    body_text: `Namaste {{1}}, aapki booking #{{2}} ke opposite return passenger ne cancel kiya hai. Hum turant aapke liye doosra match dhoondh rahe hain. Aapki ride priority par hai.`,
+    footer_text: 'MarutiCab Support: +91 72823 16090',
+    variables: ['customer_name', 'booking_ref'],
+  },
+  customer_booking_abandoned_retry: {
+    template_code: 'customer_booking_abandoned_retry',
+    meta_template_name: 'customer_booking_abandoned_retry',
+    header_text: '🚖 Complete Your Booking',
+    body_text: `Namaste {{1}}, aapki {{2}} ki cab booking adhuri reh gayi hai. Apni seat confirm karne ke liye yahan se ₹500 advance pay karein: {{3}}`,
+    footer_text: 'MarutiCab · Fixed Fares AC Sedans 🚕',
+    variables: ['customer_name', 'route', 'payment_link'],
+  },
+  driver_payment_received_prompt: {
+    template_code: 'driver_payment_received_prompt',
+    meta_template_name: 'driver_payment_received_prompt',
+    header_text: '💰 Payment Mila?',
+    body_text: `Trip drop complete! Kya aapko customer se cash/UPI balance amount ₹{{1}} receive ho gaya hai?`,
+    footer_text: 'MarutiCab Duty Dispatch',
+    variables: ['balance_amount'],
+  },
+  admin_closing_commission_summary: {
+    template_code: 'admin_closing_commission_summary',
+    meta_template_name: 'admin_closing_commission_summary',
+    header_text: '📊 Round Trip Closed',
+    body_text: `📊 Round Trip Settlement Summary: Match #{{1}}
+Total Fares: ₹4,000 (Advance: ₹1,000, Driver Collected: ₹3,000)
+Provider Payout: ₹{{2}}
+MarutiCab Net Commission: ₹{{3}}
+Status: Successfully Closed 🎉`,
+    footer_text: 'MarutiCab Accounts Desk 💰',
+    variables: ['match_ref', 'provider_payout', 'commission_amount'],
+  },
 }
 
 export function renderTemplateText(templateCode: string, values: string[]): { header?: string; body: string; footer?: string; fullText: string } {

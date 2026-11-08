@@ -28,6 +28,7 @@ export function AdminMatchesAndFleetPanel() {
   const [waitingIK, setWaitingIK] = useState<any[]>([])
   const [vehicles, setVehicles] = useState<any[]>([])
   const [drivers, setDrivers] = useState<any[]>([])
+  const [providers, setProviders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pairing, setPairing] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
@@ -46,17 +47,27 @@ export function AdminMatchesAndFleetPanel() {
   const [newReg, setNewReg] = useState('')
   const [newModel, setNewModel] = useState('')
 
+  // Add/Edit Provider modal
+  const [showAddProvider, setShowAddProvider] = useState(false)
+  const [providerName, setProviderName] = useState('')
+  const [providerPhone, setProviderPhone] = useState('')
+  const [providerPriority, setProviderPriority] = useState(1)
+  const [providerActive, setProviderActive] = useState(true)
+  const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [mRes, vRes, dRes] = await Promise.all([
+      const [mRes, vRes, dRes, pRes] = await Promise.all([
         fetch('/api/admin/matches'),
         fetch('/api/admin/vehicles'),
         fetch('/api/drivers?status=active'),
+        fetch('/api/admin/providers'),
       ])
       const mData = await mRes.json()
       const vData = await vRes.json()
       const dData = await dRes.json()
+      const pData = await pRes.json()
 
       if (mRes.ok) {
         setMatches(mData.matches || [])
@@ -69,10 +80,55 @@ export function AdminMatchesAndFleetPanel() {
       if (dRes.ok) {
         setDrivers(dData.drivers || [])
       }
+      if (pRes.ok) {
+        setProviders(pData.providers || [])
+      }
     } catch (err) {
-      console.error('Error fetching matches/fleet:', err)
+      console.error('Error fetching matches/fleet/providers:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSaveProvider = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await fetch('/api/admin/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingProviderId,
+          name: providerName,
+          phone: providerPhone,
+          priority: providerPriority,
+          active: providerActive,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save provider')
+
+      setToast({ message: 'Provider saved successfully!', type: 'success' })
+      setShowAddProvider(false)
+      setProviderName('')
+      setProviderPhone('')
+      setProviderPriority(1)
+      setProviderActive(true)
+      setEditingProviderId(null)
+      await fetchData()
+    } catch (err: any) {
+      setToast({ message: err.message, type: 'error' })
+    }
+  }
+
+  const handleDeleteProvider = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this provider?')) return
+    try {
+      const res = await fetch(`/api/admin/providers?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete provider')
+      setToast({ message: 'Provider deleted.', type: 'success' })
+      await fetchData()
+    } catch (err: any) {
+      setToast({ message: err.message, type: 'error' })
     }
   }
 
@@ -452,6 +508,84 @@ export function AdminMatchesAndFleetPanel() {
             </div>
           </div>
 
+          {/* Car Providers (Sequential 6 Providers Cascade) */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                  Car Providers ({providers.length}/6 Sequential Dispatch Queue)
+                </span>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Round trip match hote hi system automatically Priority 1 se 6 tak ek-ek karke Yes/No WhatsApp bhejega.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingProviderId(null)
+                  setProviderName('')
+                  setProviderPhone('')
+                  setProviderPriority(Math.min(6, providers.length + 1))
+                  setProviderActive(true)
+                  setShowAddProvider(true)
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Provider</span>
+              </button>
+            </div>
+
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {providers.length === 0 ? (
+                <div className="col-span-3 text-center py-6 text-slate-400 text-xs">
+                  Koi Provider configure nahi hai. Sequential dispatch ke liye kam se kam 1–6 Providers add karein.
+                </div>
+              ) : (
+                providers.map((p) => (
+                  <div key={p.id} className="border border-slate-200 rounded-xl p-3 text-xs bg-slate-50 space-y-1.5 relative">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-200">
+                        Priority #{p.priority}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${p.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                        {p.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="font-bold text-slate-900 text-sm">{p.name}</div>
+                    <div className="text-slate-600 flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      <span>+91 {p.phone}</span>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProviderId(p.id)
+                          setProviderName(p.name)
+                          setProviderPhone(p.phone)
+                          setProviderPriority(p.priority)
+                          setProviderActive(p.active)
+                          setShowAddProvider(true)
+                        }}
+                        className="text-[11px] font-bold text-amber-700 hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProvider(p.id)}
+                        className="text-[11px] font-bold text-rose-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Fleet Vehicles */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
             <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-800 uppercase tracking-wide flex justify-between">
@@ -637,6 +771,98 @@ export function AdminMatchesAndFleetPanel() {
                 className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs"
               >
                 Save Vehicle
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── ADD / EDIT CAR PROVIDER MODAL ── */}
+      {showAddProvider && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <form
+            onSubmit={handleSaveProvider}
+            className="bg-white rounded-3xl border border-slate-200 p-6 max-w-sm w-full shadow-2xl space-y-4"
+          >
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">
+                  {editingProviderId ? 'Edit Car Provider' : 'Add Independent Car Provider'}
+                </h3>
+                <p className="text-[11px] text-slate-500">Priority 1 to 6 Sequential Dispatch</p>
+              </div>
+              <button type="button" onClick={() => setShowAddProvider(false)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">Provider / Owner Name</label>
+              <input
+                type="text"
+                placeholder="Santosh Travels / Kailash Patel"
+                required
+                value={providerName}
+                onChange={(e) => setProviderName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">WhatsApp Mobile (10-Digit)</label>
+              <input
+                type="tel"
+                placeholder="98260XXXXX"
+                required
+                maxLength={10}
+                value={providerPhone}
+                onChange={(e) => setProviderPhone(e.target.value.replace(/\D/g, ''))}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">Dispatch Priority (Order)</label>
+              <select
+                value={providerPriority}
+                onChange={(e) => setProviderPriority(Number(e.target.value))}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+              >
+                <option value={1}>Priority #1 (Pehle isse Yes/No pucho)</option>
+                <option value={2}>Priority #2 (1st ne No bola ya 1h timeout hua toh ye)</option>
+                <option value={3}>Priority #3</option>
+                <option value={4}>Priority #4</option>
+                <option value={5}>Priority #5</option>
+                <option value={6}>Priority #6 (Last provider)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="pActive"
+                checked={providerActive}
+                onChange={(e) => setProviderActive(e.target.checked)}
+                className="rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+              />
+              <label htmlFor="pActive" className="text-xs font-bold text-slate-700">
+                Active (Auto-dispatch me include karein)
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setShowAddProvider(false)}
+                className="px-3 py-2 text-xs font-bold text-slate-600"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs"
+              >
+                Save Provider
               </button>
             </div>
           </form>

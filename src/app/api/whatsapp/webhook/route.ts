@@ -79,6 +79,30 @@ async function handleInbound(body: any) {
     }
   }
 
+  // ── INCOMING PROVIDER DISPATCH WEBHOOK (Yes / No reply or Driver/Car Auto-feed) ──
+  const isProviderButton =
+    normalizedText.startsWith('PROV_YES:') ||
+    normalizedText.startsWith('PROV_NO:')
+
+  if (isProviderButton) {
+    try {
+      const { handleProviderDispatchWebhook } = await import('@/lib/provider-dispatch-engine')
+      const handled = await handleProviderDispatchWebhook(message.text, phone)
+      if (handled) return
+    } catch (provErr) {
+      console.error('Provider dispatch webhook processing error:', provErr)
+    }
+  }
+
+  // Check if message is a Provider submitting Driver & Car details to auto-feed
+  try {
+    const { autoFeedProviderDriverDetails } = await import('@/lib/provider-dispatch-engine')
+    const autoFed = await autoFeedProviderDriverDetails(message.text, phone)
+    if (autoFed) return
+  } catch (feedErr) {
+    console.warn('Auto-feed check notice:', feedErr)
+  }
+
   // ── INCOMING WHATSAPP FLOW SUBMISSION (Native in-chat form completed) ──
   const flowJsonRaw = message.flowReply?.response_json || (typeof message.text === 'string' && message.text.trim().startsWith('{') && message.text.trim().endsWith('}') ? message.text.trim() : null)
   if (flowJsonRaw) {

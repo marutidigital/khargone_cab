@@ -215,8 +215,18 @@ export async function secureAndConfirmMatch(params: {
     await notifyAdmin(
       `match_confirmed:${matchId}`,
       bookingOutId,
-      `🚨 *ACTION REQUIRED: ROUND MATCH CONFIRMED!* #${bOut.booking_ref} (${bOut.direction === 'KI' ? 'Khargone➔Indore' : 'Indore➔Khargone'}) is paired with #${bBack.booking_ref}. You need to connect new car and driver details in this confirmed round booking now!`
+      `🚨 *ACTION REQUIRED: ROUND MATCH CONFIRMED!* #${bOut.booking_ref} (${bOut.direction === 'KI' ? 'Khargone➔Indore' : 'Indore➔Khargone'}) is paired with #${bBack.booking_ref}. Sequential provider dispatch starting...`
     )
+
+    // 9. If no driver pre-assigned, start automated sequential provider dispatch across 6 providers!
+    if (!driverId) {
+      try {
+        const { startProviderDispatch } = await import('@/lib/provider-dispatch-engine')
+        await startProviderDispatch(matchId)
+      } catch (dispErr) {
+        console.warn('Auto provider dispatch notice:', dispErr)
+      }
+    }
 
     return { success: true, matchId }
   } catch (err: any) {
