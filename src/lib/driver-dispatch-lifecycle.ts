@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase-server'
-import { sendQuickReplyButtons, sendText, normalizeWhatsAppPhone } from '@/lib/whatsapp'
+import { sendInteractiveButtons, sendText, normalizeWhatsAppPhone } from '@/lib/whatsapp'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 
@@ -291,7 +291,7 @@ export async function dispatchDriverLeg1InitialMessage(params: {
     `Baat hone ke baad neeche *"Baat Ho Gayi"* button dabayein:`,
   ].join('\n')
 
-  return await sendQuickReplyButtons({
+  return await sendInteractiveButtons({
     to: driverPhone,
     body,
     buttons: [
@@ -401,7 +401,7 @@ export async function handleDriverLifecycleWebhook(text: string, fromPhone: stri
       `Jab passenger gaadi mein baith jayein aur ride shuru ho, toh neeche *"Passenger Baith Gaye"* button dabayein:`,
     ].join('\n')
 
-    await sendQuickReplyButtons({
+    await sendInteractiveButtons({
       to: fromPhone,
       body,
       buttons: [
@@ -456,7 +456,7 @@ export async function handleDriverLifecycleWebhook(text: string, fromPhone: stri
       `Jab aap passenger ko unke drop point par chhod dein, toh drop complete karne ke liye neeche button dabayein:`,
     ].join('\n')
 
-    await sendQuickReplyButtons({
+    await sendInteractiveButtons({
       to: fromPhone,
       body,
       buttons: [
@@ -523,7 +523,7 @@ export async function handleDriverLifecycleWebhook(text: string, fromPhone: stri
         `⚠️ Kripya return passenger se call par baat karein aur baat hone par neeche button dabayein:`,
       ].join('\n')
 
-      await sendQuickReplyButtons({
+      await sendInteractiveButtons({
         to: fromPhone,
         body: returnBody,
         buttons: [

@@ -95,9 +95,12 @@ export async function sendInteractiveButtons({ to, body, buttons, bookingId, eve
 }) {
   const phone = normalizeWhatsAppPhone(to)
   return sendLoggedFreeform({ phone, message: { type: 'interactive', interactive: {
-    type: 'button', body: { text: body }, action: { buttons: buttons.slice(0, 3).map(({ id, title }) => ({ type: 'reply', reply: { id, title } })) },
+    type: 'button', body: { text: body }, action: { buttons: buttons.slice(0, 3).map(({ id, title }) => ({ type: 'reply', reply: { id, title: title.slice(0, 20) } })) },
   } }, bookingId, eventVersion })
 }
+
+export const sendQuickReplyButtons = sendInteractiveButtons
+
 
 export async function sendFlowMessage({
   to,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
-import { sendQuickReplyButtons, sendText, normalizeWhatsAppPhone } from '@/lib/whatsapp'
+import { sendInteractiveButtons, sendText, normalizeWhatsAppPhone } from '@/lib/whatsapp'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { dispatchNextProvider } from '@/lib/provider-dispatch-engine'
 
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
           ].join('\n')
 
           const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.WHATSAPP_ADMIN_PHONE || '917282316090'
-          await sendQuickReplyButtons({
+          await sendInteractiveButtons({
             to: adminPhone,
             body: adminAlertText,
             buttons: [

@@ -4,7 +4,7 @@
 // and cascading dispatch without admin manual intervention.
 
 import { createServiceClient } from '@/lib/supabase-server'
-import { sendQuickReplyButtons, sendText, normalizeWhatsAppPhone } from '@/lib/whatsapp'
+import { sendInteractiveButtons, sendText, normalizeWhatsAppPhone } from '@/lib/whatsapp'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { dispatchDriverLeg1InitialMessage } from '@/lib/driver-dispatch-lifecycle'
@@ -129,7 +129,7 @@ async function dispatchToProviderAtPriority(params: {
 
   try {
     const waPhone = normalizeWhatsAppPhone(provider.phone)
-    await sendQuickReplyButtons({
+    await sendInteractiveButtons({
       to: waPhone,
       body,
       buttons: [
