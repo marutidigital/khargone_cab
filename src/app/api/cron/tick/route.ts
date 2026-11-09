@@ -172,6 +172,127 @@ export async function GET(req: NextRequest) {
   // User policy: No automated booking cancellations or refunds.
   // All bookings remain waiting; cancellation and refunds are performed manually by Admin.
 
+  // ── 5. RECONCILIATION: RECONCILE PENDING_PAYMENT BOOKINGS (15+ MIN) & AUTO-EXPIRE (30+ MIN) ──
+  const nowMs = Date.now()
+  const fifteenMinAgoIso = new Date(nowMs - 15 * 60 * 1000).toISOString()
+
+  const { data: pendingBookings } = await db
+    .from('bookings')
+    .select('*')
+    .eq('status', 'pending_payment')
+    .lte('created_at', fifteenMinAgoIso)
+    .limit(20)
+
+  for (const pb of pendingBookings || []) {
+    const razorpayOrderId = pb.extras?.razorpay_order_id
+    if (!razorpayOrderId) {
+      if (new Date(pb.created_at).getTime() < nowMs - 30 * 60 * 1000) {
+        await db
+          .from('bookings')
+          .update({
+            status: 'cancelled',
+            extras: { ...(pb.extras || {}), cancellation_reason: 'pending_payment_timeout' },
+          })
+          .eq('id', pb.id)
+      }
+      continue
+    }
+
+    try {
+      const keyId = process.env.RAZORPAY_KEY_ID
+      const keySecret = process.env.RAZORPAY_KEY_SECRET
+      if (keyId && keySecret) {
+        const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64')
+        const rzpRes = await fetch(
+          `https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpayOrderId)}/payments`,
+          {
+            headers: { Authorization: `Basic ${auth}` },
+            cache: 'no-store',
+          }
+        )
+
+        if (rzpRes.ok) {
+          const rzpData = await rzpRes.json()
+          const capturedPayment = (rzpData.items || []).find((p: any) => p.status === 'captured')
+          if (capturedPayment) {
+            const amountRupees = Math.round(Number(capturedPayment.amount || 50000) / 100)
+            const balance = Math.max(0, Number(pb.total_fare || 0) - amountRupees)
+
+            // Atomically confirm booking
+            await db
+              .from('bookings')
+              .update({
+                status: 'waiting',
+                advance_paid: amountRupees,
+                advance_amount: amountRupees,
+                balance_amount: balance,
+                updated_at: new Date().toISOString(),
+                extras: {
+                  ...(pb.extras || {}),
+                  razorpay_payment_id: capturedPayment.id,
+                  reconciled_via_cron: true,
+                },
+              })
+              .eq('id', pb.id)
+
+            // Record in payments table
+            await db
+              .from('payments')
+              .insert({
+                booking_id: pb.id,
+                provider: 'razorpay',
+                provider_order_id: razorpayOrderId,
+                provider_payment_id: capturedPayment.id,
+                amount: amountRupees,
+                payment_status: 'captured',
+                verified_at: new Date().toISOString(),
+              })
+              .catch(() => {})
+
+            // Dispatch WhatsApp confirmation
+            const routeLabel = pb.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+            await sendWhatsAppTemplateMessage({
+              toPhone: pb.phone,
+              templateCode: 'payment_received',
+              variables: [
+                pb.passenger_name || 'Passenger',
+                String(amountRupees),
+                pb.booking_ref,
+                capturedPayment.id,
+                routeLabel,
+                pb.travel_date || '',
+              ],
+              bookingId: pb.id,
+            })
+
+            await notifyAdmin(
+              `cron_reconcile:${pb.id}`,
+              pb.id,
+              `Cron reconciled payment ${capturedPayment.id} for booking ${pb.booking_ref} (${pb.passenger_name}). Status updated to waiting.`
+            )
+
+            results.push({ bookingId: pb.id, action: 'reconciled_payment_captured' })
+            continue
+          }
+        }
+      }
+
+      // If unpaid in Razorpay and created > 30 minutes ago, auto-expire
+      if (new Date(pb.created_at).getTime() < nowMs - 30 * 60 * 1000) {
+        await db
+          .from('bookings')
+          .update({
+            status: 'cancelled',
+            extras: { ...(pb.extras || {}), cancellation_reason: 'pending_payment_timeout' },
+          })
+          .eq('id', pb.id)
+        results.push({ bookingId: pb.id, action: 'pending_payment_expired' })
+      }
+    } catch (reconcileErr) {
+      console.warn(`Reconciliation error for booking ${pb.id}:`, reconcileErr)
+    }
+  }
+
   return NextResponse.json({
     success: true,
     processedCount: dueJobs?.length || 0,

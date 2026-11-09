@@ -15,10 +15,10 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get('x-razorpay-signature') || ''
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET
 
-  // 1. Signature Verification
+  // 1. Signature Verification - Fail immediately with 401 if invalid
   if (!verifyRazorpayWebhookSignature(rawBody, signature)) {
-    // Also allow verification using KEY_SECRET if WEBHOOK_SECRET is not separately configured
-    console.warn('Webhook signature verification check')
+    console.error('[Razorpay Webhook] Unauthorized: Invalid signature')
+    return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 401 })
   }
 
   const eventId = request.headers.get('x-razorpay-event-id') || `evt_${Date.now()}_${Math.random().toString(36).substring(7)}`
@@ -61,25 +61,48 @@ export async function POST(request: NextRequest) {
       const amountRupees = Math.round(amountPaise / 100)
       const notes = payment?.notes || paymentLink?.notes || {}
 
-      let targetBookingId = notes.booking_id
-      let targetBookingRef = notes.booking_ref
-      const customerContact = payment?.contact || paymentLink?.customer?.contact
+      const targetBookingId = notes.booking_id
+      const targetBookingRef = notes.booking_ref
 
-      let bookingQuery = db.from('bookings').select('*')
+      // Strictly search by booking_id, booking_ref, or order_id in extras. NEVER fall back to phone!
+      let booking: any = null
       if (targetBookingId) {
-        bookingQuery = bookingQuery.eq('id', targetBookingId)
-      } else if (targetBookingRef) {
-        bookingQuery = bookingQuery.eq('booking_ref', targetBookingRef)
-      } else if (customerContact) {
-        const clean10 = String(customerContact).replace(/\D/g, '').slice(-10)
-        bookingQuery = bookingQuery.eq('phone', clean10).order('created_at', { ascending: false })
+        const { data: bData } = await db.from('bookings').select('*').eq('id', targetBookingId).limit(1)
+        booking = bData?.[0]
+      }
+      if (!booking && targetBookingRef) {
+        const { data: bData } = await db.from('bookings').select('*').eq('booking_ref', targetBookingRef).limit(1)
+        booking = bData?.[0]
+      }
+      if (!booking && orderId) {
+        const { data: bData } = await db.from('bookings').select('*').contains('extras', { razorpay_order_id: orderId }).limit(1)
+        booking = bData?.[0]
       }
 
-      const { data: bookings } = await bookingQuery.limit(1)
-      const booking = bookings?.[0]
+      // If no booking found, do NOT attach to any other booking. Log and alert admin!
+      if (!booking) {
+        console.warn(`[Razorpay Webhook] No matching booking found for payment ${paymentId}, order ${orderId}, notes:`, notes)
+        await notifyAdmin(
+          `unattached_pay:${paymentId}`,
+          null,
+          `⚠️ *UNATTACHED PAYMENT RECEIVED*: Payment ${paymentId} (₹${amountRupees}) received for order ${orderId || 'N/A'}. No matching pending booking in database. Notes: ${JSON.stringify(notes)}`
+        )
+        return NextResponse.json({ received: true, unattached: true })
+      }
 
-      if (booking) {
-        // Record in public.payments table
+      // Idempotency check: Has this payment already been processed?
+      const { data: existingPay } = await db
+        .from('payments')
+        .select('id')
+        .eq('provider_payment_id', paymentId)
+        .limit(1)
+
+      if (existingPay && existingPay.length > 0 && booking.status !== 'pending_payment') {
+        return NextResponse.json({ received: true, idempotent: true })
+      }
+
+      // Record in public.payments table
+      if (!existingPay || existingPay.length === 0) {
         const { error: payInsertErr } = await db.from('payments').insert({
           booking_id: booking.id,
           provider: 'razorpay',
@@ -90,73 +113,54 @@ export async function POST(request: NextRequest) {
           verified_at: new Date().toISOString(),
         })
         if (payInsertErr) console.warn('Payment insert notice:', payInsertErr)
-
-        // Update booking: advance paid, status to waiting (or confirm if already matched)
-        const balance = Math.max(0, Number(booking.total_fare || 0) - amountRupees)
-        await db.from('bookings').update({
-          advance_paid: amountRupees,
-          advance_amount: amountRupees,
-          balance_amount: balance,
-          status: booking.status === 'pending_payment' ? 'waiting' : booking.status,
-          updated_at: new Date().toISOString(),
-          extras: {
-            ...(booking.extras || {}),
-            razorpay_payment_id: paymentId,
-            razorpay_order_id: orderId,
-            paid_via_webhook: true,
-          },
-        }).eq('id', booking.id)
-
-        // Dispatch Template 2: payment_received via WhatsApp
-        const routeLabel = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
-        await sendWhatsAppTemplateMessage({
-          toPhone: booking.phone,
-          templateCode: 'payment_received',
-          variables: [
-            booking.passenger_name || 'Passenger',
-            String(amountRupees || 2),
-            booking.booking_ref,
-            paymentId || 'RZP_OK',
-            routeLabel,
-            booking.travel_date || '',
-          ],
-          bookingId: booking.id,
-        })
-
-        // Also send direct text confirmation if needed
-        try {
-          const { sendText } = await import('@/lib/whatsapp')
-          await sendText({
-            to: booking.phone,
-            body: `🎉 *Advance Payment Received (₹${amountRupees})!* 🥳\n\nHey ${booking.passenger_name || 'Passenger'}! Aapka advance payment mil gaya hai.\n🧾 *Booking ID:* #${booking.booking_ref}\n🔖 *Payment Ref:* ${paymentId}\n📍 *Route:* ${routeLabel}\n📅 *Travel Date:* ${booking.travel_date || ''}\n\nAapki ride officially confirm hone ke liye return-ride match check shuru ho gaya hai! 🚕💨`,
-            bookingId: booking.id,
-            eventVersion: `pay_direct:${paymentId}`,
-          })
-          // Send internal notification strictly to Admin (8878933778)
-          await sendText({
-            to: '8878933778',
-            body: `💰 *NEW PAYMENT RECEIVED (₹${amountRupees})* 🚕\n\nBooking: #${booking.booking_ref}\nPassenger: ${booking.passenger_name || 'Passenger'} (${booking.phone})\nRoute: ${routeLabel}\nPayment ID: ${paymentId}`,
-            bookingId: booking.id,
-            eventVersion: `admin_pay:${paymentId}`,
-          })
-        } catch (waErr) {
-          console.warn('Direct confirmation text notice:', waErr)
-        }
-
-        // Notify Admin of verified advance payment
-        await notifyAdmin(
-          `pay_captured:${booking.id}`,
-          booking.id,
-          `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
-        )
-
-        // Try automatic return matching immediately!
-        try {
-          await tryMatchBookingAndConfirm(booking.id)
-        } catch (matchErr) {
-          console.warn('Initial matching attempt notice:', matchErr)
-        }
       }
+
+      // Atomically update booking to 'waiting' + advance_paid
+      const balance = Math.max(0, Number(booking.total_fare || 0) - amountRupees)
+      await db.from('bookings').update({
+        advance_paid: amountRupees,
+        advance_amount: amountRupees,
+        balance_amount: balance,
+        status: booking.status === 'pending_payment' ? 'waiting' : booking.status,
+        updated_at: new Date().toISOString(),
+        extras: {
+          ...(booking.extras || {}),
+          razorpay_payment_id: paymentId,
+          razorpay_order_id: orderId || booking.extras?.razorpay_order_id,
+          paid_via_webhook: true,
+        },
+      }).eq('id', booking.id)
+
+      // Dispatch WhatsApp Template: payment_received (awaited to prevent Vercel container termination!)
+      const routeLabel = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+      await sendWhatsAppTemplateMessage({
+        toPhone: booking.phone,
+        templateCode: 'payment_received',
+        variables: [
+          booking.passenger_name || 'Passenger',
+          String(amountRupees || 2),
+          booking.booking_ref,
+          paymentId || 'RZP_OK',
+          routeLabel,
+          booking.travel_date || '',
+        ],
+        bookingId: booking.id,
+      })
+
+      // Notify Admin of verified advance payment (awaited!)
+      await notifyAdmin(
+        `pay_captured:${booking.id}`,
+        booking.id,
+        `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
+      )
+
+      // Try automatic return matching immediately!
+      try {
+        await tryMatchBookingAndConfirm(booking.id)
+      } catch (matchErr) {
+        console.warn('Initial matching attempt notice:', matchErr)
+      }
+    }
     }
 
     // ── REFUND EVENTS ──

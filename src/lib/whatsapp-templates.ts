@@ -2,7 +2,7 @@
 // Handles formatting, database lookup, and dispatching for the 5 WhatsApp Utility Templates
 
 import { createServiceClient } from '@/lib/supabase-server'
-import { sendText } from '@/lib/whatsapp'
+import { sendText, sendTemplate } from '@/lib/whatsapp'
 
 export interface WhatsAppTemplateRecord {
   template_code: string
@@ -390,7 +390,7 @@ export async function sendWhatsAppTemplateMessage(params: {
   const { toPhone, templateCode, variables, bookingId } = params
 
   try {
-    // 1. Try to fetch dynamic template from database, fallback to built-in definition
+    // 1. Fetch dynamic template metadata from database or fall back to definitions
     const { data: dbTemplate } = await db
       .from('whatsapp_message_templates')
       .select('*')
@@ -399,54 +399,54 @@ export async function sendWhatsAppTemplateMessage(params: {
       .limit(1)
       .single()
 
-    let bodyText = dbTemplate?.body_text || TEMPLATE_DEFINITIONS[templateCode]?.body_text
-    const headerText = dbTemplate?.header_text || TEMPLATE_DEFINITIONS[templateCode]?.header_text
-    const footerText = dbTemplate?.footer_text || TEMPLATE_DEFINITIONS[templateCode]?.footer_text
+    const metaTemplateName =
+      dbTemplate?.meta_template_name ||
+      TEMPLATE_DEFINITIONS[templateCode]?.meta_template_name ||
+      templateCode
 
-    if (!bodyText) {
-      throw new Error(`Template ${templateCode} not found in database or defaults.`)
-    }
+    const templateLanguage = dbTemplate?.language || 'en'
 
-    variables.forEach((val, idx) => {
-      const placeholder = new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g')
-      bodyText = bodyText.replace(placeholder, String(val ?? ''))
-    })
-
-    const fullMessage = [
-      headerText ? `*${headerText}*\n` : '',
-      bodyText,
-      footerText ? `\n_${footerText}_` : '',
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    // 2. Dispatch via WhatsApp Cloud API
-    const sendResult = await sendText({
+    // 2. Dispatch via genuine Meta WhatsApp Template API (required for outside 24-hr customer service window)
+    const sendResult = (await sendTemplate({
       to: toPhone,
-      body: fullMessage,
-      bookingId: bookingId,
-      eventVersion: `tpl:${templateCode}:${Date.now()}`,
-    })
+      template: metaTemplateName,
+      language: templateLanguage,
+      variables: variables.map((v) => String(v ?? '')),
+    })) as any
 
-    const msgId = (sendResult as any)?.messages?.[0]?.id || (sendResult as any)?.id || null
+    const msgId = sendResult?.messages?.[0]?.id || sendResult?.id || null
 
-    // 3. Log into notifications table
-    const { error: notifErr } = await db.from('notifications').insert({
+    // 3. Log success into notifications table
+    const recipientType = templateCode.startsWith('admin_') ? 'admin' : 'customer'
+    await db.from('notifications').insert({
       booking_id: bookingId || null,
-      template: templateCode,
+      template: metaTemplateName,
       recipient: toPhone,
       status: msgId ? 'sent' : 'failed',
       wa_message_id: msgId,
       provider_message_id: msgId,
       sent_at: new Date().toISOString(),
-      recipient_type: 'customer',
+      recipient_type: recipientType,
       event_version: `tpl:${templateCode}`,
     })
-    if (notifErr) console.error('Failed to log notification:', notifErr)
 
     return { success: true, messageId: msgId || undefined }
   } catch (err: any) {
-    console.error(`Error sending template ${templateCode}:`, err)
+    console.error(`Error sending Meta WhatsApp template ${templateCode}:`, err)
+
+    // Log failure with error reason into notifications table
+    const recipientType = templateCode.startsWith('admin_') ? 'admin' : 'customer'
+    await db.from('notifications').insert({
+      booking_id: bookingId || null,
+      template: templateCode,
+      recipient: toPhone,
+      status: 'failed',
+      error: err?.message || 'Failed to dispatch WhatsApp template.',
+      sent_at: new Date().toISOString(),
+      recipient_type: recipientType,
+      event_version: `tpl:${templateCode}`,
+    }).catch(() => {})
+
     return { success: false, error: err?.message || 'Failed to dispatch WhatsApp template.' }
   }
 }

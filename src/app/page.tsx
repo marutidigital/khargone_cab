@@ -135,6 +135,8 @@ export default function Home() {
     signature: string
     advancePaid: number
     couponCode?: string
+    bookingRef?: string
+    publicToken?: string
   }) => {
     if (!valid || !time) {
       setNotice('Complete pickup time and passenger details before continuing.')
@@ -143,6 +145,22 @@ export default function Home() {
     setIsSubmitting(true)
     setNotice('')
     try {
+      // 1. If booking was pre-inserted and verified atomically via /api/verify-payment
+      if (paymentInfo.bookingRef && paymentInfo.publicToken) {
+        const publicToken = String(paymentInfo.publicToken)
+        window.sessionStorage.setItem('maruticab_booking_token', publicToken)
+        setIsSubmitting(false)
+        setSuccessData({
+          bookingRef: paymentInfo.bookingRef,
+          publicToken: paymentInfo.publicToken,
+          whatsappUrl: `https://wa.me/917282316090?text=${encodeURIComponent(
+            `Hi MarutiCab, booking ${paymentInfo.bookingRef} confirmed with advance payment.`
+          )}`,
+        })
+        return
+      }
+
+      // 2. Fallback to /api/bookings for standard flow
       if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID()
       const response = await fetch('/api/bookings', {
         method: 'POST',
@@ -313,6 +331,21 @@ export default function Home() {
                 passengerName={passenger.name}
                 passengerPhone={passenger.phone}
                 passengerEmail={passenger.email}
+                getBookingPayload={() => ({
+                  direction,
+                  mode,
+                  point: pointId,
+                  date,
+                  time: time?.timeStr,
+                  name: passenger.name.trim(),
+                  phone: passenger.phone,
+                  email: passenger.email?.trim() || undefined,
+                  passengers: passenger.passengers,
+                  address: passenger.address,
+                  consent: passenger.consent,
+                  idempotencyKey: idempotencyKey.current || (idempotencyKey.current = crypto.randomUUID()),
+                  ...(bookingTab === 'confirmed' && confirmedRide ? { confirmedRideId: confirmedRide.id } : {}),
+                })}
                 onPaymentSuccess={handlePaymentSuccessAndSubmit}
                 bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return Journey' : undefined}
               />
@@ -401,6 +434,21 @@ export default function Home() {
                   passengerName={passenger.name}
                   passengerPhone={passenger.phone}
                   passengerEmail={passenger.email}
+                  getBookingPayload={() => ({
+                    direction,
+                    mode,
+                    point: pointId,
+                    date,
+                    time: time?.timeStr,
+                    name: passenger.name.trim(),
+                    phone: passenger.phone,
+                    email: passenger.email?.trim() || undefined,
+                    passengers: passenger.passengers,
+                    address: passenger.address,
+                    consent: passenger.consent,
+                    idempotencyKey: idempotencyKey.current || (idempotencyKey.current = crypto.randomUUID()),
+                    ...(bookingTab === 'confirmed' && confirmedRide ? { confirmedRideId: confirmedRide.id } : {}),
+                  })}
                   onPaymentSuccess={handlePaymentSuccessAndSubmit}
                   bookingLabel={bookingTab === 'confirmed' ? 'Confirmed Booking · Return Journey' : undefined}
                 />

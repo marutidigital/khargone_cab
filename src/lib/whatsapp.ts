@@ -67,7 +67,12 @@ async function postToMeta(body: Record<string, unknown>) {
 }
 
 export async function sendTemplate({
-  to, template, language = 'en', variables = [], buttonUrlSuffix, quickReplyPayloads,
+  to,
+  template,
+  language = 'en',
+  variables = [],
+  buttonUrlSuffix,
+  quickReplyPayloads,
 }: {
   to: string
   template: string
@@ -76,14 +81,53 @@ export async function sendTemplate({
   buttonUrlSuffix?: string
   quickReplyPayloads?: string[]
 }) {
-  const components: Record<string, unknown>[] = []
-  if (variables.length) components.push({ type: 'body', parameters: variables.map((text) => ({ type: 'text', text })) })
-  if (buttonUrlSuffix) components.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: buttonUrlSuffix }] })
-  quickReplyPayloads?.forEach((payload, index) => components.push({ type: 'button', sub_type: 'quick_reply', index: String(index), parameters: [{ type: 'payload', payload }] }))
-  return postToMeta({
-    messaging_product: 'whatsapp', to: normalizeWhatsAppPhone(to), type: 'template',
-    template: { name: template, language: { code: language }, ...(components.length ? { components } : {}) },
-  })
+  const buildPayload = (lang: string) => {
+    const components: Record<string, unknown>[] = []
+    if (variables.length) {
+      components.push({
+        type: 'body',
+        parameters: variables.map((text) => ({ type: 'text', text: String(text ?? '') })),
+      })
+    }
+    if (buttonUrlSuffix) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: buttonUrlSuffix }],
+      })
+    }
+    quickReplyPayloads?.forEach((payload, index) =>
+      components.push({
+        type: 'button',
+        sub_type: 'quick_reply',
+        index: String(index),
+        parameters: [{ type: 'payload', payload }],
+      })
+    )
+    return {
+      messaging_product: 'whatsapp',
+      to: normalizeWhatsAppPhone(to),
+      type: 'template',
+      template: {
+        name: template,
+        language: { code: lang },
+        ...(components.length ? { components } : {}),
+      },
+    }
+  }
+
+  try {
+    return await postToMeta(buildPayload(language))
+  } catch (err: any) {
+    // If error 132001 (Template does not exist in specified language), retry with alternate language
+    const isLangMismatch = err?.code === 132001 || String(err?.message || '').includes('132001')
+    if (isLangMismatch) {
+      const fallbackLang = language === 'en' ? 'en_US' : 'en'
+      return await postToMeta(buildPayload(fallbackLang))
+    }
+    throw err
+  }
 }
 
 export async function sendInteractiveButtons({ to, body, buttons, bookingId, eventVersion }: {

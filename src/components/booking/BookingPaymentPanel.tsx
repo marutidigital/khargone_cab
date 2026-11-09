@@ -32,12 +32,15 @@ interface Props {
   passengerName: string
   passengerPhone: string
   passengerEmail?: string
+  getBookingPayload?: () => any
   onPaymentSuccess: (paymentInfo: {
     orderId: string
     paymentId: string
     signature: string
     advancePaid: number
     couponCode?: string
+    bookingRef?: string
+    publicToken?: string
   }) => void
 }
 
@@ -52,6 +55,7 @@ export function BookingPaymentPanel({
   passengerName,
   passengerPhone,
   passengerEmail,
+  getBookingPayload,
   onPaymentSuccess,
 }: Props) {
   const [couponInput, setCouponInput] = useState('')
@@ -106,8 +110,10 @@ export function BookingPaymentPanel({
     setPaymentError(null)
 
     try {
-      // 1. Create Razorpay Order for advance amount
+      // 1. Create Razorpay Order for advance amount and pre-insert pending_payment booking
       const advancePaise = advanceAmount * 100
+      const bookingPayload = getBookingPayload ? getBookingPayload() : null
+
       const orderRes = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,6 +121,12 @@ export function BookingPaymentPanel({
           amount: advancePaise,
           currency: 'INR',
           receipt: `adv_${Date.now()}`,
+          bookingData: bookingPayload
+            ? {
+                ...bookingPayload,
+                couponCode: appliedCoupon || undefined,
+              }
+            : undefined,
           notes: {
             passenger_name: passengerName,
             passenger_phone: passengerPhone,
@@ -162,7 +174,7 @@ export function BookingPaymentPanel({
           razorpay_signature: string
         }) => {
           try {
-            // 3. Verify Payment Signature
+            // 3. Verify Payment Signature and confirm pending booking atomically
             const verifyRes = await fetch('/api/verify-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -170,6 +182,7 @@ export function BookingPaymentPanel({
                 order_id: response.razorpay_order_id,
                 payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
+                booking_id: orderData.booking_id,
               }),
             })
 
@@ -185,7 +198,16 @@ export function BookingPaymentPanel({
               signature: response.razorpay_signature,
               advancePaid: advanceAmount,
               couponCode: appliedCoupon || undefined,
+              bookingRef: verifyData.bookingRef || orderData.booking_ref,
+              publicToken: verifyData.publicToken || orderData.public_token,
             })
+          } catch (verifyErr: any) {
+            setPaymentError(verifyErr.message || 'Payment verification failed.')
+          } finally {
+            setPaymentLoading(false)
+          }
+        },
+      }
           } catch (verifyErr: any) {
             setPaymentError(verifyErr.message || 'Payment verification failed.')
           } finally {

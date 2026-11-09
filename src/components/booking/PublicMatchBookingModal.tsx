@@ -183,8 +183,9 @@ export function PublicMatchBookingModal({
         throw new Error('Razorpay checkout failed to load. Please check your internet connection.')
       }
 
-      // 2. Create Razorpay order on backend (amount in paise: Rs 2 = 200 paise, Rs 500 = 50000 paise)
+      // 2. Create Razorpay order on backend and pre-insert pending_payment booking
       const advancePaise = advanceToPay * 100
+      const modalIdempotencyKey = crypto.randomUUID()
       const orderRes = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -192,6 +193,20 @@ export function PublicMatchBookingModal({
           amount: advancePaise,
           currency: 'INR',
           receipt: `rcpt_pm_${Date.now()}`,
+          bookingData: {
+            direction: visitorDirection,
+            mode: 'match',
+            point: selectedPointId,
+            date: ride.travelDate,
+            time: selectedTime,
+            name: name.trim(),
+            phone: phone.trim(),
+            email: email.trim() || undefined,
+            passengers: passengers,
+            idempotencyKey: modalIdempotencyKey,
+            matchedWithBookingId: ride.id,
+            couponCode: appliedCoupon || undefined,
+          },
           notes: {
             passenger_name: name.trim(),
             passenger_phone: phone.trim(),
@@ -236,7 +251,19 @@ export function PublicMatchBookingModal({
           razorpay_signature: string
         }) => {
           try {
-            // 4. Submit booking with verified payment and pair with target ride!
+            // Verify payment and finalize booking atomically
+            await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                booking_id: orderData.booking_id,
+              }),
+            }).catch(() => {})
+
+            // Submit booking to pair with target ride!
             const bookingRes = await fetch('/api/bookings', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -251,7 +278,7 @@ export function PublicMatchBookingModal({
                 ...(email.trim() ? { email: email.trim() } : {}),
                 passengers: passengers,
                 consent: true,
-                idempotencyKey: crypto.randomUUID(),
+                idempotencyKey: modalIdempotencyKey,
                 matchedWithBookingId: ride.id,
                 paymentOrderId: response.razorpay_order_id,
                 paymentId: response.razorpay_payment_id,

@@ -90,6 +90,59 @@ export async function POST(request: NextRequest) {
     if (['waiting', 'matched', 'confirmed', 'no_match_decision'].includes(prior.status)) {
       return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, status: prior.status, fare })
     }
+    if (prior.status === 'pending_payment') {
+      // Transition pre-inserted pending booking to waiting
+      await db.from('bookings').update({
+        status: 'waiting',
+        advance_paid: advancePaid,
+        advance_amount: advancePaid,
+        balance_amount: balanceAmount,
+        updated_at: new Date().toISOString(),
+        extras: {
+          razorpay_order_id: data.paymentOrderId,
+          razorpay_payment_id: data.paymentId,
+          coupon_code: data.couponCode || null,
+          ...(data.confirmedRideId ? { confirmed_ride_id: data.confirmedRideId } : {}),
+          ...(data.matchedWithBookingId ? { matched_with_booking_id: data.matchedWithBookingId } : {}),
+        },
+      }).eq('id', prior.id)
+
+      if (data.paymentId) {
+        await db.from('payments').insert({
+          booking_id: prior.id,
+          provider: 'razorpay',
+          provider_order_id: data.paymentOrderId || null,
+          provider_payment_id: data.paymentId,
+          amount: advancePaid,
+          payment_status: 'captured',
+          verified_at: new Date().toISOString(),
+        }).catch(() => {})
+      }
+
+      // Dispatch WhatsApp Template: payment_received (awaited!)
+      const routeLabel = data.direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+      await sendWhatsAppTemplateMessage({
+        toPhone: data.phone,
+        templateCode: 'payment_received',
+        variables: [
+          data.name,
+          String(advancePaid),
+          prior.booking_ref,
+          data.paymentId || 'RZP_OK',
+          routeLabel,
+          data.date,
+        ],
+        bookingId: prior.id,
+      })
+
+      await notifyAdmin(
+        `pay_captured:${prior.id}`,
+        prior.id,
+        `Advance payment of ₹${advancePaid} confirmed for ${prior.booking_ref} (${data.name}). Route: ${routeLabel}.`
+      )
+
+      return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, status: 'waiting', fare })
+    }
     return NextResponse.json({ error: 'This booking attempt is no longer active. Please start a new booking.' }, { status: 409 })
   }
 

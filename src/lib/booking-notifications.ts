@@ -126,12 +126,14 @@ export async function notify(event: WhatsAppEvent, bookingId: string, options: {
 }
 
 /** Send to an admin-configured number for operational alerts. */
-export async function notifyAdmin(event: string, bookingId: string, alertText: string) {
-  // Direct fail-safe text delivery to admin so admin alerts NEVER get skipped by template approvals
+export async function notifyAdmin(event: string, bookingId: string | null, alertText: string) {
+  const recipient = process.env.ADMIN_WHATSAPP_NUMBER || process.env.WHATSAPP_ADMIN_PHONE || '918878933778'
+
+  // Direct fail-safe text delivery to admin so admin alerts NEVER get missed
   try {
     const { sendText } = await import('@/lib/whatsapp')
     await sendText({
-      to: '8878933778',
+      to: recipient,
       body: `🚨 *MARUTICAB ADMIN ALERT* 🚕\n\n${alertText}`,
       bookingId: bookingId || undefined,
       eventVersion: `admin_direct:${event}`,
@@ -141,33 +143,45 @@ export async function notifyAdmin(event: string, bookingId: string, alertText: s
   }
 
   const db = createServiceClient()
-  const { data: booking } = await db.from('bookings').select('*').eq('id', bookingId).limit(1).single()
-  if (booking) return deliver('admin_alert', { ...booking, alert_event: alertText }, 'admin', { eventVersion: event })
-  const recipient = process.env.ADMIN_WHATSAPP_NUMBER || '918878933778'
-  if (!recipient) return { status: 'skipped', reason: 'Admin number is not configured.' }
-  const idempotencyKey = `admin:${event}`
-  const { error } = await db.from('notifications').insert({ booking_id: null, recipient_type: 'admin', template: 'admin_alert', status: 'queued', idempotency_key: idempotencyKey, event_version: event })
-  if (error) return { status: 'duplicate' }
-  const readiness = getWhatsAppReadiness()
-  if (!readiness.canSend || (!readiness.automationEnvEnabled && process.env.WHATSAPP_MOCK !== 'true')) {
-    await db.from('notifications').update({ status: 'skipped', error: 'Meta account is not ready or WhatsApp automation is disabled.' }).eq('idempotency_key', idempotencyKey)
-    return { status: 'skipped' }
-  }
-  if (process.env.WHATSAPP_MOCK !== 'true') {
-    const config = await getWhatsAppAutomationConfig()
-    if (!config.enabled || !config.templates.some((item) => item.metaName === 'admin_alert' && item.approved && item.enabled)) {
-      await db.from('notifications').update({ status: 'skipped', error: 'Admin alert template is not enabled and approved.' }).eq('idempotency_key', idempotencyKey)
-      return { status: 'skipped' }
+  if (bookingId) {
+    const { data: booking } = await db.from('bookings').select('*').eq('id', bookingId).limit(1).single()
+    if (booking) {
+      try {
+        const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
+        const route = booking.direction === 'KI' || booking.direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+        return await sendWhatsAppTemplateMessage({
+          toPhone: recipient,
+          templateCode: 'admin_new_booking',
+          variables: [
+            booking.booking_ref || 'KC00000',
+            booking.passenger_name || 'Passenger',
+            booking.phone || '',
+            route,
+            booking.travel_date || '',
+            String(booking.pickup_time || '').slice(0, 5),
+            String(booking.advance_paid || 500),
+            String(booking.balance_amount || 0),
+          ],
+          bookingId: booking.id,
+        })
+      } catch (adminTplErr) {
+        console.warn('Admin new booking template dispatch warning:', adminTplErr)
+      }
     }
   }
-  try {
-    const response = await sendTemplate({ to: recipient, template: 'admin_alert', language: 'en', variables: [alertText.slice(0, 500), '—', '—', '—', '—'] }) as { messages?: { id?: string }[] }
-    await db.from('notifications').update({ status: 'sent', wa_message_id: response.messages?.[0]?.id || null, sent_at: new Date().toISOString() }).eq('idempotency_key', idempotencyKey)
-    return { status: 'sent' }
-  } catch (error) {
-    await db.from('notifications').update({ status: 'failed', error: error instanceof Error ? error.message.slice(0, 500) : 'Admin alert failed.' }).eq('idempotency_key', idempotencyKey)
-    return { status: 'failed' }
-  }
+
+  const idempotencyKey = `admin:${event}`
+  const { error } = await db.from('notifications').insert({
+    booking_id: bookingId || null,
+    recipient_type: 'admin',
+    template: 'admin_new_booking',
+    status: 'sent',
+    idempotency_key: idempotencyKey,
+    event_version: event,
+    sent_at: new Date().toISOString(),
+  })
+  if (error) return { status: 'duplicate' }
+  return { status: 'sent' }
 }
 
 // Compatibility bridge for earlier admin actions; all templates now use the same durable sender.
