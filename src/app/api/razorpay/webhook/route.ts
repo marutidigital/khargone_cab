@@ -161,7 +161,6 @@ export async function POST(request: NextRequest) {
         console.warn('Initial matching attempt notice:', matchErr)
       }
     }
-    }
 
     // ── REFUND EVENTS ──
     else if (eventType === 'refund.processed' || eventType === 'refund.created') {

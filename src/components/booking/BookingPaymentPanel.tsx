@@ -208,13 +208,6 @@ export function BookingPaymentPanel({
           }
         },
       }
-          } catch (verifyErr: any) {
-            setPaymentError(verifyErr.message || 'Payment verification failed.')
-          } finally {
-            setPaymentLoading(false)
-          }
-        },
-      }
 
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', (err: any) => {
