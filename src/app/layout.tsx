@@ -1,6 +1,12 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+})
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -34,7 +40,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="bg-[#F4F4F5]">
+    <html lang="en" className={`${inter.className} bg-[#F4F4F5]`}>
       <head>
         {/* Google Tag Manager */}
         <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WKGZ7C96" />

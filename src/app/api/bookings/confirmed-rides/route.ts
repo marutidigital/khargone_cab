@@ -77,5 +77,5 @@ export async function GET(request: NextRequest) {
     }]
   })
 
-  return NextResponse.json({ rides }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ rides }, { headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45' } })
 }

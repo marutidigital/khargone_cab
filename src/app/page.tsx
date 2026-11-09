@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, MapPin, Calendar, Clock, User, Phone, Car, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/Nav'
 import { BookingStepper } from '@/components/BookingStepper'
@@ -77,7 +78,7 @@ export default function Home() {
     let alive = true
     const refresh = async () => {
       try {
-        const response = await fetch(`/api/bookings/confirmed-rides?direction=${direction}`, { cache: 'no-store' })
+        const response = await fetch(`/api/bookings/confirmed-rides?direction=${direction}`)
         const body = await response.json()
         if (!alive) return
         const available = response.ok && Array.isArray(body.rides) && body.rides.length > 0
@@ -223,10 +224,13 @@ export default function Home() {
         <section className="mx-auto w-full max-w-7xl px-3 sm:px-6 pt-4 sm:pt-6">
           <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-slate-950 shadow-sm transition-all hover:shadow-md">
             <div className="relative aspect-[16/9] w-full overflow-hidden">
-              <img
-                src="/hero-banner.jpg"
+              <Image
+                src="/hero-banner.webp"
                 alt="MarutiCab - Smart Ride Solution Khargone ↔ Indore. Two Cities, One Smart Connection."
-                className="w-full h-full object-cover object-center"
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1200px"
+                className="object-cover object-center"
               />
             </div>
           </div>

@@ -87,7 +87,7 @@ export function TripSummary({
             border: '1.5px solid #E8E8E8',
           }}>
             <Image
-              src={vehicle === 'suv' ? '/premium_suv.png' : '/economy_sedan.png'}
+              src={vehicle === 'suv' ? '/cars/suv.webp' : '/cars/sedan.webp'}
               alt={vehicle}
               fill
               style={{ objectFit: 'contain' }}

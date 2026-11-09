@@ -40,7 +40,7 @@ const VEHICLES: Vehicle[] = [
     ],
     basePrice: 1700,
     upgradeExtra: 0,
-    image: '/economy_sedan.png',
+    image: '/cars/sedan.webp',
     imageBg: '#F8F8F8',
   },
   {
@@ -58,7 +58,7 @@ const VEHICLES: Vehicle[] = [
     ],
     basePrice: 2200,
     upgradeExtra: 500,
-    image: '/premium_suv.png',
+    image: '/cars/suv.webp',
     imageBg: '#F4F5F6',
   },
 ]
