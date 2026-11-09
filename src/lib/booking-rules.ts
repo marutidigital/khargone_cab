@@ -142,49 +142,45 @@ export async function evaluateBookingLeadTime(
   const remainingMs = departureDate.getTime() - bookingCreatedAt.getTime()
   const remainingHours = remainingMs / (1000 * 60 * 60)
 
-  // Rule D: Less than 6 hours before departure
+  // Rule D: Less than 6 hours before departure (Now accepted per "all day cancel all rules" manual policy)
   if (remainingHours < 6) {
     return {
-      ruleCode: 'LATE_REQUEST',
-      ruleName: 'Late Request (< 6 hours)',
-      ruleId: 'late-request',
+      ruleCode: 'SAME_DAY_MANUAL',
+      ruleName: 'Same Day (< 6 hours)',
+      ruleId: 'same-day-manual',
       remainingHours,
-      matchingDeadline: bookingCreatedAt,
-      matchingDeadlineKolkata: formatInKolkata(bookingCreatedAt),
+      matchingDeadline: departureDate,
+      matchingDeadlineKolkata: formatInKolkata(departureDate),
       advanceAmount: 500,
-      canAcceptPending: false,
-      rejectionReason:
-        'Departure is in less than 6 hours. Pending matching requests cannot be accepted. Cab can only be booked if a return ride is already confirmed.',
+      canAcceptPending: true,
       ruleSnapshot: {
-        category: 'LATE_REQUEST',
+        category: 'SAME_DAY_MANUAL',
         lead_hours: remainingHours,
         evaluated_at: bookingCreatedAt.toISOString(),
       },
       customerExplanation:
-        'Aapki departure mein 6 ghante se kam bache hain. Nayi pending request accept nahi ho sakti. Kripya customer support (+91 72823 16090) par call karein.',
+        'Aapki booking request receive ho gayi hai. Hamari team aapke liye matching cab verify kar rahi hai.',
     }
   }
 
-  // Exact 24 hours boundary check: Prompt rule: "Exactly 24 hours: Do not accept as a pending booking; only accept with an already-secured match."
+  // Exact 24 hours boundary check: accepted per manual policy
   if (Math.abs(remainingHours - 24) < 0.05) {
     return {
       ruleCode: 'BOUNDARY_24H',
       ruleName: '24-Hour Cutoff Boundary',
       ruleId: 'boundary-24h',
       remainingHours,
-      matchingDeadline: bookingCreatedAt,
-      matchingDeadlineKolkata: formatInKolkata(bookingCreatedAt),
+      matchingDeadline: departureDate,
+      matchingDeadlineKolkata: formatInKolkata(departureDate),
       advanceAmount: 500,
-      canAcceptPending: false,
-      rejectionReason:
-        'Booking arrived exactly at the 24-hour cutoff deadline. New pending bookings cannot be accepted at this cutoff.',
+      canAcceptPending: true,
       ruleSnapshot: {
         category: 'BOUNDARY_24H',
         lead_hours: remainingHours,
         evaluated_at: bookingCreatedAt.toISOString(),
       },
       customerExplanation:
-        'Yeh booking theek 24-ghante ke cutoff par aayi hai. Kripya secured return ride choose karein ya support se sampark karein.',
+        'Aapki booking request receive ho gayi hai. Hamari team return cab match dhoondh rahi hai.',
     }
   }
 
@@ -226,28 +222,7 @@ export async function evaluateBookingLeadTime(
   const deadlineHours = matchedRule.matching_deadline_hours
   const matchingDeadline = new Date(departureDate.getTime() - deadlineHours * 60 * 60 * 1000)
 
-  // Verify that the matching deadline has not already passed
-  const deadlinePassed = matchingDeadline.getTime() <= bookingCreatedAt.getTime()
-  if (deadlinePassed) {
-    return {
-      ruleCode: matchedRule.rule_code,
-      ruleName: matchedRule.rule_name,
-      ruleId: matchedRule.id,
-      remainingHours,
-      matchingDeadline,
-      matchingDeadlineKolkata: formatInKolkata(matchingDeadline),
-      advanceAmount: Number(matchedRule.advance_amount || 500),
-      canAcceptPending: false,
-      rejectionReason: `The matching deadline for this departure (${deadlineHours} hours prior) has already passed. Only confirmed rides can be booked.`,
-      ruleSnapshot: {
-        ...matchedRule,
-        evaluated_remaining_hours: remainingHours,
-        evaluated_at: bookingCreatedAt.toISOString(),
-      },
-      customerExplanation: `Iss cab ki matching deadline (${deadlineHours} ghante pehle) nikal chuki hai. Kripya doosra time chuniye.`,
-    }
-  }
-
+  // Even if standard deadline has passed, accept pending booking per manual policy
   return {
     ruleCode: matchedRule.rule_code,
     ruleName: matchedRule.rule_name,
@@ -263,13 +238,13 @@ export async function evaluateBookingLeadTime(
       rule_name: matchedRule.rule_name,
       matching_deadline_hours: matchedRule.matching_deadline_hours,
       advance_amount: matchedRule.advance_amount,
-      auto_cancel_on_no_match: matchedRule.auto_cancel_on_no_match,
-      refund_enabled: matchedRule.refund_enabled,
+      auto_cancel_on_no_match: false,
+      refund_enabled: false, // No auto refund - manual only
       evaluated_remaining_hours: remainingHours,
       evaluated_at: bookingCreatedAt.toISOString(),
     },
     customerExplanation:
       matchedRule.customer_message ||
-      `Matching deadline is ${deadlineHours} hours before departure. If no return ride is matched, full ₹500 advance will be refunded.`,
+      'Aapki booking request receive ho gayi hai. Hamari team return cab match dhoondh rahi hai.',
   }
 }
