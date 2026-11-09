@@ -538,10 +538,6 @@ export function AdminMatchesAndFleetPanel() {
                     )
                   })
                 )}
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
             </div>
           </div>
