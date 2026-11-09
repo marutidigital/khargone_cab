@@ -141,7 +141,7 @@ export function BookingPaymentPanel({
         throw new Error(orderData.error || 'Failed to initialize payment gateway.')
       }
 
-      const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_TvoQrpE4ShCGDC'
+      const keyId = orderData.key_id || 'rzp_test_TyAjmTx2XdmBnh'
       if (!window.Razorpay) {
         throw new Error('Payment gateway SDK loading. Please retry in a few seconds.')
       }

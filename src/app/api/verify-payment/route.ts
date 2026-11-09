@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase-server'
+import { verifyRazorpayPaymentSignature } from '@/lib/razorpay'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { tryMatchBookingAndConfirm } from '@/lib/matching-engine'
@@ -29,19 +30,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const payload = `${orderId}|${paymentId}`
-    const expectedSignature = crypto
-      .createHmac('sha256', keySecret)
-      .update(payload)
-      .digest('hex')
-
-    // Timing-safe comparison to prevent timing attacks
-    const expectedBuffer = Buffer.from(expectedSignature, 'utf-8')
-    const suppliedBuffer = Buffer.from(signature, 'utf-8')
-
-    const isValid =
-      expectedBuffer.length === suppliedBuffer.length &&
-      crypto.timingSafeEqual(expectedBuffer, suppliedBuffer)
+    const isValid = verifyRazorpayPaymentSignature(orderId, paymentId, signature)
 
     if (!isValid) {
       return NextResponse.json(

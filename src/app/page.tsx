@@ -127,7 +127,10 @@ export default function Home() {
 
   const goToStep = (stepNumber: number) => {
     setCurrentStep(stepNumber)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const target = document.getElementById('booking-section')
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   const handlePaymentSuccessAndSubmit = async (paymentInfo: {
@@ -269,7 +272,7 @@ export default function Home() {
 
         <main className="mx-auto w-full max-w-7xl px-3 py-6 sm:px-6 sm:py-10 space-y-10 sm:space-y-12">
           {/* Booking Section Container */}
-          <section id="booking-section" className="scroll-mt-24">
+          <section id="booking-section" className="scroll-mt-28 sm:scroll-mt-32">
             {/* Header */}
             <header className="mb-6 sm:mb-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
@@ -284,9 +287,6 @@ export default function Home() {
                 <h2 className="text-xl sm:text-3xl font-black tracking-tight text-slate-900 mt-1.5">
                   Book Your Dedicated Private Cab
                 </h2>
-                <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                  Private Economy Sedan · Doorstep / City Point Drop · Zero stranger co-passengers
-                </p>
               </div>
               <div className="flex items-center gap-2 self-start rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" /> Only ₹500 Advance · Balance to Driver in Cab

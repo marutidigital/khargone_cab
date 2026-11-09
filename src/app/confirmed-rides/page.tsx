@@ -50,9 +50,6 @@ export default function ConfirmedRidesPage() {
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
                 Confirmed Return Rides
               </h1>
-              <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-                Our cabs operate exclusively between Khargone and Indore. Below are waiting rides already requested by customers. When you book the opposite return journey, both rides are confirmed immediately with dedicated driver and sedan dispatch.
-              </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5 text-xs">
                 <div className="rounded-2xl bg-slate-800/80 border border-slate-700 p-3">
                   <span className="text-[10px] uppercase font-bold text-amber-400 block">Indore ➔ Khargone</span>

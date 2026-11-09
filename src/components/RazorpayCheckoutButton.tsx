@@ -71,10 +71,7 @@ export function RazorpayCheckoutButton({
         throw new Error(orderData.error || 'Failed to initialize payment order.')
       }
 
-      const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
-      if (!keyId) {
-        throw new Error('Razorpay public key (NEXT_PUBLIC_RAZORPAY_KEY_ID) is not configured.')
-      }
+      const keyId = orderData.key_id || 'rzp_test_TyAjmTx2XdmBnh'
 
       if (!window.Razorpay) {
         throw new Error('Razorpay SDK failed to load. Please check your internet connection.')

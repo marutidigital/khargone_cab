@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto, { randomBytes } from 'node:crypto'
 import Razorpay from 'razorpay'
+import { getRazorpayCredentials } from '@/lib/razorpay'
 import { createServiceClient } from '@/lib/supabase-server'
 import {
   calculateBookingFare,
@@ -13,8 +14,7 @@ import { PRICING_CONFIG } from '@/config/pricing'
 
 export async function POST(req: NextRequest) {
   try {
-    const keyId = process.env.RAZORPAY_KEY_ID
-    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    const { keyId, keySecret } = getRazorpayCredentials()
 
     if (!keyId || !keySecret) {
       return NextResponse.json(
@@ -208,6 +208,7 @@ export async function POST(req: NextRequest) {
       booking_id: createdBooking?.id || null,
       booking_ref: createdBooking?.booking_ref || null,
       public_token: createdBooking?.public_token || null,
+      key_id: keyId,
     })
   } catch (error: any) {
     console.error('Razorpay create-order error:', error)
