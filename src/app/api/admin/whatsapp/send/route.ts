@@ -155,17 +155,19 @@ export async function POST(req: NextRequest) {
 
     const messageId = sendJson?.messages?.[0]?.id || null
 
-    // Record notification log
-    await db.from('notifications').insert({
-      booking_id: null,
-      recipient_type: 'customer',
-      template: metaName,
-      status: 'sent',
-      wa_message_id: messageId,
-      provider_message_id: messageId,
-      idempotency_key: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      event_version: 'admin_manual',
-    }).catch(() => null)
+    // Record notification log safely
+    try {
+      await db.from('notifications').insert({
+        booking_id: null,
+        recipient_type: 'customer',
+        template: metaName,
+        status: 'sent',
+        wa_message_id: messageId,
+        provider_message_id: messageId,
+        idempotency_key: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        event_version: 'admin_manual',
+      })
+    } catch {}
 
     return NextResponse.json({
       success: true,

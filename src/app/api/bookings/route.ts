@@ -108,15 +108,19 @@ export async function POST(request: NextRequest) {
       }).eq('id', prior.id)
 
       if (data.paymentId) {
-        await db.from('payments').insert({
-          booking_id: prior.id,
-          provider: 'razorpay',
-          provider_order_id: data.paymentOrderId || null,
-          provider_payment_id: data.paymentId,
-          amount: advancePaid,
-          payment_status: 'captured',
-          verified_at: new Date().toISOString(),
-        }).catch(() => {})
+        try {
+          await db.from('payments').insert({
+            booking_id: prior.id,
+            provider: 'razorpay',
+            provider_order_id: data.paymentOrderId || null,
+            provider_payment_id: data.paymentId,
+            amount: advancePaid,
+            payment_status: 'captured',
+            verified_at: new Date().toISOString(),
+          })
+        } catch (payErr) {
+          console.warn('Payment record log notice:', payErr)
+        }
       }
 
       // Dispatch WhatsApp Template: payment_received (awaited!)

@@ -41,7 +41,7 @@ export const BOOKING_CONFIG = {
   matchCutoffHours: envAmount(process.env.NEXT_PUBLIC_MATCH_CUTOFF_HOURS, 24),
   matchMinAdvanceHours: 0,
   matchMinGapHours: envAmount(process.env.NEXT_PUBLIC_MATCH_MIN_GAP_HOURS, 4),
-  matchMaxGapHours: envAmount(process.env.NEXT_PUBLIC_MATCH_MAX_GAP_HOURS, 8),
+  matchMaxGapHours: envAmount(process.env.NEXT_PUBLIC_MATCH_MAX_GAP_HOURS, 12),
   extraKmRate: envAmount(process.env.NEXT_PUBLIC_EXTRA_KM_RATE, 13),
   guaranteedMinLeadHours: envAmount(process.env.NEXT_PUBLIC_GUARANTEED_MIN_LEAD_HOURS, 0),
   maxAdvanceDays: 60,

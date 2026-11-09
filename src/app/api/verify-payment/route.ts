@@ -97,28 +97,36 @@ export async function POST(req: NextRequest) {
           })
           .eq('id', booking.id)
 
-        // Dispatch WhatsApp notification (awaited!)
+        // Dispatch WhatsApp notification (safe & resilient)
         const routeLabel = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
-        await sendWhatsAppTemplateMessage({
-          toPhone: booking.phone,
-          templateCode: 'payment_received',
-          variables: [
-            booking.passenger_name || 'Passenger',
-            String(amountRupees),
-            booking.booking_ref,
-            paymentId,
-            routeLabel,
-            booking.travel_date || '',
-          ],
-          bookingId: booking.id,
-        })
+        try {
+          await sendWhatsAppTemplateMessage({
+            toPhone: booking.phone,
+            templateCode: 'payment_received',
+            variables: [
+              booking.passenger_name || 'Passenger',
+              String(amountRupees),
+              booking.booking_ref,
+              paymentId,
+              routeLabel,
+              booking.travel_date || '',
+            ],
+            bookingId: booking.id,
+          })
+        } catch (waErr) {
+          console.warn('WhatsApp payment confirmation notice:', waErr)
+        }
 
-        // Notify Admin of verified advance payment (awaited!)
-        await notifyAdmin(
-          `pay_captured:${booking.id}`,
-          booking.id,
-          `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
-        )
+        // Notify Admin of verified advance payment (safe)
+        try {
+          await notifyAdmin(
+            `pay_captured:${booking.id}`,
+            booking.id,
+            `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
+          )
+        } catch (admErr) {
+          console.warn('Admin notification notice:', admErr)
+        }
 
         // Trigger return match check
         try {

@@ -236,18 +236,21 @@ export async function GET(req: NextRequest) {
               .eq('id', pb.id)
 
             // Record in payments table
-            await db
-              .from('payments')
-              .insert({
-                booking_id: pb.id,
-                provider: 'razorpay',
-                provider_order_id: razorpayOrderId,
-                provider_payment_id: capturedPayment.id,
-                amount: amountRupees,
-                payment_status: 'captured',
-                verified_at: new Date().toISOString(),
-              })
-              .catch(() => {})
+            try {
+              await db
+                .from('payments')
+                .insert({
+                  booking_id: pb.id,
+                  provider: 'razorpay',
+                  provider_order_id: razorpayOrderId,
+                  provider_payment_id: capturedPayment.id,
+                  amount: amountRupees,
+                  payment_status: 'captured',
+                  verified_at: new Date().toISOString(),
+                })
+            } catch (pErr) {
+              console.warn('Reconciliation payment insert notice:', pErr)
+            }
 
             // Dispatch WhatsApp confirmation
             const routeLabel = pb.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'

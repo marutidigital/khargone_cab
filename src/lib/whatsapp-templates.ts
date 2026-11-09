@@ -434,18 +434,22 @@ export async function sendWhatsAppTemplateMessage(params: {
   } catch (err: any) {
     console.error(`Error sending Meta WhatsApp template ${templateCode}:`, err)
 
-    // Log failure with error reason into notifications table
+    // Log failure with error reason into notifications table safely
     const recipientType = templateCode.startsWith('admin_') ? 'admin' : 'customer'
-    await db.from('notifications').insert({
-      booking_id: bookingId || null,
-      template: templateCode,
-      recipient: toPhone,
-      status: 'failed',
-      error: err?.message || 'Failed to dispatch WhatsApp template.',
-      sent_at: new Date().toISOString(),
-      recipient_type: recipientType,
-      event_version: `tpl:${templateCode}`,
-    }).catch(() => {})
+    try {
+      await db.from('notifications').insert({
+        booking_id: bookingId || null,
+        template: templateCode,
+        recipient: toPhone,
+        status: 'failed',
+        error: err?.message || 'Failed to dispatch WhatsApp template.',
+        sent_at: new Date().toISOString(),
+        recipient_type: recipientType,
+        event_version: `tpl:${templateCode}`,
+      })
+    } catch (logErr) {
+      console.warn('Could not log notification failure:', logErr)
+    }
 
     return { success: false, error: err?.message || 'Failed to dispatch WhatsApp template.' }
   }

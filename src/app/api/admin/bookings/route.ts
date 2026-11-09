@@ -50,36 +50,93 @@ export async function POST(req: NextRequest) {
     }
 
     if (_action === 'match_pair') {
-      if (typeof id !== 'string' || typeof updates.other_booking_id !== 'string' || typeof updates.driver_id !== 'string') {
-        return NextResponse.json({ error: 'Choose two bookings and an active driver.' }, { status: 400 })
+      if (typeof id !== 'string' || typeof updates.other_booking_id !== 'string') {
+        return NextResponse.json({ error: 'Choose two bookings to match.' }, { status: 400 })
       }
-      const [firstResult, secondResult, driverResult] = await Promise.all([
+
+      // Check if driver was explicitly assigned or if auto dispatch is preferred
+      let driverId: string | undefined = undefined
+      if (updates.driver_id && typeof updates.driver_id === 'string' && updates.driver_id !== 'auto' && updates.driver_id !== '') {
+        const { data: driver, error: driverErr } = await supabase
+          .from('drivers')
+          .select('id,name,phone,status')
+          .eq('id', updates.driver_id)
+          .single()
+        if (driverErr || !driver || driver.status === 'inactive') {
+          return NextResponse.json({ error: 'Selected driver could not be found or is inactive.' }, { status: 404 })
+        }
+        driverId = driver.id
+      }
+
+      // Fetch both bookings
+      const [firstResult, secondResult] = await Promise.all([
         supabase.from('bookings').select('*').eq('id', id).single(),
         supabase.from('bookings').select('*').eq('id', updates.other_booking_id).single(),
-        supabase.from('drivers').select('id,name,phone,vehicle_number,status').eq('id', updates.driver_id).single(),
       ])
+
       const first = firstResult.data
       const second = secondResult.data
-      const driver = driverResult.data
-      if (firstResult.error || secondResult.error || !first || !second || !driver || driver.status === 'inactive') {
-        return NextResponse.json({ error: 'Bookings or active driver could not be found.' }, { status: 404 })
+
+      if (firstResult.error || secondResult.error || !first || !second) {
+        return NextResponse.json({ error: 'One or both bookings could not be found.' }, { status: 404 })
       }
-      const isValid = first.mode === 'match' && second.mode === 'match' && first.status === 'waiting' && second.status === 'waiting'
-        && first.travel_date === second.travel_date
-        && isMatchTimeCompatible(first.direction === 'KI' ? 'K2I' : 'I2K', String(first.pickup_time).slice(0, 5), second.direction === 'KI' ? 'K2I' : 'I2K', String(second.pickup_time).slice(0, 5))
-        && first.direction !== second.direction
-      if (!isValid) return NextResponse.json({ error: 'These bookings do not meet the same-day opposite-direction 4–8 hour match rule.' }, { status: 409 })
+
+      if (first.status === 'confirmed' || second.status === 'confirmed') {
+        return NextResponse.json({ error: 'One of these bookings is already confirmed.' }, { status: 409 })
+      }
+
+      if (first.direction === second.direction) {
+        return NextResponse.json({ error: 'Bookings must be in opposite directions (one Khargone➔Indore and one Indore➔Khargone).' }, { status: 409 })
+      }
+
       const out = first.direction === 'KI' ? first : second
       const back = first.direction === 'IK' ? first : second
-      const { data: match, error: matchError } = await supabase.from('matches').insert({ booking_out: out.id, booking_back: back.id, driver_id: driver.id, vehicle: 'economy_sedan', confirmed_at: new Date().toISOString() }).select('id').single()
-      if (matchError || !match) return NextResponse.json({ error: 'Could not create this match. Refresh the board and try again.' }, { status: 409 })
-      const now = new Date().toISOString()
-      const { error: updateError } = await supabase.from('bookings').update({ status: 'confirmed', match_id: match.id, driver_id: driver.id, driver_name: driver.name, matched_with: second.id, updated_at: now }).eq('id', first.id).eq('status', 'waiting')
-      if (updateError) return NextResponse.json({ error: 'Match saved but booking confirmation failed. Check the admin board.' }, { status: 503 })
-      const { error: secondUpdateError } = await supabase.from('bookings').update({ status: 'confirmed', match_id: match.id, driver_id: driver.id, driver_name: driver.name, matched_with: first.id, updated_at: now }).eq('id', second.id).eq('status', 'waiting')
-      if (secondUpdateError) return NextResponse.json({ error: 'One booking was updated. Review the match board immediately.' }, { status: 503 })
-      await Promise.all([notify('match_confirmed', first.id), notify('match_confirmed', second.id)])
-      return NextResponse.json({ success: true, matchId: match.id })
+
+      const { secureAndConfirmMatch } = await import('@/lib/matching-engine')
+      const matchResult = await secureAndConfirmMatch({
+        bookingOutId: out.id,
+        bookingBackId: back.id,
+        driverId: driverId,
+        confirmedBy: 'admin',
+      })
+
+      if (!matchResult.success) {
+        return NextResponse.json({ error: matchResult.error || 'Could not confirm match.' }, { status: 409 })
+      }
+
+      return NextResponse.json({ success: true, matchId: matchResult.matchId })
+    }
+
+    if (_action === 'auto_match_all') {
+      const { tryAutomaticFIFOMatch } = await import('@/lib/matching-engine')
+      const { data: waitingBookings } = await supabase
+        .from('bookings')
+        .select('id, booking_ref, travel_date, pickup_time, direction')
+        .eq('status', 'waiting')
+        .is('match_id', null)
+        .order('created_at', { ascending: true })
+
+      let matchedCount = 0
+      const matchedIds: string[] = []
+
+      for (const b of waitingBookings || []) {
+        if (matchedIds.includes(b.id)) continue
+        try {
+          const res = await tryAutomaticFIFOMatch(b.id)
+          if (res.matched && res.matchId) {
+            matchedCount++
+            matchedIds.push(b.id)
+          }
+        } catch (mErr) {
+          console.warn('Auto match attempt notice for booking', b.id, mErr)
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        matchedCount,
+        message: matchedCount > 0 ? `Successfully paired ${matchedCount} return match(es)!` : 'No new compatible round matches found.',
+      })
     }
 
     if (_action === 'create') {

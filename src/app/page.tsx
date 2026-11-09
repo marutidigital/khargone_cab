@@ -107,6 +107,29 @@ export default function Home() {
     return () => abort.abort()
   }, [bookingTab, date, direction, mode, time])
 
+  // Keep checkout session storage synchronized for seamless /checkout tracking
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (passenger.name && passenger.phone && time) {
+      window.sessionStorage.setItem(
+        'maruticab_checkout_state',
+        JSON.stringify({
+          direction,
+          mode: bookingTab === 'confirmed' ? 'confirmed' : 'match',
+          pointId,
+          date,
+          time: time.timeStr,
+          name: passenger.name.trim(),
+          phone: passenger.phone,
+          email: passenger.email?.trim() || '',
+          address: passenger.address || '',
+          passengers: passenger.passengers || 1,
+          consent: passenger.consent,
+        })
+      )
+    }
+  }, [direction, bookingTab, pointId, date, time, passenger])
+
   const selectDate = useCallback((item: DateTileItem) => { setDate(item.dateStr); setTime(null) }, [])
   const selectDirection = (value: RouteDirection) => {
     setDirection(value)
@@ -154,13 +177,7 @@ export default function Home() {
         const publicToken = String(paymentInfo.publicToken)
         window.sessionStorage.setItem('maruticab_booking_token', publicToken)
         setIsSubmitting(false)
-        setSuccessData({
-          bookingRef: paymentInfo.bookingRef,
-          publicToken: paymentInfo.publicToken,
-          whatsappUrl: `https://wa.me/917282316090?text=${encodeURIComponent(
-            `Hi MarutiCab, booking ${paymentInfo.bookingRef} confirmed with advance payment.`
-          )}`,
-        })
+        router.push(`/booking/${publicToken}`)
         return
       }
 
@@ -195,15 +212,8 @@ export default function Home() {
       const publicToken = String(result.publicToken)
       window.sessionStorage.setItem('maruticab_booking_token', publicToken)
       setIsSubmitting(false)
-      setSuccessData({
-        bookingRef: result.bookingRef,
-        publicToken: result.publicToken,
-        whatsappUrl:
-          result.whatsappUrl ||
-          `https://wa.me/917282316090?text=${encodeURIComponent(
-            `Hi MarutiCab, booking ${result.bookingRef} confirmed with advance payment.`
-          )}`,
-      })
+      router.push(`/booking/${publicToken}`)
+      return
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not start checkout.')
       setIsSubmitting(false)
