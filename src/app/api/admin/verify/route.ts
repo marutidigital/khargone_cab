@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
 
+const verifyCache = new Map<string, { isAdmin: boolean; user: { id: string; email: string }; expiresAt: number }>()
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -9,6 +11,12 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '').trim()
+
+    // Check fast cache
+    const cached = verifyCache.get(token)
+    if (cached && cached.expiresAt > Date.now()) {
+      return NextResponse.json({ isAdmin: cached.isAdmin, user: cached.user })
+    }
     const db = createServiceClient()
 
     // 1. Verify token with Supabase Auth
@@ -29,6 +37,11 @@ export async function POST(request: NextRequest) {
       .limit(1)
 
     if (adminRows && adminRows.length > 0) {
+      verifyCache.set(token, {
+        isAdmin: true,
+        user: { id: userId, email: userEmail },
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      })
       return NextResponse.json({ isAdmin: true, user: { id: userId, email: userEmail } })
     }
 

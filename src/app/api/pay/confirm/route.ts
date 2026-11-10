@@ -79,15 +79,19 @@ export async function POST(req: NextRequest) {
     }).eq('id', booking.id)
 
     // 4. Record payment in payments table
-    await db.from('payments').insert({
-      booking_id: booking.id,
-      provider: 'razorpay',
-      provider_order_id: orderId,
-      provider_payment_id: paymentId,
-      amount: amountVal,
-      payment_status: 'captured',
-      verified_at: new Date().toISOString(),
-    }).catch((pErr: any) => console.warn('Payment insert notice:', pErr?.message || pErr))
+    try {
+      await db.from('payments').insert({
+        booking_id: booking.id,
+        provider: 'razorpay',
+        provider_order_id: orderId,
+        provider_payment_id: paymentId,
+        amount: amountVal,
+        payment_status: 'captured',
+        verified_at: new Date().toISOString(),
+      })
+    } catch (pErr: any) {
+      console.warn('Payment insert notice:', pErr?.message || pErr)
+    }
 
     // 5. Trigger FIFO auto return-ride matching
     try {

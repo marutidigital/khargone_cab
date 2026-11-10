@@ -2,7 +2,7 @@
 // src/app/admin/page.tsx
 // MarutiCab Admin Access Gate with Supabase Auth & public.admins verification
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase-client'
 import { HanscabAdminDashboard } from '@/components/admin/HanscabAdminDashboard'
 import {
@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [checkingAdmin, setCheckingAdmin] = useState(false)
+  const verifiedUserIdRef = useRef<string | null>(null)
 
   // Login Form States
   const [email, setEmail] = useState('')
@@ -32,6 +33,8 @@ export default function AdminPage() {
 
   // 1. Check user session & verify public.admins
   const verifyAdminAccess = useCallback(async (userId: string) => {
+    if (verifiedUserIdRef.current === userId && isAdmin === true) return
+    verifiedUserIdRef.current = userId
     setCheckingAdmin(true)
     try {
       const { data: sessionData } = await supabase.auth.getSession()

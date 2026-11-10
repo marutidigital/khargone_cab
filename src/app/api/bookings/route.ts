@@ -123,27 +123,33 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Dispatch WhatsApp Template: payment_received (awaited!)
-      const routeLabel = data.direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
-      await sendWhatsAppTemplateMessage({
-        toPhone: data.phone,
-        templateCode: 'payment_received',
-        variables: [
-          data.name,
-          String(advancePaid),
-          prior.booking_ref,
-          data.paymentId || 'RZP_OK',
-          routeLabel,
-          data.date,
-        ],
-        bookingId: prior.id,
-      })
+      // Dispatch WhatsApp Template & Admin Notification asynchronously for fast response
+      void (async () => {
+        try {
+          const routeLabel = data.direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+          await sendWhatsAppTemplateMessage({
+            toPhone: data.phone,
+            templateCode: 'payment_received',
+            variables: [
+              data.name,
+              String(advancePaid),
+              prior.booking_ref,
+              data.paymentId || 'RZP_OK',
+              routeLabel,
+              data.date,
+            ],
+            bookingId: prior.id,
+          }).catch((err) => console.warn('WhatsApp template notice:', err))
 
-      await notifyAdmin(
-        `pay_captured:${prior.id}`,
-        prior.id,
-        `Advance payment of ₹${advancePaid} confirmed for ${prior.booking_ref} (${data.name}). Route: ${routeLabel}.`
-      )
+          await notifyAdmin(
+            `pay_captured:${prior.id}`,
+            prior.id,
+            `Advance payment of ₹${advancePaid} confirmed for ${prior.booking_ref} (${data.name}). Route: ${routeLabel}.`
+          ).catch((err) => console.warn('Admin notification notice:', err))
+        } catch (postErr) {
+          console.warn('Async notification error:', postErr)
+        }
+      })()
 
       return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, status: 'waiting', fare })
     }

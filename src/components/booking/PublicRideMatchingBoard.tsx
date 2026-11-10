@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import {
   Car,
   Calendar,
@@ -8,20 +9,35 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { formatRs } from '@/config/pricing'
-import {
-  PublicMatchBookingModal,
-  type PublicAvailableRide,
-} from './PublicMatchBookingModal'
+
+export interface PublicAvailableRide {
+  id: string
+  direction: 'KI' | 'IK'
+  routeDirection: 'K2I' | 'I2K'
+  routeLabel: string
+  travelDate: string
+  travelDateFormatted: string
+  pickupTime: string
+  pickupTimeFormatted: string
+  passengerCount: number
+  dropPoint: string
+  dropName: string
+  totalFare: number
+  advanceAmount: number
+  oppositeDirection: 'I2K' | 'K2I'
+  oppositeRouteLabel: string
+  oppositeBaseFare: number
+  statusText: string
+}
 
 interface PublicRideMatchingBoardProps {
-  onBookingSuccess: (bookingRef: string, publicToken: string, whatsappUrl: string) => void
+  onBookingSuccess?: (bookingRef: string, publicToken: string, whatsappUrl: string) => void
 }
 
 export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatchingBoardProps) {
   const [activeTab, setActiveTab] = useState<'ALL' | 'I2K' | 'K2I'>('ALL')
   const [rides, setRides] = useState<PublicAvailableRide[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedRideForBooking, setSelectedRideForBooking] = useState<PublicAvailableRide | null>(null)
 
   const fetchRides = useCallback(async () => {
     try {
@@ -261,33 +277,19 @@ export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatching
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRideForBooking(ride)}
+                  <Link
+                    href={`/book-return/${ride.id}`}
                     className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2.5 text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span>Book Now</span>
                     <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Booking Drawer / Modal */}
-      {selectedRideForBooking && (
-        <PublicMatchBookingModal
-          ride={selectedRideForBooking}
-          onClose={() => setSelectedRideForBooking(null)}
-          onSuccess={(bookingRef, publicToken, whatsappUrl) => {
-            setSelectedRideForBooking(null)
-            void fetchRides()
-            onBookingSuccess(bookingRef, publicToken, whatsappUrl)
-          }}
-        />
-      )}
     </section>
   )
 }

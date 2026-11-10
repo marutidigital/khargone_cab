@@ -123,7 +123,6 @@ export async function secureAndConfirmMatch(params: {
         booking_out: bookingOutId,
         booking_back: bookingBackId,
         driver_id: driver?.id || null,
-        vehicle_id: vehicle?.id || null,
         vehicle: 'economy_sedan',
         confirmed_at: new Date().toISOString(),
       })
@@ -136,12 +135,15 @@ export async function secureAndConfirmMatch(params: {
 
     const matchId = matchRecord.id
 
-    // 4. Record in match_bookings table (concurrency protection)
-    const { error: mbErr } = await db.from('match_bookings').insert([
-      { match_id: matchId, booking_id: bookingOutId, leg_number: 1 },
-      { match_id: matchId, booking_id: bookingBackId, leg_number: 2 },
-    ])
-    if (mbErr) console.warn('match_bookings insert notice:', mbErr)
+    // 4. Record in match_bookings table (if table exists)
+    try {
+      await db.from('match_bookings').insert([
+        { match_id: matchId, booking_id: bookingOutId, leg_number: 1 },
+        { match_id: matchId, booking_id: bookingBackId, leg_number: 2 },
+      ])
+    } catch (mbErr) {
+      console.warn('match_bookings insert notice:', mbErr)
+    }
 
     // 5. Update outward booking
     const nowIso = new Date().toISOString()
@@ -153,7 +155,6 @@ export async function secureAndConfirmMatch(params: {
       confirmed_at: nowIso,
       driver_name: driver?.name || null,
       driver_id: driver?.id || null,
-      vehicle_id: vehicle?.id || null,
       updated_at: nowIso,
     }).eq('id', bookingOutId)
 
@@ -166,7 +167,6 @@ export async function secureAndConfirmMatch(params: {
       confirmed_at: nowIso,
       driver_name: driver?.name || null,
       driver_id: driver?.id || null,
-      vehicle_id: vehicle?.id || null,
       updated_at: nowIso,
     }).eq('id', bookingBackId)
 

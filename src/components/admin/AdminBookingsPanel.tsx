@@ -56,9 +56,38 @@ export function AdminBookingsPanel() {
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string; phone?: string; vehicle_number: string; vehicle_model?: string; status?: string }>>([])
   const [vehicles, setVehicles] = useState<any[]>([])
 
-  // Modals state
+  // Modals & notes state
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [assigningMatch, setAssigningMatch] = useState<any | null>(null)
+  const [notesDrafts, setNotesDrafts] = useState<Record<string, string>>({})
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null)
+
+  const handleSaveNote = async (bookingId: string) => {
+    setSavingNoteId(bookingId)
+    setNotice(null)
+    setError(null)
+    try {
+      const headers = await getAdminApiHeaders()
+      const noteText = notesDrafts[bookingId] ?? ''
+      const res = await fetch('/api/admin/bookings', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          _action: 'save_note',
+          id: bookingId,
+          notes: noteText,
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Could not save note.')
+      setNotice('Booking note saved successfully.')
+      await loadBookings()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save note.')
+    } finally {
+      setSavingNoteId(null)
+    }
+  }
 
   const loadBookings = useCallback(async () => {
     setLoading(true)
@@ -174,6 +203,16 @@ export function AdminBookingsPanel() {
 
     return { pairedGroups: pairs, unpairedBookings: unpaired }
   }, [bookings, matches, drivers, filteredBookings, search, statusFilter])
+
+  // Active waiting bookings (excluding refunded/cancelled so they never clutter top queues!)
+  const activeUnpaired = useMemo(() => {
+    return unpairedBookings.filter((b) => b.status === 'waiting')
+  }, [unpairedBookings])
+
+  // Dedicated list of refunded bookings (displayed at the bottom with explicit "Refund Done" & note options)
+  const refundedBookings = useMemo(() => {
+    return bookings.filter((b) => b.status === 'refunded' || b.refund_status === 'processed')
+  }, [bookings])
 
   const updateStatus = async (booking: Booking, status: BookingStatus) => {
     setSavingId(booking.id)
@@ -581,10 +620,10 @@ export function AdminBookingsPanel() {
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400" />
-                  <span>Unpaired & Waiting Bookings ({unpairedBookings.length})</span>
+                  <span>Unpaired & Waiting Bookings ({activeUnpaired.length})</span>
                 </h3>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {unpairedBookings.some((b) => b.status === 'waiting' && b.travel_date < new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())) && (
+                  {activeUnpaired.some((b) => b.status === 'waiting' && b.travel_date < new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())) && (
                     <button
                       type="button"
                       onClick={handleRefundAllExpired}
@@ -593,21 +632,21 @@ export function AdminBookingsPanel() {
                       💸 Refund All Expired Rides
                     </button>
                   )}
-                  <span className="text-xs text-slate-500">Bookings not yet paired into a round trip</span>
+                  <span className="text-xs text-slate-500">Active bookings waiting to be matched</span>
                 </div>
               </div>
 
-              {unpairedBookings.length === 0 ? (
+              {activeUnpaired.length === 0 ? (
                 <div className="p-6 text-center bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-400">
-                  No unpaired bookings right now. All active bookings are matched!
+                  No active waiting bookings right now. All rides are either matched or settled!
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {unpairedBookings.map((b) => {
+                  {activeUnpaired.map((b) => {
                     const isKI = b.direction === 'KI'
                     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
                     const isDatePassed = b.travel_date && b.travel_date < todayStr
-                    const compatibleOpposite = unpairedBookings.find(
+                    const compatibleOpposite = activeUnpaired.find(
                       (other) => other.id !== b.id && other.status === 'waiting' && other.direction !== b.direction
                     )
 
@@ -694,6 +733,81 @@ export function AdminBookingsPanel() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Section C: Refunded Bookings (Shown at the bottom with explicit status and notes) */}
+            <div className="border-t border-slate-200 pt-6">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-violet-600" />
+                  <span>Refunded Bookings ({refundedBookings.length})</span>
+                </h3>
+                <span className="text-xs text-slate-500">Advance refund completed · write internal notes below</span>
+              </div>
+
+              {refundedBookings.length === 0 ? (
+                <div className="p-6 text-center bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-400">
+                  No refunded bookings.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {refundedBookings.map((b) => {
+                    const isKI = b.direction === 'KI'
+                    const refundAmt = b.refund_amount || b.advance_paid || 500
+
+                    return (
+                      <div
+                        key={b.id}
+                        className="bg-white border border-violet-200 rounded-2xl p-4 text-xs space-y-3 shadow-xs hover:border-violet-300 transition"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="font-black text-slate-900 text-sm">#{b.booking_ref} · {b.passenger_name}</span>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              {isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'} · 📞 {b.phone}
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide">
+                            ✓ Refund Done (₹{refundAmt})
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-violet-50/50 p-2 rounded-xl text-[11px] text-slate-600">
+                          <span>Travel Date: <strong>{b.travel_date} ({String(b.pickup_time).slice(0, 5)})</strong></span>
+                          <span>Drop: <strong>{b.drop_name}</strong></span>
+                        </div>
+
+                        {/* Note Input Field */}
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                          <label className="text-[10px] font-extrabold uppercase text-slate-500 block mb-1">
+                            Booking Note / Reason for Refund:
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={notesDrafts[b.id] !== undefined ? notesDrafts[b.id] : (b.notes || '')}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                setNotesDrafts((prev) => ({ ...prev, [b.id]: val }))
+                              }}
+                              placeholder="Write a note (e.g. Cancelled by customer, route changed)..."
+                              className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-400 font-medium"
+                            />
+                            <button
+                              type="button"
+                              disabled={savingNoteId === b.id}
+                              onClick={() => void handleSaveNote(b.id)}
+                              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer shrink-0 disabled:opacity-50"
+                            >
+                              {savingNoteId === b.id ? 'Saving…' : 'Save Note'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
@@ -795,6 +909,10 @@ export function AdminBookingsPanel() {
                         ) : isConfirmed ? (
                           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-[11px] font-black text-emerald-800">
                             ✅ Confirmed
+                          </span>
+                        ) : booking.status === 'refunded' ? (
+                          <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide">
+                            ✓ Refund Done
                           </span>
                         ) : (
                           <span className={`rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${STATUS_STYLES[booking.status]}`}>

@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { Nav } from '@/components/Nav'
 import { PublicRideMatchingBoard } from '@/components/booking/PublicRideMatchingBoard'
-import { BookingSuccessModal } from '@/components/booking/BookingSuccessModal'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
 import { ShieldCheck, Car, ArrowLeft, Clock, Sparkles } from 'lucide-react'
@@ -12,11 +11,6 @@ import Link from 'next/link'
 
 export default function ConfirmedRidesPage() {
   const router = useRouter()
-  const [successData, setSuccessData] = useState<{
-    bookingRef: string
-    publicToken: string
-    whatsappUrl: string
-  } | null>(null)
 
   return (
     <div className="min-h-screen bg-[#F4F4F5] text-slate-900 antialiased flex flex-col justify-between">
@@ -68,44 +62,9 @@ export default function ConfirmedRidesPage() {
           </div>
 
           {/* Live Board Component */}
-          <PublicRideMatchingBoard
-            onBookingSuccess={(bookingRef: string, publicToken: string, whatsappUrl: string) => {
-              setSuccessData({
-                bookingRef,
-                publicToken,
-                whatsappUrl,
-              })
-            }}
-          />
+          <PublicRideMatchingBoard />
         </main>
       </div>
-
-      {/* Booking Success WhatsApp Modal */}
-      {successData && (
-        <BookingSuccessModal
-          isOpen={Boolean(successData)}
-          bookingRef={successData.bookingRef}
-          publicToken={successData.publicToken}
-          direction="K2I"
-          pointName="City Point"
-          date="Confirmed Date"
-          time="Selected Time"
-          passengerName="Passenger"
-          phone=""
-          totalFare={1800}
-          whatsappUrl={successData.whatsappUrl}
-          onClose={() => {
-            const token = successData.publicToken
-            setSuccessData(null)
-            router.push(`/booking/${token}`)
-          }}
-          onViewStatus={() => {
-            const token = successData.publicToken
-            setSuccessData(null)
-            router.push(`/booking/${token}`)
-          }}
-        />
-      )}
 
       <div className="hidden lg:block">
         <FooterMarquee />

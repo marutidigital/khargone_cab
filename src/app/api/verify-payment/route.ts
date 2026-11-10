@@ -97,43 +97,51 @@ export async function POST(req: NextRequest) {
           })
           .eq('id', booking.id)
 
-        // Dispatch WhatsApp notification (safe & resilient)
-        const routeLabel = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
-        try {
-          await sendWhatsAppTemplateMessage({
-            toPhone: booking.phone,
-            templateCode: 'payment_received',
-            variables: [
-              booking.passenger_name || 'Passenger',
-              String(amountRupees),
-              booking.booking_ref,
-              paymentId,
-              routeLabel,
-              booking.travel_date || '',
-            ],
-            bookingId: booking.id,
-          })
-        } catch (waErr) {
-          console.warn('WhatsApp payment confirmation notice:', waErr)
-        }
+        // Run background tasks (WhatsApp dispatch, admin alert, auto-match engine) asynchronously
+        // so user gets instant confirmation without waiting 10-15s for external Meta APIs!
+        void (async () => {
+          try {
+            // 1. Dispatch WhatsApp notification (safe & resilient)
+            const routeLabel = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+            try {
+              await sendWhatsAppTemplateMessage({
+                toPhone: booking.phone,
+                templateCode: 'payment_received',
+                variables: [
+                  booking.passenger_name || 'Passenger',
+                  String(amountRupees),
+                  booking.booking_ref,
+                  paymentId,
+                  routeLabel,
+                  booking.travel_date || '',
+                ],
+                bookingId: booking.id,
+              })
+            } catch (waErr) {
+              console.warn('WhatsApp payment confirmation notice:', waErr)
+            }
 
-        // Notify Admin of verified advance payment (safe)
-        try {
-          await notifyAdmin(
-            `pay_captured:${booking.id}`,
-            booking.id,
-            `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
-          )
-        } catch (admErr) {
-          console.warn('Admin notification notice:', admErr)
-        }
+            // 2. Notify Admin of verified advance payment
+            try {
+              await notifyAdmin(
+                `pay_captured:${booking.id}`,
+                booking.id,
+                `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
+              )
+            } catch (admErr) {
+              console.warn('Admin notification notice:', admErr)
+            }
 
-        // Trigger return match check
-        try {
-          await tryMatchBookingAndConfirm(booking.id)
-        } catch (matchErr) {
-          console.warn('Matching check warning:', matchErr)
-        }
+            // 3. Trigger return match check
+            try {
+              await tryMatchBookingAndConfirm(booking.id)
+            } catch (matchErr) {
+              console.warn('Matching check warning:', matchErr)
+            }
+          } catch (bgErr) {
+            console.error('Async post-payment tasks warning:', bgErr)
+          }
+        })()
       }
 
       return NextResponse.json({
