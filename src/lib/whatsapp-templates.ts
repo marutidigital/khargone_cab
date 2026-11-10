@@ -434,6 +434,39 @@ export async function sendWhatsAppTemplateMessage(params: {
   } catch (err: any) {
     console.error(`Error sending Meta WhatsApp template ${templateCode}:`, err)
 
+    // Resilient Fallback: If Meta template failed (e.g. 132001 template not yet approved in Meta or language mismatch),
+    // attempt sending the rendered template as formatted direct WhatsApp text so booking messages are never lost!
+    try {
+      const rendered = renderTemplateText(templateCode, variables)
+      if (rendered?.fullText) {
+        const directResult = (await sendText({
+          to: toPhone,
+          body: rendered.fullText,
+          bookingId: bookingId || null,
+          eventVersion: `fallback_text:${templateCode}`,
+        })) as any
+
+        const fallbackMsgId = directResult?.messages?.[0]?.id || null
+        if (fallbackMsgId) {
+          const recipientType = templateCode.startsWith('admin_') ? 'admin' : 'customer'
+          await db.from('notifications').insert({
+            booking_id: bookingId || null,
+            template: `${templateCode}_fallback_text`,
+            recipient: toPhone,
+            status: 'sent',
+            wa_message_id: fallbackMsgId,
+            provider_message_id: fallbackMsgId,
+            sent_at: new Date().toISOString(),
+            recipient_type: recipientType,
+            event_version: `fallback_text:${templateCode}`,
+          })
+          return { success: true, messageId: fallbackMsgId }
+        }
+      }
+    } catch (fallbackErr) {
+      console.warn(`Fallback free-text delivery notice for ${templateCode}:`, fallbackErr)
+    }
+
     // Log failure with error reason into notifications table safely
     const recipientType = templateCode.startsWith('admin_') ? 'admin' : 'customer'
     try {

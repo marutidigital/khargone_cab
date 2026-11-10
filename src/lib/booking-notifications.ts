@@ -127,17 +127,29 @@ export async function notify(event: WhatsAppEvent, bookingId: string, options: {
 
 /** Send to an admin-configured number for operational alerts. */
 export async function notifyAdmin(event: string, bookingId: string | null, alertText: string) {
-  const recipient = process.env.ADMIN_WHATSAPP_NUMBER || process.env.WHATSAPP_ADMIN_PHONE || '918878933778'
+  const configured = (process.env.ADMIN_WHATSAPP_NUMBER || process.env.WHATSAPP_ADMIN_PHONE || '918878933778')
+    .split(',')
+    .map((s) => s.trim().replace(/\D/g, ''))
+    .filter(Boolean)
+
+  // Dispatch to configured admin numbers (including 919406633778 and 918878933778)
+  const recipients = Array.from(new Set([...configured, '918878933778', '919406633778']))
 
   // Direct fail-safe text delivery to admin so admin alerts NEVER get missed
   try {
     const { sendText } = await import('@/lib/whatsapp')
-    await sendText({
-      to: recipient,
-      body: `🚨 *MARUTICAB ADMIN ALERT* 🚕\n\n${alertText}`,
-      bookingId: bookingId || undefined,
-      eventVersion: `admin_direct:${event}`,
-    })
+    for (const recipient of recipients) {
+      try {
+        await sendText({
+          to: recipient,
+          body: `🚨 *MARUTICAB ADMIN ALERT* 🚕\n\n${alertText}`,
+          bookingId: bookingId || undefined,
+          eventVersion: `admin_direct:${recipient}:${event}`,
+        })
+      } catch (perErr) {
+        console.warn(`Admin text alert notice for ${recipient}:`, perErr)
+      }
+    }
   } catch (directErr) {
     console.warn('Direct admin text alert notice:', directErr)
   }
@@ -149,21 +161,27 @@ export async function notifyAdmin(event: string, bookingId: string | null, alert
       try {
         const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
         const route = booking.direction === 'KI' || booking.direction === 'K2I' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
-        return await sendWhatsAppTemplateMessage({
-          toPhone: recipient,
-          templateCode: 'admin_new_booking',
-          variables: [
-            booking.booking_ref || 'KC00000',
-            booking.passenger_name || 'Passenger',
-            booking.phone || '',
-            route,
-            booking.travel_date || '',
-            String(booking.pickup_time || '').slice(0, 5),
-            String(booking.advance_paid || 500),
-            String(booking.balance_amount || 0),
-          ],
-          bookingId: booking.id,
-        })
+        for (const recipient of recipients) {
+          try {
+            await sendWhatsAppTemplateMessage({
+              toPhone: recipient,
+              templateCode: 'admin_new_booking',
+              variables: [
+                booking.booking_ref || 'KC00000',
+                booking.passenger_name || 'Passenger',
+                booking.phone || '',
+                route,
+                booking.travel_date || '',
+                String(booking.pickup_time || '').slice(0, 5),
+                String(booking.advance_paid || 500),
+                String(booking.balance_amount || 0),
+              ],
+              bookingId: booking.id,
+            })
+          } catch (tplErr) {
+            console.warn(`Admin template dispatch warning for ${recipient}:`, tplErr)
+          }
+        }
       } catch (adminTplErr) {
         console.warn('Admin new booking template dispatch warning:', adminTplErr)
       }
