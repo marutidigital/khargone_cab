@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Script from 'next/script'
@@ -26,7 +26,7 @@ import { calculateBookingFare, type DropPointId, type RouteDirection } from '@/l
 const SUPPORT_PHONE = '+917282316090'
 const SUPPORT_WA = '917282316090'
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -490,5 +490,25 @@ export default function CheckoutPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+          <Nav />
+          <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-12 flex items-center justify-center">
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center animate-pulse w-full max-w-md">
+              <div className="mx-auto h-8 w-48 rounded bg-slate-800 mb-4" />
+              <div className="mx-auto h-4 w-64 rounded bg-slate-800" />
+            </div>
+          </main>
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   )
 }
