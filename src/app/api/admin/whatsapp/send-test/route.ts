@@ -24,6 +24,17 @@ export async function GET(req: NextRequest) {
   const rawDigits = phoneParam.replace(/\D/g, '')
   const targetPhone = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits
 
+  if (req.nextUrl.searchParams.get('list') === 'true') {
+    if (!wabaId) {
+      return NextResponse.json({ error: 'WHATSAPP_WABA_ID is not configured' }, { status: 400 })
+    }
+    const res = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/message_templates?limit=100`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    return NextResponse.json({ success: res.ok, wabaId, data })
+  }
+
   // 1. Fetch template details from Meta Graph API
   let templateMeta: any = null
   let matchedTemplate: any = null
