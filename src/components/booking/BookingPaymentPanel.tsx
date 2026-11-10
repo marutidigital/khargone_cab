@@ -191,7 +191,33 @@ export function BookingPaymentPanel({
               throw new Error(verifyData.error || 'Payment signature verification failed.')
             }
 
-            // Call parent callback to complete booking creation
+            const targetToken = verifyData.publicToken || orderData.public_token
+            if (targetToken) {
+              try {
+                window.sessionStorage.setItem('maruticab_booking_token', String(targetToken))
+              } catch {}
+
+              // Fire callback safely
+              try {
+                onPaymentSuccess({
+                  orderId: response.razorpay_order_id,
+                  paymentId: response.razorpay_payment_id,
+                  signature: response.razorpay_signature,
+                  advancePaid: advanceAmount,
+                  couponCode: appliedCoupon || undefined,
+                  bookingRef: verifyData.bookingRef || orderData.booking_ref,
+                  publicToken: String(targetToken),
+                })
+              } catch (cbErr) {
+                console.warn('onPaymentSuccess callback warning:', cbErr)
+              }
+
+              // Direct navigation to dedicated confirmation / thank you page!
+              window.location.href = `/booking/${encodeURIComponent(String(targetToken))}`
+              return
+            }
+
+            // Fallback if no token (legacy flow)
             onPaymentSuccess({
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,

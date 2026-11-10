@@ -256,9 +256,10 @@ function CheckoutContent() {
             // REDIRECT STRAIGHT TO DEDICATED CONFIRMATION / THANK YOU PAGE!
             const token = verifyData.publicToken || orderData.public_token
             if (token) {
-              router.push(`/booking/${encodeURIComponent(token)}`)
+              window.sessionStorage.setItem('maruticab_booking_token', String(token))
+              window.location.href = `/booking/${encodeURIComponent(String(token))}`
             } else {
-              router.push('/my-rides')
+              window.location.href = '/my-rides'
             }
           } catch (err: any) {
             setError(err?.message || 'Payment verified with notice. Checking your booking…')

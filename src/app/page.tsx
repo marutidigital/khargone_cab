@@ -55,12 +55,20 @@ export default function Home() {
   const [matchAvailability, setMatchAvailability] = useState<{ ready: boolean; count: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
+  const [recentToken, setRecentToken] = useState<string | null>(null)
   const [successData, setSuccessData] = useState<{
     bookingRef: string
     publicToken: string
     whatsappUrl: string
   } | null>(null)
   const idempotencyKey = useRef('')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const tok = window.sessionStorage.getItem('maruticab_booking_token')
+      if (tok) setRecentToken(tok)
+    }
+  }, [])
 
   const point = PRICING_CONFIG.points.find((entry) => entry.id === pointId) || PRICING_CONFIG.points[0]
   const fare = useMemo(() => calculateBookingFare({ mode, direction, point: pointId as keyof typeof BOOKING_CONFIG.guaranteedFares, pickupTime: time?.timeStr || '12:00' }), [direction, mode, pointId, time])
@@ -165,6 +173,20 @@ export default function Home() {
     bookingRef?: string
     publicToken?: string
   }) => {
+    // 1. If publicToken is present, booking was already created & verified atomically via /api/verify-payment!
+    // Never block on validation state — navigate immediately to confirmation page!
+    const targetToken = paymentInfo.publicToken || (typeof window !== 'undefined' ? window.sessionStorage.getItem('maruticab_booking_token') : null)
+    if (targetToken) {
+      setIsSubmitting(false)
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('maruticab_booking_token', String(targetToken))
+        window.location.href = `/booking/${encodeURIComponent(String(targetToken))}`
+      } else {
+        router.push(`/booking/${encodeURIComponent(String(targetToken))}`)
+      }
+      return
+    }
+
     if (!valid || !time) {
       setNotice('Complete pickup time and passenger details before continuing.')
       return
@@ -172,15 +194,6 @@ export default function Home() {
     setIsSubmitting(true)
     setNotice('')
     try {
-      // 1. If booking was pre-inserted and verified atomically via /api/verify-payment
-      if (paymentInfo.bookingRef && paymentInfo.publicToken) {
-        const publicToken = String(paymentInfo.publicToken)
-        window.sessionStorage.setItem('maruticab_booking_token', publicToken)
-        setIsSubmitting(false)
-        router.push(`/booking/${publicToken}`)
-        return
-      }
-
       // 2. Fallback to /api/bookings for standard flow
       if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID()
       const response = await fetch('/api/bookings', {
@@ -232,6 +245,23 @@ export default function Home() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 antialiased flex flex-col justify-between">
       <div>
         <Nav />
+
+        {recentToken && (
+          <div className="mx-auto w-full max-w-7xl px-3 sm:px-6 pt-3">
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 p-3 sm:p-4 text-emerald-950 shadow-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                <span className="text-xs sm:text-sm font-bold">Aapki cab booking confirm hai! (Active Booking)</span>
+              </div>
+              <Link
+                href={`/booking/${encodeURIComponent(recentToken)}`}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-emerald-700 transition"
+              >
+                View Confirmation ➔
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Hero Banner Section - Desktop & Mobile */}
         <section className="mx-auto w-full max-w-7xl px-3 sm:px-6 pt-4 sm:pt-6">
