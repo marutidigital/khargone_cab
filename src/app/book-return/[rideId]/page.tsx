@@ -228,7 +228,7 @@ export default function BookReturnRidePage() {
           receipt: `rcpt_ret_${Date.now()}`,
           bookingData: {
             direction: visitorDirection,
-            mode: 'match',
+            mode: 'confirmed',
             point: selectedPointId,
             date: ride.travelDate,
             time: selectedTime,

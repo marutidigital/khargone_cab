@@ -77,25 +77,66 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // If booking is still pending_payment, atomically transition to waiting
+      const isConfirmedMode =
+        booking.mode === 'confirmed' ||
+        Boolean(booking.extras?.confirmed_ride_id) ||
+        Boolean(booking.extras?.matched_with_booking_id)
+
+      const targetStatus = isConfirmedMode ? 'confirmed' : 'waiting'
+
+      // If booking is still pending_payment, atomically transition to confirmed/waiting
       if (booking.status === 'pending_payment') {
         const balance = Math.max(0, Number(booking.total_fare || 0) - amountRupees)
-        await db
+        const updatePayload: Record<string, any> = {
+          advance_paid: amountRupees,
+          advance_amount: amountRupees,
+          balance_amount: balance,
+          status: targetStatus,
+          updated_at: new Date().toISOString(),
+          extras: {
+            ...(booking.extras || {}),
+            razorpay_payment_id: paymentId,
+            razorpay_order_id: orderId,
+            verified_via_browser: true,
+          },
+        }
+
+        if (isConfirmedMode) {
+          updatePayload.confirmed_at = new Date().toISOString()
+        }
+
+        const { error: updateErr } = await db
           .from('bookings')
-          .update({
-            advance_paid: amountRupees,
-            advance_amount: amountRupees,
-            balance_amount: balance,
-            status: 'waiting',
-            updated_at: new Date().toISOString(),
-            extras: {
-              ...(booking.extras || {}),
-              razorpay_payment_id: paymentId,
-              razorpay_order_id: orderId,
-              verified_via_browser: true,
-            },
-          })
+          .update(updatePayload)
           .eq('id', booking.id)
+
+        if (updateErr) {
+          console.error('[verify-payment] Booking status transition error:', updateErr)
+          // Fallback update without status if status blocked
+          await db
+            .from('bookings')
+            .update({
+              advance_paid: amountRupees,
+              balance_amount: balance,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', booking.id)
+        } else {
+          booking.status = targetStatus
+          booking.advance_paid = amountRupees
+          booking.balance_amount = balance
+        }
+
+        // If this booking was explicitly booked against an existing return ride, match them immediately!
+        const matchedWithId = booking.extras?.matched_with_booking_id || booking.extras?.confirmed_ride_id
+        if (matchedWithId) {
+          try {
+            const { secureAndConfirmMatch } = await import('@/lib/matching-engine')
+            await secureAndConfirmMatch(booking.id, matchedWithId)
+          } catch (pairErr) {
+            console.warn('[verify-payment] Auto-pair matching warning:', pairErr)
+          }
+        }
 
         // Run background tasks (WhatsApp dispatch, admin alert, auto-match engine) asynchronously
         // so user gets instant confirmation without waiting 10-15s for external Meta APIs!
@@ -106,7 +147,7 @@ export async function POST(req: NextRequest) {
             try {
               await sendWhatsAppTemplateMessage({
                 toPhone: booking.phone,
-                templateCode: 'payment_received',
+                templateCode: isConfirmedMode ? 'booking_confirmed' : 'payment_received',
                 variables: [
                   booking.passenger_name || 'Passenger',
                   String(amountRupees),
@@ -126,17 +167,19 @@ export async function POST(req: NextRequest) {
               await notifyAdmin(
                 `pay_captured:${booking.id}`,
                 booking.id,
-                `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). Matching search started.`
+                `Advance payment of ₹${amountRupees} confirmed for ${booking.booking_ref} (${booking.passenger_name}). ${isConfirmedMode ? 'Confirmed booking.' : 'Matching search started.'}`
               )
             } catch (admErr) {
               console.warn('Admin notification notice:', admErr)
             }
 
-            // 3. Trigger return match check
-            try {
-              await tryMatchBookingAndConfirm(booking.id)
-            } catch (matchErr) {
-              console.warn('Matching check warning:', matchErr)
+            // 3. Trigger return match check (if match deal)
+            if (!isConfirmedMode) {
+              try {
+                await tryMatchBookingAndConfirm(booking.id)
+              } catch (matchErr) {
+                console.warn('Matching check warning:', matchErr)
+              }
             }
           } catch (bgErr) {
             console.error('Async post-payment tasks warning:', bgErr)
@@ -152,7 +195,7 @@ export async function POST(req: NextRequest) {
         booking_id: booking.id,
         bookingRef: booking.booking_ref,
         publicToken: booking.public_token,
-        status: booking.status === 'pending_payment' ? 'waiting' : booking.status,
+        status: booking.status === 'pending_payment' ? targetStatus : booking.status,
       })
     }
 

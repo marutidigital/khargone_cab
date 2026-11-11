@@ -90,12 +90,13 @@ export default function BookingConfirmationPage() {
 
   useEffect(() => {
     void loadBooking()
-    // Live polling every 10 seconds to update match or driver status automatically
+    // Live polling: 3s if pending confirmation, otherwise 10s
+    const pollInterval = booking?.status === 'pending_payment' ? 3_000 : 10_000
     const interval = window.setInterval(() => {
       void loadBooking()
-    }, 10_000)
+    }, pollInterval)
     return () => window.clearInterval(interval)
-  }, [loadBooking])
+  }, [loadBooking, booking?.status])
 
   const copyRef = () => {
     if (!booking?.booking_ref) return
@@ -129,9 +130,15 @@ export default function BookingConfirmationPage() {
     return `${String(h12).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${period}`
   }
 
-  const isConfirmed = booking?.status === 'confirmed' || booking?.mode === 'confirmed'
-  const isWaitingMatch = booking?.status === 'waiting' && booking?.mode === 'match'
+  const hasAdvancePaid = Number(booking?.advance_paid || 0) > 0
+  const isConfirmed =
+    booking?.status === 'confirmed' ||
+    (booking?.mode === 'confirmed' && (hasAdvancePaid || booking?.status === 'waiting'))
+  const isWaitingMatch =
+    (booking?.status === 'waiting' || (hasAdvancePaid && booking?.status === 'pending_payment')) &&
+    booking?.mode === 'match'
   const isCompleted = booking?.status === 'completed'
+  const isPendingPayment = booking?.status === 'pending_payment' && !hasAdvancePaid
   const isCancelled = booking?.status === 'cancelled' || booking?.status === 'refunded'
 
   const routeLabel = booking?.direction === 'KI'
@@ -300,11 +307,51 @@ export default function BookingConfirmationPage() {
                 <h1 className="mt-3 text-2xl font-black text-white">Trip Completed! ❤️</h1>
                 <p className="text-xs text-slate-400 mt-1">Thank you for traveling with MarutiCab.</p>
               </section>
+            ) : isPendingPayment ? (
+              <section className="relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-br from-amber-950/70 via-slate-950 to-amber-950/40 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-xl">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 ring-4 ring-amber-500/30">
+                  <RefreshCw className="h-10 w-10 text-amber-400 animate-spin" />
+                </div>
+                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-950/80 px-3.5 py-1 text-xs font-black tracking-wide text-amber-300 uppercase shadow-inner">
+                  <Clock className="h-3.5 w-3.5 text-amber-400" />
+                  Verifying Payment · Booking ID #{booking.booking_ref}
+                </div>
+                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  Confirming Your Advance Payment... ⏳
+                </h1>
+                <p className="mt-2 text-sm text-amber-300">
+                  Aapke payment ka confirmation process ho raha hai. Yeh page automatically update ho jayega.
+                </p>
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void loadBooking(true)}
+                    disabled={isRefreshing}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-5 py-3 text-sm font-extrabold text-slate-950 transition shadow-lg"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> Check Status Now
+                  </button>
+                  <a
+                    href={`https://wa.me/${SUPPORT_WA}?text=${encodeURIComponent(`Hi MarutiCab, please check status of booking #${booking.booking_ref}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/50 hover:bg-emerald-950/40 px-5 py-3 text-sm font-bold text-emerald-300 transition"
+                  >
+                    <MessageCircle className="h-4 w-4" /> WhatsApp Support
+                  </a>
+                </div>
+              </section>
             ) : (
               <section className="rounded-3xl border border-rose-900/60 bg-rose-950/40 p-6 sm:p-8 text-center">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-400" />
-                <h1 className="mt-3 text-2xl font-black text-rose-200">Booking {booking.status}</h1>
-                <p className="text-xs text-rose-300/80 mt-1">This booking is closed. Contact support for any queries.</p>
+                <h1 className="mt-3 text-2xl font-black text-rose-200">
+                  Booking {booking.status === 'cancelled' ? 'Cancelled' : booking.status === 'refunded' ? 'Refunded' : booking.status}
+                </h1>
+                <p className="text-xs text-rose-300/80 mt-1">
+                  {booking.status === 'refunded'
+                    ? 'Aapka advance refund initiate ho chuka hai. 3–5 working days me account me reflect hoga.'
+                    : 'This booking is closed. Contact support for any queries.'}
+                </p>
               </section>
             )}
 
@@ -411,7 +458,7 @@ export default function BookingConfirmationPage() {
                     <p className="text-[11px] text-slate-400">Pay directly to driver in cab by Cash or UPI</p>
                   </div>
                   <span className="text-xl font-black text-white">
-                    ₹{booking.balance_amount || Math.max(0, booking.total_fare - 500)}
+                    ₹{Math.max(0, Number(booking.total_fare || 0) - Number(booking.advance_paid || booking.advance_amount || 500))}
                   </span>
                 </div>
               </div>

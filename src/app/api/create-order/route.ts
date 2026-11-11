@@ -54,9 +54,10 @@ export async function POST(req: NextRequest) {
       const pointId = (bookingData.point || 'rajendra') as DropPointId
       const pickupTime = bookingData.time || '10:00'
       const travelDate = bookingData.date
+      const bookingMode = bookingData.mode === 'confirmed' ? 'confirmed' : 'match'
 
       const fare = calculateBookingFare({
-        mode: 'match',
+        mode: bookingMode,
         direction: bookingData.direction,
         point: pointId,
         pickupTime,
@@ -101,8 +102,8 @@ export async function POST(req: NextRequest) {
           .from('bookings')
           .insert({
             direction: directionCode,
-            mode: 'match',
-            vehicle: 'economy_sedan',
+            mode: bookingMode,
+            vehicle: bookingData.vehicle || 'economy_sedan',
             vehicle_type: 'sedan',
             drop_point: pointId,
             drop_name: dropName,

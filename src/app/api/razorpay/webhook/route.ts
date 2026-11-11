@@ -115,13 +115,16 @@ export async function POST(request: NextRequest) {
         if (payInsertErr) console.warn('Payment insert notice:', payInsertErr)
       }
 
-      // Atomically update booking to 'waiting' + advance_paid
+      // Atomically update booking to 'waiting' or 'confirmed' + advance_paid
+      const isConfirmedMode = booking.mode === 'confirmed' || Boolean(booking.extras?.confirmed_ride_id) || Boolean(booking.extras?.matched_with_booking_id)
+      const targetStatus = isConfirmedMode ? 'confirmed' : 'waiting'
       const balance = Math.max(0, Number(booking.total_fare || 0) - amountRupees)
       await db.from('bookings').update({
         advance_paid: amountRupees,
         advance_amount: amountRupees,
         balance_amount: balance,
-        status: booking.status === 'pending_payment' ? 'waiting' : booking.status,
+        status: booking.status === 'pending_payment' ? targetStatus : booking.status,
+        confirmed_at: isConfirmedMode ? (booking.confirmed_at || new Date().toISOString()) : null,
         updated_at: new Date().toISOString(),
         extras: {
           ...(booking.extras || {}),

@@ -201,7 +201,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           direction,
-          mode,
+          mode: bookingTab === 'confirmed' ? 'confirmed' : 'match',
           point: pointId,
           date,
           time: time.timeStr,
@@ -377,7 +377,7 @@ export default function Home() {
                 passengerEmail={passenger.email}
                 getBookingPayload={() => ({
                   direction,
-                  mode,
+                  mode: bookingTab === 'confirmed' ? 'confirmed' : 'match',
                   point: pointId,
                   date,
                   time: time?.timeStr,
@@ -480,7 +480,7 @@ export default function Home() {
                   passengerEmail={passenger.email}
                   getBookingPayload={() => ({
                     direction,
-                    mode,
+                    mode: bookingTab === 'confirmed' ? 'confirmed' : 'match',
                     point: pointId,
                     date,
                     time: time?.timeStr,
