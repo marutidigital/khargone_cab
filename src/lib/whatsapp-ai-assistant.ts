@@ -260,6 +260,103 @@ export async function handleWhatsAppAIConversation(
 
   // ── 1. PRE-CHECK BUTTON CLICKS OR FAST COMMANDS ──
 
+  // Welcome Greetings (Exact Spec Response)
+  const isGreeting = [
+    'HI', 'HEY', 'HELLO', 'NAMASTE', 'START', 'MENU', 'HELP',
+    'RAM RAM', 'GOOD MORNING', 'KHARGONE CAB', 'MARUTICAB'
+  ].includes(upper)
+
+  if (isGreeting) {
+    return {
+      replyText: `Namaste! 🙏 Welcome to MarutiCab 🚕\n\nKhargone ↔ Indore ki comfortable Private Sedan Cab Service.\n\nAapki journey ko easy aur affordable banana hamara goal hai.\n\nAapko kis cheez mein help chahiye?\n\n────────────────\n*MarutiCab | 24×7 Support: +91 72823 16090*`,
+      buttons: [
+        { id: 'BTN_BOOK_CAB', title: '🚕 Book a Cab' },
+        { id: 'BTN_MY_BOOKING', title: '📊 My Booking' },
+        { id: 'BTN_SUPPORT', title: '📞 Talk to Support' },
+      ],
+    }
+  }
+
+  // Button: Book a Cab
+  if (
+    upper === 'BTN_BOOK_CAB' ||
+    upper === 'BOOK A CAB' ||
+    upper === 'BOOK CAB' ||
+    upper === 'NAYI CAB BOOKING' ||
+    upper === 'CAB BOOK KARNI HAI'
+  ) {
+    conv.state = 'SELECT_ROUTE'
+    conv.step = 1
+    await saveConversation(conv)
+
+    return {
+      replyText: `Aap kahan jaana chahte hain? 🚕\n\n1️⃣ *Khargone ➔ Indore*: Fixed ₹2,200\n2️⃣ *Indore ➔ Khargone*: Fixed ₹1,800\n\n✨ *Included in Every Ride:*\n• Dedicated Private Sedan (Swift Dzire / Aura)\n• No strangers / No sharing (Max 4 passengers)\n• All Toll Taxes, Fuel & AC 100% Included\n• Doorstep pickup & city point drop`,
+      buttons: [
+        { id: 'BTN_ROUTE_KI', title: '🚕 Khargone ➔ Indore' },
+        { id: 'BTN_ROUTE_IK', title: '🚖 Indore ➔ Khargone' },
+        { id: 'BTN_FARES', title: '💰 View All Fares' },
+      ],
+    }
+  }
+
+  // Direct Booking ID Lookup (e.g. KC33329 or #KC33329)
+  const bookingRefMatch = upper.match(/^#?(KC\d{4,6})$/)
+  if (bookingRefMatch) {
+    const searchRef = bookingRefMatch[1]
+    const { data: bList } = await db
+      .from('bookings')
+      .select('*')
+      .eq('booking_ref', searchRef)
+      .limit(1)
+
+    const b = bList?.[0]
+    if (b) {
+      const isKI = b.direction === 'KI'
+      const route = isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+      const isConfirmed = b.status === 'confirmed' || b.status === 'matched'
+      const isWaiting = b.status === 'waiting'
+      const isPending = b.status === 'pending_payment'
+      const isRefunded = b.status === 'refunded'
+
+      if (isConfirmed) {
+        return {
+          replyText: `🎉 *Congratulations! Aapki MarutiCab booking successfully confirm ho gayi hai!*\n\n*Your Journey Details*\n- *Booking ID:* #${b.booking_ref}\n- *Route:* ${route}\n- *Date:* ${b.travel_date}\n- *Pickup:* ${String(b.pickup_time).slice(0, 5)}\n- *Vehicle:* Dedicated Private Sedan\n- *Car Number:* ${b.vehicle_number || 'MP09 CAB'}\n- *Driver Name:* ${b.driver_name || 'Assigned Driver'}\n- *Driver Contact:* ${b.driver_phone || '+91 72823 16090'}\n\n*Payment Details*\n- *Total Fare:* ₹${b.total_fare}\n- *Advance Paid:* ₹${b.advance_paid || 500}\n- *Remaining in Cab:* ₹${b.balance_amount || 0}\n\nDriver ki details pickup time se 2–3 ghante pehle dobara WhatsApp par share kar di jayengi.\n\nThank you for travelling with MarutiCab! 🚕`,
+          buttons: [
+            { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
+            { id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' },
+          ],
+        }
+      }
+
+      if (isWaiting) {
+        return {
+          replyText: `MarutiCab 🚕\n\n*Thank you! Aapki booking request receive ho gayi hai.*\n\n*Booking ID:* #${b.booking_ref}\n- *Route:* ${route}\n- *Travel Date:* ${b.travel_date}\n- *Pickup Time:* ${String(b.pickup_time).slice(0, 5)}\n- *Total Fare:* ₹${b.total_fare}\n- *Advance Paid:* ₹${b.advance_paid || 500}\n- *Balance:* ₹${b.balance_amount || 0}\n\n🔍 *Hum aapki opposite return ride match kar rahe hain.*\n\nJaise hi cab, driver aur return ride confirm hoti hai, hum aapko WhatsApp par confirmation bhej denge.\n\n🛡️ *100% Refund Guarantee:* Agar deadline tak match nahi milta hai, toh aapka ₹${b.advance_paid || 500} advance automatically 100% refund kar diya jayega.\n\nThank you for choosing MarutiCab! ❤️`,
+          buttons: [
+            { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
+            { id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' },
+          ],
+        }
+      }
+
+      if (isPending) {
+        return {
+          replyText: `⌛ *Advance Payment Pending*\n\nBooking ID: *#${b.booking_ref}*\nRoute: ${route}\nDate: ${b.travel_date} at ${String(b.pickup_time).slice(0, 5)}\n\nNeeche diye link se ₹${b.advance_amount || 500} advance pay karein taaki ride reservation lock ho sake:\n👉 https://www.maruticab.in/pay?ref=${b.booking_ref}`,
+          buttons: [
+            { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
+            { id: 'BTN_BOOK_CAB', title: '🚕 Change Booking' },
+          ],
+        }
+      }
+
+      if (isRefunded) {
+        return {
+          replyText: `💰 *Advance Refunded*\n\nBooking ID: *#${b.booking_ref}*\nAapka ₹${b.advance_paid || 500} advance 100% refund kar diya gaya hai. Refund 3–5 working days me aapke payment source me reflect hoga.`,
+          buttons: [{ id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' }],
+        }
+      }
+    }
+  }
+
   // Button: Route Khargone to Indore
   if (upper === 'BTN_ROUTE_KI' || upper === '1' || upper === 'KHARGONE TO INDORE') {
     conv.data.direction = 'KI'
@@ -392,8 +489,16 @@ export async function handleWhatsAppAIConversation(
     }
   }
 
-  // Button: Track Booking
-  if (upper === 'BTN_TRACK' || upper === 'TRACK' || upper === 'STATUS' || upper === 'TRACK MY BOOKING') {
+  // Button: My Booking / Track Booking
+  if (
+    upper === 'BTN_MY_BOOKING' ||
+    upper === 'MY BOOKING' ||
+    upper === 'BTN_TRACK' ||
+    upper === 'TRACK' ||
+    upper === 'STATUS' ||
+    upper === 'TRACK MY BOOKING' ||
+    upper === 'BOOKING STATUS'
+  ) {
     const { data: bookings } = await db
       .from('bookings')
       .select('*')
@@ -403,34 +508,62 @@ export async function handleWhatsAppAIConversation(
 
     if (!bookings || bookings.length === 0) {
       return {
-        replyText: `Aapke number (*${cleanPhone}*) par abhi koi active booking nahi mili hai. Nayi booking ke liye neeche button dabayein:`,
+        replyText: `Aapke WhatsApp number (*+91 ${cleanPhone}*) par abhi koi active booking nahi mili hai.\n\nAgar aapke paas Booking ID (jaise *#KC12345*) hai, toh kripya yahan likhkar bhejein, ya nayi cab book karein:`,
         buttons: [
-          { id: 'BTN_ROUTE_KI', title: '🚕 Khargone ➔ Indore' },
-          { id: 'BTN_ROUTE_IK', title: '🚖 Indore ➔ Khargone' },
+          { id: 'BTN_BOOK_CAB', title: '🚕 Book a Cab' },
           { id: 'BTN_SUPPORT', title: '📞 Talk to Support' },
         ],
       }
     }
 
-    const cards = bookings.map((b: any) => {
-      const route = b.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
-      const statusTitle =
-        b.status === 'confirmed'
-          ? '✅ Confirmed & Scheduled'
-          : b.status === 'waiting'
-          ? '⏳ Advance Received · Finding Return Ride'
-          : b.status === 'pending_payment'
-          ? '⌛ Advance Payment Pending'
-          : b.status.toUpperCase()
+    const latest = bookings[0]
+    const route = latest.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+    const isConfirmed = latest.status === 'confirmed' || latest.status === 'matched'
+    const isWaiting = latest.status === 'waiting'
+    const isPending = latest.status === 'pending_payment'
+    const isRefunded = latest.status === 'refunded'
 
-      const driverInfo = b.driver_name ? `\n🚗 *Driver:* ${b.driver_name}` : ''
-      return `🧾 *Booking ID: #${b.booking_ref}*\n📍 *Route:* ${route}\n📅 *Date:* ${b.travel_date} at ${String(b.pickup_time).slice(0, 5)}\n📊 *Status:* ${statusTitle}${driverInfo}\n🔗 *Live Link:* https://maruticab.in/booking/${b.public_token}`
-    })
+    if (isConfirmed) {
+      return {
+        replyText: `🎉 *Congratulations!*\n\nAapki MarutiCab booking successfully confirm ho gayi hai!\n\n*Your Journey Details*\n- *Booking ID:* #${latest.booking_ref}\n- *Route:* ${route}\n- *Date:* ${latest.travel_date}\n- *Pickup:* ${String(latest.pickup_time).slice(0, 5)}\n- *Vehicle:* Dedicated Private Sedan\n- *Car Number:* ${latest.vehicle_number || 'MP09 CAB'}\n- *Driver Name:* ${latest.driver_name || 'Assigned Driver'}\n- *Driver Contact:* ${latest.driver_phone || '+91 72823 16090'}\n\n*Payment Details*\n- *Total:* ₹${latest.total_fare}\n- *Advance:* ₹${latest.advance_paid || 500}\n- *Remaining:* ₹${latest.balance_amount || 0}\n\nDriver ki details pickup time se 2–3 ghante pehle dobara WhatsApp par share kar di jayengi.\n\nThank you for travelling with MarutiCab! 🚕`,
+        buttons: [
+          { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
+          { id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' },
+        ],
+      }
+    }
+
+    if (isWaiting) {
+      return {
+        replyText: `MarutiCab 🚕\n\n*Thank you! Aapki booking request receive ho gayi hai.*\n\n*Booking ID:* #${latest.booking_ref}\n- *Route:* ${route}\n- *Travel Date:* ${latest.travel_date}\n- *Pickup Time:* ${String(latest.pickup_time).slice(0, 5)}\n- *Total Fare:* ₹${latest.total_fare}\n- *Advance Paid:* ₹${latest.advance_paid || 500}\n- *Balance:* ₹${latest.balance_amount || 0}\n\n🔍 *Hum aapki opposite return ride match kar rahe hain.*\n\nJaise hi cab, driver aur return ride confirm hoti hai, hum aapko WhatsApp par confirmation bhej denge.\n\n🛡️ *100% Refund Guarantee:* Agar deadline tak match nahi milta hai, toh aapka ₹${latest.advance_paid || 500} advance automatically 100% refund kar diya jayega.\n\nThank you for choosing MarutiCab! ❤️`,
+        buttons: [
+          { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
+          { id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' },
+        ],
+      }
+    }
+
+    if (isPending) {
+      return {
+        replyText: `⌛ *Advance Payment Pending*\n\nBooking ID: *#${latest.booking_ref}*\nRoute: ${route}\nDate: ${latest.travel_date} at ${String(latest.pickup_time).slice(0, 5)}\n\nNeeche diye link se ₹${latest.advance_amount || 500} advance pay karein taaki booking lock ho sake:\n👉 https://www.maruticab.in/pay?ref=${latest.booking_ref}`,
+        buttons: [
+          { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
+          { id: 'BTN_BOOK_CAB', title: '🚕 Change Route' },
+        ],
+      }
+    }
+
+    if (isRefunded) {
+      return {
+        replyText: `💰 *Advance Refunded*\n\nBooking ID: *#${latest.booking_ref}*\nAapka ₹${latest.advance_paid || 500} advance 100% refund kar diya gaya hai. Refund 3–5 working days me account me reflect hoga.`,
+        buttons: [{ id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' }],
+      }
+    }
 
     return {
-      replyText: `🚗 *Aapki MarutiCab Bookings:*\n\n${cards.join('\n\n---\n\n')}`,
+      replyText: `🚗 *Booking ID: #${latest.booking_ref}*\n📍 *Route:* ${route}\n📅 *Date:* ${latest.travel_date} at ${String(latest.pickup_time).slice(0, 5)}\n📊 *Status:* ${latest.status.toUpperCase()}\n🔗 *Live Link:* https://maruticab.in/booking/${latest.public_token}`,
       buttons: [
-        { id: 'BTN_ROUTE_KI', title: '🚕 Nayi Cab Book Karein' },
+        { id: 'BTN_BOOK_CAB', title: '🚕 Nayi Cab Book' },
         { id: 'BTN_SUPPORT', title: '📞 Helpline Support' },
       ],
     }
@@ -922,18 +1055,7 @@ async function executeBookingReservationAndPayment(conv: ConversationState): Pro
     console.warn('admin_new_booking dispatch notice:', admErr)
   }
 
-  const paymentText = `🎉 *Aapki Booking Record Ho Gayi Hai!* 🚕
-
-🧾 *Booking ID:* #${bookingRef}
-📍 *Route:* ${routeLabel}
-📅 *Date & Time:* ${travelDate} at ${pickupTime}
-💰 *Total Fare:* ₹${fare.toLocaleString('en-IN')}
-💳 *Advance Amount:* ₹${advance} (Baki ₹${balance.toLocaleString('en-IN')} driver ko dena hai)
-
-Neeche diye link par click karke 1 minute me advance payment karein taaki aapki cab confirm ho jaye:
-👉 https://www.maruticab.in/pay?ref=${bookingRef}
-
-🛡️ *100% Refund Guarantee:* Agar match confirm nahi hota, toh poora ₹${advance} bina kisi charge ke refund ho jayega.`
+  const paymentText = `MarutiCab 🚕\n\n*Aapki booking request record ho gayi hai!* 📝\n\n- *Booking ID:* #${bookingRef}\n- *Route:* ${routeLabel}\n- *Travel Date:* ${travelDate}\n- *Pickup Time:* ${pickupTime}\n- *Total Fare:* ₹${fare.toLocaleString('en-IN')}\n- *Advance to Pay:* ₹${advance}\n- *Balance in Cab:* ₹${balance.toLocaleString('en-IN')}\n\nNeeche diye link par click karke ₹${advance} advance payment karein:\n👉 https://www.maruticab.in/pay?ref=${bookingRef}\n\n🔍 *Payment hone ke baad hum aapki opposite return ride match karenge.*\nJaise hi cab, driver aur return ride confirm hoti hai, hum aapko WhatsApp par confirmation bhej denge.\n\n🛡️ *100% Refund Guarantee:* Agar deadline tak match nahi milta, toh aapka ₹${advance} advance automatically 100% refund kar diya jayega.\n\nThank you for choosing MarutiCab! ❤️`
 
   return {
     replyText: paymentText,
