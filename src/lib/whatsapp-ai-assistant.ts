@@ -37,6 +37,118 @@ const FARES = {
 }
 
 /**
+ * Helper to dispatch any official Meta WhatsApp Template
+ */
+export async function dispatchRequestedTemplate(
+  templateCode: string,
+  phone: string,
+  booking?: any,
+  issueText?: string
+): Promise<{ success: boolean; variables: string[] }> {
+  const db = createServiceClient()
+  const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+
+  let targetBooking = booking
+  if (!targetBooking) {
+    const { data: bList } = await db
+      .from('bookings')
+      .select('*')
+      .eq('phone', cleanPhone)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    targetBooking = bList?.[0] || null
+  }
+
+  const custName = String(targetBooking?.passenger_name || 'Passenger').trim()
+  const bookingRef = String(targetBooking?.booking_ref || 'KC00000')
+  const isKI = targetBooking?.direction === 'KI'
+  const routeLabel = isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
+  const travelDate = String(targetBooking?.travel_date || new Date().toISOString().slice(0, 10))
+  const pickupTime = String(targetBooking?.pickup_time || '09:00').slice(0, 5)
+  const totalFare = String(targetBooking?.total_fare || (isKI ? 2200 : 1800))
+  const advancePaid = String(targetBooking?.advance_paid || targetBooking?.advance_amount || 500)
+  const balanceFare = String(targetBooking?.balance_amount || (isKI ? 1700 : 1300))
+
+  let variables: string[] = []
+  let recipientPhone = cleanPhone
+
+  switch (templateCode) {
+    case 'booking_received':
+      variables = [custName, bookingRef, routeLabel, travelDate, pickupTime]
+      break
+    case 'payment_received':
+      variables = [
+        custName,
+        advancePaid,
+        bookingRef,
+        targetBooking?.extras?.razorpay_payment_id || `PAY_${bookingRef}`,
+        routeLabel,
+        travelDate,
+      ]
+      break
+    case 'cab_confirmed':
+      variables = [
+        custName,
+        bookingRef,
+        routeLabel,
+        travelDate,
+        pickupTime,
+        totalFare,
+        advancePaid,
+        balanceFare,
+      ]
+      break
+    case 'driver_car_details':
+      variables = [
+        custName,
+        targetBooking?.driver_name || 'Assigned Driver',
+        targetBooking?.driver_phone || '+91 72823 16090',
+        targetBooking?.vehicle_model || 'Swift Dzire AC',
+        targetBooking?.vehicle_number || 'MP09 CAB',
+        routeLabel,
+        travelDate,
+        pickupTime,
+        targetBooking?.address || 'Pickup Point',
+        balanceFare,
+      ]
+      break
+    case 'travel_reminder':
+      variables = [custName, bookingRef, routeLabel, pickupTime, targetBooking?.address || 'Pickup Point']
+      break
+    case 'refund_initiated':
+      variables = [
+        custName,
+        bookingRef,
+        advancePaid,
+        `REF_${bookingRef}`,
+      ]
+      break
+    case 'ride_completed_feedback':
+      variables = [custName, routeLabel, targetBooking?.driver_name || 'Driver Bhaiya']
+      break
+    case 'admin_client_issue':
+      recipientPhone = process.env.ADMIN_WHATSAPP_NUMBER || '918878933778'
+      variables = [custName, cleanPhone, bookingRef, (issueText || 'Customer support escalation').slice(0, 200)]
+      break
+    default:
+      variables = [custName, bookingRef, routeLabel]
+  }
+
+  try {
+    const res = await sendWhatsAppTemplateMessage({
+      toPhone: recipientPhone,
+      templateCode: templateCode as any,
+      variables,
+      bookingId: targetBooking?.id,
+    })
+    return { success: res.success, variables }
+  } catch (err) {
+    console.warn(`[dispatchRequestedTemplate] ${templateCode} notice:`, err)
+    return { success: false, variables }
+  }
+}
+
+/**
  * System prompt teaching the AI who MarutiCab is and what we do in Hinglish
  */
 function getSystemPrompt(todayIST: string, timeIST: string): string {
@@ -82,11 +194,22 @@ COMMUNICATION STYLE (STRICT RULES):
 4. Extract any mentioned booking details: direction, date, time, pickup, drop, passenger count, customer name, coupon.
 5. If the user asks a question (fares, luggage, safety, route), answer accurately and guide them to book.
 
+OFFICIAL WHATSAPP TEMPLATES (YOU HAVE FULL POWER TO TRIGGER THESE):
+You can trigger any official Meta template when relevant by setting "trigger_template":
+1. "booking_received": Trigger when user reserves/creates a booking or asks for booking details card.
+2. "payment_received": Trigger when user asks for advance payment receipt / confirmation.
+3. "cab_confirmed": Trigger when cab is confirmed/matched and user asks for confirmation ticket.
+4. "driver_car_details": Trigger when user asks for driver name, phone, car number or vehicle details.
+5. "travel_reminder": Trigger when user requests a departure reminder or journey schedule.
+6. "refund_initiated": Trigger when user asks about their refund status or requests refund confirmation.
+7. "ride_completed_feedback": Trigger when a trip is completed and requesting rating/review.
+8. "admin_client_issue": Trigger when user reports a complaint, driver issue, emergency, or needs urgent human callback.
+
 OUTPUT FORMAT:
 You MUST respond with a valid JSON object strictly matching this schema:
 {
   "response_text": "Your helpful, friendly reply in Hinglish to the user",
-  "intent": "book_cab" | "check_fares" | "track_booking" | "cancel_booking" | "apply_coupon" | "ask_faq" | "greeting" | "general",
+  "intent": "book_cab" | "check_fares" | "track_booking" | "cancel_booking" | "apply_coupon" | "ask_faq" | "request_template" | "report_issue" | "greeting" | "general",
   "extracted_data": {
     "direction": "KI" | "IK" | null,
     "travel_date": "YYYY-MM-DD" | null,
@@ -97,6 +220,7 @@ You MUST respond with a valid JSON object strictly matching this schema:
     "customer_name": string | null,
     "coupon_code": string | null
   },
+  "trigger_template": "booking_received" | "payment_received" | "cab_confirmed" | "driver_car_details" | "travel_reminder" | "refund_initiated" | "ride_completed_feedback" | "admin_client_issue" | null,
   "recommended_buttons": [
     { "id": "BTN_...", "title": "Button Title (Max 20 chars)" }
   ] (max 3 buttons)
@@ -382,6 +506,116 @@ Agar aapko booking karni hai, toh neeche button dabayein:`,
     }
   }
 
+  // ── QUICK TEMPLATE DISPATCH INTENTS ──
+
+  // 1. Driver & Car Details Request
+  if (
+    upper.includes('DRIVER DETAILS') ||
+    upper.includes('DRIVER INFO') ||
+    upper.includes('DRIVER KA NAAM') ||
+    upper.includes('DRIVER NUMBER') ||
+    upper.includes('GAADI DETAILS')
+  ) {
+    const { data: bList } = await db
+      .from('bookings')
+      .select('*')
+      .eq('phone', cleanPhone)
+      .in('status', ['confirmed', 'matched', 'waiting'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const b = bList?.[0]
+    if (b && (b.driver_name || b.driver_id)) {
+      const tpl = await dispatchRequestedTemplate('driver_car_details', cleanPhone, b)
+      return {
+        replyText: `🚘 *Aapki Dedicated Cab aur Driver Details:*
+
+👤 Driver: *${b.driver_name || 'Assigned Driver'}*
+📞 Mobile: *${b.driver_phone || '+91 72823 16090'}*
+🚗 Car: *${b.vehicle_model || 'Dedicated AC Sedan'} (${b.vehicle_number || 'MP09'})*
+📍 Pickup: ${b.address || 'Doorstep Pickup'} at ${String(b.pickup_time).slice(0, 5)}
+💵 Balance in Cab: *₹${b.balance_amount || 0}*
+
+Driver bhaiya pickup se 30 minute pehle aapse call par connect kar lenge. Shubh Yatra! ❤️`,
+        templateCode: 'driver_car_details',
+        templateVariables: tpl.variables,
+        buttons: [{ id: 'BTN_SUPPORT', title: '📞 Support Desk' }],
+      }
+    } else if (b) {
+      return {
+        replyText: `Namaste ji! Aapki booking (#${b.booking_ref}) safe aur recorded hai. ✅\n\nMarutiCab policy ke mutabik dedicated cab aur driver details aapke pickup time se *2 se 3 ghante pehle* WhatsApp par dispatch ki jaati hain.\n\nKisi bhi emergency me hamare 24x7 desk par call karein: +91 72823 16090.`,
+        buttons: [{ id: 'BTN_SUPPORT', title: '📞 Talk to Support' }],
+      }
+    }
+  }
+
+  // 2. Advance Payment Receipt / Proof Request
+  if (
+    upper.includes('PAYMENT RECEIPT') ||
+    upper.includes('PAYMENT PROOF') ||
+    upper.includes('ADVANCE RECEIPT') ||
+    upper.includes('PAYMENT CONFIRMATION')
+  ) {
+    const { data: bList } = await db
+      .from('bookings')
+      .select('*')
+      .eq('phone', cleanPhone)
+      .gt('advance_paid', 0)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const b = bList?.[0]
+    if (b) {
+      const tpl = await dispatchRequestedTemplate('payment_received', cleanPhone, b)
+      return {
+        replyText: `✅ *Aapka Advance Payment Confirmed Hai!*
+
+🧾 Booking ID: *#${b.booking_ref}*
+💰 Advance Paid: *₹${b.advance_paid}*
+📍 Route: ${b.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
+📅 Date: ${b.travel_date}
+💵 Balance to Driver: *₹${b.balance_amount || 0}*
+
+Aapko official payment confirmation template bhej diya gaya hai. ❤️`,
+        templateCode: 'payment_received',
+        templateVariables: tpl.variables,
+        buttons: [{ id: 'BTN_TRACK', title: '📊 Track Booking' }],
+      }
+    }
+  }
+
+  // 3. Urgent Complaint / Driver Issue / Emergency -> Alert Operations Desk Immediately
+  if (
+    upper.includes('COMPLAINT') ||
+    upper.includes('EMERGENCY') ||
+    upper.includes('DRIVER NAHI AAYA') ||
+    upper.includes('CAB LATE HAI') ||
+    upper.includes('DUTY MANAGER') ||
+    upper.includes('HELP DESK')
+  ) {
+    const { data: bList } = await db
+      .from('bookings')
+      .select('*')
+      .eq('phone', cleanPhone)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const b = bList?.[0]
+
+    await dispatchRequestedTemplate('admin_client_issue', cleanPhone, b, text)
+
+    return {
+      replyText: `🚨 *Emergency Alert Sent to MarutiCab Duty Manager!*
+
+Aapka message hamare operations manager ko priority alert ke saath forward kar diya gaya hai.
+Hamari team turant aapse is number (+91 ${cleanPhone}) par direct call kar rahi hai.
+
+Helpline par foran baat karne ke liye:
+📞 *+91 72823 16090*`,
+      templateCode: 'admin_client_issue',
+      buttons: [{ id: 'BTN_SUPPORT', title: '📞 Call Desk Now' }],
+    }
+  }
+
   // ── 2. OPENAI GPT-4O-MINI INTELLIGENCE ENGINE ──
   // Build conversation context and message history for multi-turn understanding
   const history = (conv.data.history as Array<{ role: 'user' | 'assistant'; text: string }>) || []
@@ -501,9 +735,28 @@ Agar aapko booking karni hai, toh neeche button dabayein:`,
       }
     }
 
+    // ── Check if AI requested an official template dispatch ──
+    let triggeredTemplateCode: string | undefined = undefined
+    let triggeredTemplateVars: string[] | undefined = undefined
+
+    if (parsedAI.trigger_template) {
+      const tplResult = await dispatchRequestedTemplate(
+        parsedAI.trigger_template,
+        cleanPhone,
+        null,
+        text
+      )
+      if (tplResult.success) {
+        triggeredTemplateCode = parsedAI.trigger_template
+        triggeredTemplateVars = tplResult.variables
+      }
+    }
+
     return {
       replyText,
       buttons,
+      templateCode: triggeredTemplateCode,
+      templateVariables: triggeredTemplateVars,
     }
   } catch (aiErr: any) {
     console.error('OpenAI Chatbot processing notice:', aiErr?.message || aiErr)
@@ -629,6 +882,46 @@ async function executeBookingReservationAndPayment(conv: ConversationState): Pro
   conv.state = 'AWAITING_PAYMENT'
   await saveConversation(conv)
 
+  // 2. Dispatch official Meta template: booking_received
+  try {
+    await sendWhatsAppTemplateMessage({
+      toPhone: conv.phone,
+      templateCode: 'booking_received',
+      variables: [
+        custName,
+        bookingRef,
+        routeLabel,
+        travelDate,
+        pickupTime.slice(0, 5),
+      ],
+      bookingId: newBooking?.id,
+    })
+  } catch (tplErr) {
+    console.warn('booking_received template dispatch notice:', tplErr)
+  }
+
+  // 3. Alert Admin Desk: admin_new_booking
+  try {
+    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || '918878933778'
+    await sendWhatsAppTemplateMessage({
+      toPhone: adminPhone,
+      templateCode: 'admin_new_booking',
+      variables: [
+        bookingRef,
+        custName,
+        conv.phone,
+        routeLabel,
+        travelDate,
+        pickupTime.slice(0, 5),
+        String(advance),
+        String(balance),
+      ],
+      bookingId: newBooking?.id,
+    })
+  } catch (admErr) {
+    console.warn('admin_new_booking dispatch notice:', admErr)
+  }
+
   const paymentText = `🎉 *Aapki Booking Record Ho Gayi Hai!* 🚕
 
 🧾 *Booking ID:* #${bookingRef}
@@ -644,6 +937,8 @@ Neeche diye link par click karke 1 minute me advance payment karein taaki aapki 
 
   return {
     replyText: paymentText,
+    templateCode: 'booking_received',
+    templateVariables: [custName, bookingRef, routeLabel, travelDate, pickupTime.slice(0, 5)],
     buttons: [
       { id: 'BTN_CHECK_STATUS', title: '🔄 Check Status' },
       { id: 'BTN_SUPPORT', title: '📞 Call Support' },

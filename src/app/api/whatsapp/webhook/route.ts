@@ -530,7 +530,24 @@ async function handleInbound(body: any) {
           }
         }
 
-        // 2. Send interactive reply buttons if available, otherwise regular formatted text
+        // 2. Dispatch official Meta template if triggered by AI or booking flow
+        const templateCode = typeof reply === 'object' ? reply.templateCode : null
+        const templateVariables = typeof reply === 'object' ? reply.templateVariables : null
+        if (templateCode) {
+          try {
+            const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
+            await sendWhatsAppTemplateMessage({
+              toPhone: phone,
+              templateCode: templateCode as any,
+              variables: templateVariables || [],
+              bookingId: booking?.id,
+            })
+          } catch (tplErr) {
+            console.warn('AI template dispatch error:', tplErr)
+          }
+        }
+
+        // 3. Send interactive reply buttons if available, otherwise regular formatted text
         if (buttons && buttons.length > 0) {
           await sendInteractiveButtons({
             to: phone,
