@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ to
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('bookings')
-    .select('id,booking_ref,mode,status,direction,drop_name,travel_date,pickup_time,passenger_count,passenger_name,phone,total_fare,advance_amount,advance_paid,balance_amount,cutoff_at,refund_status,driver_name,driver_id,address,created_at')
+    .select('id,booking_ref,mode,status,direction,drop_name,travel_date,pickup_time,passenger_count,passenger_name,phone,total_fare,advance_amount,advance_paid,balance_amount,cutoff_at,refund_status,driver_name,driver_id,address,extras,created_at')
     .eq('public_token', token)
     .limit(1)
     .single()
@@ -19,18 +19,38 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ to
     return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
   }
 
-  // Auto-heal: If booking is still pending_payment but payment exists in payments table, confirm it immediately!
+  // Auto-heal: If booking is still pending_payment but payment exists or was verified, confirm it immediately!
   if (data.status === 'pending_payment') {
-    const { data: capturedPayments } = await supabase
-      .from('payments')
-      .select('amount,payment_status,provider_payment_id')
-      .eq('booking_id', data.id)
-      .eq('payment_status', 'captured')
-      .order('created_at', { ascending: false })
-      .limit(1)
+    let paidAmt = 0
+    let hasPayment = false
 
-    if (capturedPayments && capturedPayments.length > 0) {
-      const paidAmt = Number(capturedPayments[0].amount || data.advance_amount || 500)
+    // Check 1: Does booking extras have razorpay_payment_id?
+    const extras = (data as any).extras || {}
+    if (extras.razorpay_payment_id) {
+      hasPayment = true
+      paidAmt = Number(data.advance_amount || data.advance_paid || 500)
+    }
+
+    // Check 2: Check payments table
+    if (!hasPayment) {
+      try {
+        const { data: capturedPayments } = await supabase
+          .from('payments')
+          .select('amount')
+          .eq('booking_id', data.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (capturedPayments && capturedPayments.length > 0) {
+          hasPayment = true
+          paidAmt = Number(capturedPayments[0].amount || data.advance_amount || 500)
+        }
+      } catch (err) {
+        console.warn('[api/booking/token] payment lookup warning:', err)
+      }
+    }
+
+    if (hasPayment && paidAmt > 0) {
       const balance = Math.max(0, Number(data.total_fare || 0) - paidAmt)
       const healedStatus = data.mode === 'confirmed' ? 'confirmed' : 'waiting'
 

@@ -130,16 +130,25 @@ export default function BookingConfirmationPage() {
     return `${String(h12).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${period}`
   }
 
-  const hasAdvancePaid = Number(booking?.advance_paid || 0) > 0
+  const advanceAmount = Number(booking?.advance_amount || 500)
+  const advancePaid = Number(booking?.advance_paid || 0)
+  const totalFare = Number(booking?.total_fare || 0)
+  const hasAdvancePaid = advancePaid > 0
+  const remainingBalance = Math.max(0, totalFare - (hasAdvancePaid ? advancePaid : advanceAmount))
+
+  const isMatched = booking?.status === 'matched'
   const isConfirmed =
     booking?.status === 'confirmed' ||
+    isMatched ||
     (booking?.mode === 'confirmed' && (hasAdvancePaid || booking?.status === 'waiting'))
   const isWaitingMatch =
     (booking?.status === 'waiting' || (hasAdvancePaid && booking?.status === 'pending_payment')) &&
     booking?.mode === 'match'
+  const isNoMatchDecision = booking?.status === 'no_match_decision'
   const isCompleted = booking?.status === 'completed'
   const isPendingPayment = booking?.status === 'pending_payment' && !hasAdvancePaid
-  const isCancelled = booking?.status === 'cancelled' || booking?.status === 'refunded'
+  const isCancelled = booking?.status === 'cancelled'
+  const isRefunded = booking?.status === 'refunded'
 
   const routeLabel = booking?.direction === 'KI'
     ? 'Khargone ➔ Indore'
@@ -195,14 +204,14 @@ export default function BookingConfirmationPage() {
                 
                 <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-950/80 px-3.5 py-1 text-xs font-black tracking-wide text-emerald-300 uppercase shadow-inner">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  Booking Confirmed · Booking ID #{booking.booking_ref}
+                  {isMatched ? `Match Found · Cab Confirmed #${booking.booking_ref}` : `Booking Confirmed · Booking ID #${booking.booking_ref}`}
                 </div>
 
                 <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  Your Booking is Confirmed! 🎉
+                  {isMatched ? 'Match Found! Your Ride is Confirmed! 🎉' : 'Your Booking is Confirmed! 🎉'}
                 </h1>
                 <p className="mt-1 text-sm font-medium text-emerald-300">
-                  आपकी बुकिंग कन्फर्म हो गई है!
+                  {isMatched ? 'आपकी रिटर्न राइड मैच हो गई है और कैब कन्फर्म है!' : 'आपकी बुकिंग कन्फर्म हो गई है!'}
                 </p>
 
                 {/* Driver Dispatch Status Message */}
@@ -341,16 +350,62 @@ export default function BookingConfirmationPage() {
                   </a>
                 </div>
               </section>
-            ) : (
+            ) : isNoMatchDecision ? (
+              <section className="relative overflow-hidden rounded-3xl border border-amber-500/40 bg-gradient-to-br from-amber-950/70 via-slate-950 to-amber-950/40 p-6 sm:p-8 text-center shadow-2xl backdrop-blur-xl">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 ring-4 ring-amber-500/30">
+                  <Clock className="h-10 w-10 text-amber-400" />
+                </div>
+                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-950/80 px-3.5 py-1 text-xs font-black tracking-wide text-amber-300 uppercase shadow-inner">
+                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+                  100% Refund Guarantee · Booking #{booking.booking_ref}
+                </div>
+                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  Cutoff Reached · 100% Refund Active 🛡️
+                </h1>
+                <p className="mt-2 text-sm text-amber-300">
+                  कटऑफ समय तक विपरीत दिशा की राइड मैच नहीं हो पाई। आपका ₹{advanceAmount} एडवांस बिना किसी कटौती के 100% रिफंड किया जा रहा है।
+                </p>
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-3 text-sm font-extrabold text-white transition shadow-lg"
+                  >
+                    <MessageCircle className="h-4 w-4" /> WhatsApp Refund Desk
+                  </a>
+                  <Link
+                    href="/"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 hover:bg-slate-800 px-5 py-3 text-sm font-bold text-slate-200 transition"
+                  >
+                    Book Dedicated Cab
+                  </Link>
+                </div>
+              </section>
+            ) : isRefunded ? (
+              <section className="rounded-3xl border border-sky-900/60 bg-sky-950/40 p-6 sm:p-8 text-center">
+                <CheckCircle2 className="mx-auto h-12 w-12 text-sky-400" />
+                <h1 className="mt-3 text-2xl font-black text-sky-200">
+                  Advance Refunded · ₹{advanceAmount}
+                </h1>
+                <p className="text-xs text-sky-300/80 mt-1">
+                  Aapka full advance refund process ho chuka hai. 3–5 working days me account me credit ho jayega.
+                </p>
+              </section>
+            ) : isCancelled ? (
               <section className="rounded-3xl border border-rose-900/60 bg-rose-950/40 p-6 sm:p-8 text-center">
                 <AlertCircle className="mx-auto h-12 w-12 text-rose-400" />
-                <h1 className="mt-3 text-2xl font-black text-rose-200">
-                  Booking {booking.status === 'cancelled' ? 'Cancelled' : booking.status === 'refunded' ? 'Refunded' : booking.status}
-                </h1>
+                <h1 className="mt-3 text-2xl font-black text-rose-200">Booking Cancelled</h1>
                 <p className="text-xs text-rose-300/80 mt-1">
-                  {booking.status === 'refunded'
-                    ? 'Aapka advance refund initiate ho chuka hai. 3–5 working days me account me reflect hoga.'
-                    : 'This booking is closed. Contact support for any queries.'}
+                  This booking has been cancelled. Contact support for any queries.
+                </p>
+              </section>
+            ) : (
+              <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 sm:p-8 text-center">
+                <Clock className="mx-auto h-12 w-12 text-amber-400" />
+                <h1 className="mt-3 text-2xl font-black text-white">Booking in Progress</h1>
+                <p className="text-xs text-slate-400 mt-1">
+                  Your booking details are being updated. If you have questions, please reach out to support.
                 </p>
               </section>
             )}
@@ -444,21 +499,30 @@ export default function BookingConfirmationPage() {
               <div className="mt-4 space-y-2.5 text-sm">
                 <div className="flex justify-between text-slate-300">
                   <span>Total Trip Fare (All inclusive)</span>
-                  <span className="font-extrabold text-white">₹{booking.total_fare}</span>
+                  <span className="font-extrabold text-white">₹{totalFare}</span>
                 </div>
-                <div className="flex justify-between items-center text-emerald-400">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Advance Paid Online
-                  </span>
-                  <span className="font-black text-emerald-400">₹{booking.advance_paid || booking.advance_amount || 500}</span>
-                </div>
+                {hasAdvancePaid ? (
+                  <div className="flex justify-between items-center text-emerald-400">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Advance Paid Online
+                    </span>
+                    <span className="font-black text-emerald-400">₹{advancePaid}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center text-amber-400">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <Clock className="h-4 w-4 text-amber-400" /> Advance (Confirmation Pending)
+                    </span>
+                    <span className="font-black text-amber-400">₹{advanceAmount}</span>
+                  </div>
+                )}
                 <div className="border-t border-slate-800/80 pt-3 flex justify-between items-baseline">
                   <div>
                     <p className="text-sm font-black text-amber-400">Remaining Balance to Driver</p>
                     <p className="text-[11px] text-slate-400">Pay directly to driver in cab by Cash or UPI</p>
                   </div>
                   <span className="text-xl font-black text-white">
-                    ₹{Math.max(0, Number(booking.total_fare || 0) - Number(booking.advance_paid || booking.advance_amount || 500))}
+                    ₹{remainingBalance}
                   </span>
                 </div>
               </div>
