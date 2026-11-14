@@ -372,6 +372,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
+    if (_action === 'save_note') {
+      if (!id) return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 })
+      await updateBooking(id, {
+        notes: typeof updates.notes === 'string' ? updates.notes.trim() : null,
+        updated_at: new Date().toISOString(),
+      })
+      return NextResponse.json({ success: true, notes: updates.notes })
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

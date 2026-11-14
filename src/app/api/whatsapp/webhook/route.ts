@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
-import { extractWhatsAppStatuses, formatIncomingMessage, normalizeWhatsAppPhone, parseWhatsAppActionPayload, sendText, verifyWhatsAppWebhookSignature } from '@/lib/whatsapp'
+import {
+  extractWhatsAppStatuses,
+  formatIncomingMessage,
+  normalizeWhatsAppPhone,
+  parseWhatsAppActionPayload,
+  sendText,
+  sendInteractiveButtons,
+  sendInChatPaymentOrder,
+  verifyWhatsAppWebhookSignature,
+} from '@/lib/whatsapp'
 import { notifyAdmin, notify } from '@/lib/booking-notifications'
 import { createWhatsAppUpgradeLink, refundWhatsAppBooking } from '@/lib/whatsapp-booking-actions'
 import { recordCapturedUpgrade } from '@/lib/payment-state'
@@ -494,17 +503,50 @@ async function handleInbound(body: any) {
       eventVersion: `status:${message.id}`,
     })
   } else {
-    // Route into full WhatsApp conversational booking journey
+    // Route into full WhatsApp conversational booking journey powered by OpenAI & interactive buttons
     try {
       const { processWhatsAppInbound } = await import('@/lib/whatsapp-conversation')
       const reply = await processWhatsAppInbound(phone, message.text)
       if (reply) {
-        await sendText({
-          to: phone,
-          body: reply,
-          bookingId: booking?.id,
-          eventVersion: `conv:${message.id}`,
-        })
+        const textBody = typeof reply === 'string' ? reply : reply.replyText
+        const buttons = typeof reply === 'object' && Array.isArray(reply.buttons) && reply.buttons.length > 0 ? reply.buttons : null
+        const paymentOrder = typeof reply === 'object' ? reply.paymentOrder : null
+
+        // 1. Send native in-chat UPI payment order if booking was just submitted
+        if (paymentOrder && paymentOrder.bookingRef) {
+          try {
+            await sendInChatPaymentOrder({
+              to: phone,
+              amountInRs: paymentOrder.amountInRs,
+              bookingRef: paymentOrder.bookingRef,
+              bookingId: paymentOrder.bookingId,
+              customerName: paymentOrder.customerName,
+              routeName: paymentOrder.routeName,
+              travelDate: paymentOrder.travelDate,
+              pickupTime: paymentOrder.pickupTime,
+            })
+          } catch (poErr) {
+            console.warn('In-chat payment order notice:', poErr)
+          }
+        }
+
+        // 2. Send interactive reply buttons if available, otherwise regular formatted text
+        if (buttons && buttons.length > 0) {
+          await sendInteractiveButtons({
+            to: phone,
+            body: textBody,
+            buttons,
+            bookingId: booking?.id,
+            eventVersion: `ai_btn:${message.id}`,
+          })
+        } else {
+          await sendText({
+            to: phone,
+            body: textBody,
+            bookingId: booking?.id,
+            eventVersion: `ai_txt:${message.id}`,
+          })
+        }
       }
     } catch (convErr) {
       console.error('Conversation processing error:', convErr)
