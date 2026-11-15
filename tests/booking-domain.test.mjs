@@ -33,13 +33,13 @@ const {
   isNightPickup,
 } = configModule.exports
 
-test('guaranteed fares stay fixed and match fares apply the same point deltas', () => {
+test('current sedan route fares apply point deltas in both booking modes', () => {
   const points = [
-    ['rajendra', 3000, 2000],
-    ['bhawarkua', 3100, 2100],
-    ['railway', 3200, 2200],
-    ['airport', 3300, 2300],
-    ['rajwada', 3300, 2300],
+    ['rajendra', 2200, 2200],
+    ['bhawarkua', 2300, 2300],
+    ['railway', 2500, 2500],
+    ['airport', 2700, 2700],
+    ['rajwada', 2400, 2400],
   ]
 
   for (const [point, guaranteedFare, matchFare] of points) {
@@ -48,34 +48,36 @@ test('guaranteed fares stay fixed and match fares apply the same point deltas', 
   }
 })
 
-test('night surcharge applies through 04:30 and not after', () => {
+test('night surcharge covers 21:00 through 04:00', () => {
   assert.equal(isNightPickup('22:00'), true)
-  assert.equal(isNightPickup('04:30'), true)
+  assert.equal(isNightPickup('04:00'), true)
   assert.equal(isNightPickup('04:31'), false)
-  assert.equal(isNightPickup('21:59'), false)
-  assert.equal(calculateBookingFare({ mode: 'match', point: 'rajendra', pickupTime: '04:30' }).totalFare, 2300)
+  assert.equal(isNightPickup('20:59'), false)
+  assert.equal(calculateBookingFare({ mode: 'match', point: 'rajendra', pickupTime: '04:00' }).totalFare, 2600)
 })
 
-test('opposite-direction matching accepts the inclusive 4h and 8h boundaries only', () => {
+test('opposite-direction matching accepts the inclusive 4h and 12h boundaries only', () => {
   assert.equal(isMatchTimeCompatible('K2I', '07:00', 'I2K', '11:00'), true)
-  assert.equal(isMatchTimeCompatible('K2I', '07:00', 'I2K', '15:00'), true)
+  assert.equal(isMatchTimeCompatible('K2I', '07:00', 'I2K', '19:00'), true)
   assert.equal(isMatchTimeCompatible('K2I', '07:00', 'I2K', '10:59'), false)
-  assert.equal(isMatchTimeCompatible('K2I', '07:00', 'I2K', '15:01'), false)
+  assert.equal(isMatchTimeCompatible('K2I', '07:00', 'I2K', '19:01'), false)
   assert.equal(isMatchTimeCompatible('K2I', '07:00', 'K2I', '11:00'), false)
-  assert.deepEqual(getCompatibleMatchDepartures('K2I', '07:00'), ['11:00', '13:00'])
+  assert.deepEqual(getCompatibleMatchDepartures('K2I', '07:00'), ['11:00', '13:00', '16:00', '18:00'])
 })
 
-test('Match Deal accepts only configured exact departures and respects the 30 hour window', () => {
+test('Match Deal lists configured departures and accepts future short-notice journeys', () => {
   assert.equal(isAllowedMatchDeparture('K2I', '07:00'), true)
   assert.equal(isAllowedMatchDeparture('K2I', '07:30'), false)
   assert.equal(isMatchDealWithinWindow('2026-11-02', '10:00', new Date('2026-10-31T04:00:00Z')), true)
-  assert.equal(isMatchDealWithinWindow('2026-11-01', '10:00', new Date('2026-10-31T04:00:00Z')), false)
+  assert.equal(isMatchDealWithinWindow('2026-11-01', '10:00', new Date('2026-10-31T04:00:00Z')), true)
   assert.equal(BOOKING_CONFIG.enableSuv, false)
   assert.throws(() => calculateBookingFare({ mode: 'guaranteed', point: 'rajendra', pickupTime: '09:00', vehicle: 'premium_suv' }))
 })
 
-test('Match Deal cutoff is exactly 24 hours before the pickup in India', () => {
-  assert.equal(getMatchCutoffAt('2026-11-02', '07:00'), '2026-11-01T01:30:00.000Z')
+test('Match Deal cutoff uses 6h, 1h and departure boundaries with deterministic India dates', () => {
+  assert.equal(getMatchCutoffAt('2026-11-02', '07:00', new Date('2026-11-01T00:00:00Z')), '2026-11-01T19:30:00.000Z')
+  assert.equal(getMatchCutoffAt('2026-11-02', '07:00', new Date('2026-11-01T23:00:00Z')), '2026-11-02T00:30:00.000Z')
+  assert.equal(getMatchCutoffAt('2026-11-02', '07:00', new Date('2026-11-02T01:00:00Z')), '2026-11-02T01:30:00.000Z')
 })
 
 test('cutoff and automatic refund boundaries are inclusive and ignore invalid timestamps', () => {
@@ -92,28 +94,28 @@ test('SUV stays hidden by default and is configurable with the configured upgrad
   const enabled = loadConfig({ ...process.env, NEXT_PUBLIC_ENABLE_SUV: 'true', NEXT_PUBLIC_SUV_EXTRA: '650' })
   const quote = enabled.calculateBookingFare({ mode: 'guaranteed', point: 'rajendra', pickupTime: '09:00', vehicle: 'premium_suv' })
   assert.equal(quote.vehicleExtra, 650)
-  assert.equal(quote.totalFare, 3650)
+  assert.equal(quote.totalFare, 2850)
 })
 
 test('Razorpay webhook signatures are verified against the configured secret', () => {
   const crypto = require('node:crypto')
   const razorpaySource = readFileSync(resolve(root, 'src/lib/razorpay.ts'), 'utf8')
   const compiled = typescript.transpileModule(razorpaySource, { compilerOptions: { module: typescript.ModuleKind.CommonJS, target: typescript.ScriptTarget.ES2020 } }).outputText
-  const module = { exports: {} }
+  const loaded = { exports: {} }
   const secret = 'test-webhook-secret'
   const env = { ...process.env, RAZORPAY_WEBHOOK_SECRET: secret }
-  new Function('exports', 'module', 'require', 'process', compiled)(module.exports, module, require, { env })
+  new Function('exports', 'module', 'require', 'process', compiled)(loaded.exports, loaded, require, { env })
   const rawBody = '{"event":"payment.captured"}'
   const signature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
-  assert.equal(module.exports.verifyRazorpayWebhookSignature(rawBody, signature), true)
-  assert.equal(module.exports.verifyRazorpayWebhookSignature(rawBody, '0'.repeat(64)), false)
+  assert.equal(loaded.exports.verifyRazorpayWebhookSignature(rawBody, signature), true)
+  assert.equal(loaded.exports.verifyRazorpayWebhookSignature(rawBody, '0'.repeat(64)), false)
 })
 
 test('processed webhook event IDs are acknowledged exactly once while failed events remain retryable', () => {
   const source = readFileSync(resolve(root, 'src/lib/webhook-idempotency.ts'), 'utf8')
   const compiled = typescript.transpileModule(source, { compilerOptions: { module: typescript.ModuleKind.CommonJS, target: typescript.ScriptTarget.ES2020 } }).outputText
-  const module = { exports: {} }
-  new Function('exports', 'module', 'require', compiled)(module.exports, module, require)
-  assert.equal(module.exports.shouldAcknowledgeDuplicateWebhook('2026-10-31T10:00:00Z'), true)
-  assert.equal(module.exports.shouldAcknowledgeDuplicateWebhook(null), false)
+  const loaded = { exports: {} }
+  new Function('exports', 'module', 'require', compiled)(loaded.exports, loaded, require)
+  assert.equal(loaded.exports.shouldAcknowledgeDuplicateWebhook('2026-10-31T10:00:00Z'), true)
+  assert.equal(loaded.exports.shouldAcknowledgeDuplicateWebhook(null), false)
 })

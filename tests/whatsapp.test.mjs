@@ -12,14 +12,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const loadTs = (file, env = process.env) => {
   const source = readFileSync(resolve(root, file), 'utf8')
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-  const module = { exports: {} }
+  const loaded = { exports: {} }
   const mockRequire = (id) => {
     if (id === '@/lib/supabase-server') return { createServiceClient: () => ({}) }
+    if (id === '@/lib/whatsapp') return loadTs('src/lib/whatsapp.ts', env)
     if (id === '@/lib/config') return { calculateBookingFare: ({ point, pickupTime }) => ({ totalFare: (point === 'airport' || point === 'rajwada' ? 3300 : point === 'railway' ? 3200 : point === 'bhawarkua' ? 3100 : 3000) + (pickupTime >= '22:00' || pickupTime <= '04:30' ? 300 : 0) }) }
     return require(id)
   }
-  new Function('exports', 'module', 'require', 'process', compiled)(module.exports, module, mockRequire, { env })
-  return module.exports
+  new Function('exports', 'module', 'require', 'process', compiled)(loaded.exports, loaded, mockRequire, { env })
+  return loaded.exports
 }
 
 test('Indian WhatsApp numbers normalize to E.164 digits and invalid numbers are rejected', () => {
@@ -33,8 +34,8 @@ test('template variable ordering matches the approved booking message bodies', (
   const { mapTemplateVariables } = loadTs('src/lib/whatsapp-templates.ts')
   const booking = { passenger_name: 'Ramesh', direction: 'KI', travel_date: '2026-11-05', pickup_time: '07:00:00', advance_amount: 500, balance_amount: 1500 }
   assert.deepEqual(mapTemplateVariables('booking_received_match', booking), ['Ramesh', 'Khargone', 'Indore', '2026-11-05', '07:00', '500'])
-  assert.deepEqual(mapTemplateVariables('match_confirmed_customer', booking, { name: 'Amit', phone: '9826012345', vehicle_number: 'MP 09 AB 1234' }), ['Ramesh', 'Khargone', 'Indore', '2026-11-05', '07:00', 'Amit', 'MP 09 AB 1234', '9826012345', '1500'])
-  assert.deepEqual(mapTemplateVariables('no_match_options', { ...booking, drop_point: 'rajendra', total_fare: 2000 }), ['Ramesh', '2026-11-05', '07:00', '3000'])
+  assert.deepEqual(mapTemplateVariables('match_confirmed_customer', booking, { name: 'Amit', phone: '9826012345', vehicle_number: 'MP 09 AB 1234' }), ['Ramesh', 'Khargone', 'Indore', '2026-11-05', '07:00', 'Amit', 'Sedan (Dzire/Amaze)', '9826012345', '1700'])
+  assert.deepEqual(mapTemplateVariables('no_match_options', { ...booking, drop_point: 'rajendra', total_fare: 2000 }), ['Ramesh', '2026-11-05', '07:00', '2000'])
 })
 
 test('WhatsApp webhook signature verification accepts valid HMAC and rejects altered or absent signatures', () => {

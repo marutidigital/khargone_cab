@@ -7,6 +7,7 @@ import { verifyRazorpayWebhookSignature } from '@/lib/razorpay'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { tryMatchBookingAndConfirm } from '@/lib/matching-engine'
+import { fetchCapturedBookingPayment } from '@/lib/verified-booking-payment'
 
 export const runtime = 'nodejs'
 
@@ -39,8 +40,11 @@ export async function POST(request: NextRequest) {
   })
 
   if (eventError) {
-    // Duplicate webhook delivery
-    return NextResponse.json({ received: true, duplicate: true })
+    if (eventError.code !== '23505') return NextResponse.json({ error: 'Could not store payment event.' }, { status: 503 })
+    const { data: previous } = await db.from('razorpay_webhook_events').select('processed_at,error').eq('event_id', eventId).single()
+    if (!previous || previous.processed_at || !previous.error) return NextResponse.json({ received: true, duplicate: true })
+    const { data: claimed } = await db.from('razorpay_webhook_events').update({ error: null }).eq('event_id', eventId).eq('error', previous.error).select('event_id')
+    if (!claimed?.length) return NextResponse.json({ received: true, duplicate: true })
   }
 
   try {
@@ -57,8 +61,6 @@ export async function POST(request: NextRequest) {
     ) {
       const paymentId = payment?.id || body.payload?.payment?.entity?.id
       const orderId = payment?.order_id || paymentLink?.order_id
-      const amountPaise = Number(payment?.amount || paymentLink?.amount || 50000)
-      const amountRupees = Math.round(amountPaise / 100)
       const notes = payment?.notes || paymentLink?.notes || {}
 
       const targetBookingId = notes.booking_id
@@ -85,10 +87,12 @@ export async function POST(request: NextRequest) {
         await notifyAdmin(
           `unattached_pay:${paymentId}`,
           null,
-          `⚠️ *UNATTACHED PAYMENT RECEIVED*: Payment ${paymentId} (₹${amountRupees}) received for order ${orderId || 'N/A'}. No matching pending booking in database. Notes: ${JSON.stringify(notes)}`
+          `⚠️ *UNATTACHED PAYMENT*: Payment ${paymentId} for order ${orderId || 'N/A'} could not be linked to a booking.`
         )
         return NextResponse.json({ received: true, unattached: true })
       }
+
+      const amountRupees = await fetchCapturedBookingPayment(String(paymentId || ''), String(orderId || ''), booking)
 
       // Idempotency check: Has this payment already been processed?
       const { data: existingPay } = await db
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
       const isConfirmedMode = booking.mode === 'confirmed' || Boolean(booking.extras?.confirmed_ride_id) || Boolean(booking.extras?.matched_with_booking_id)
       const targetStatus = isConfirmedMode ? 'confirmed' : 'waiting'
       const balance = Math.max(0, Number(booking.total_fare || 0) - amountRupees)
-      await db.from('bookings').update({
+      const { error: updateError } = await db.from('bookings').update({
         advance_paid: amountRupees,
         advance_amount: amountRupees,
         balance_amount: balance,
@@ -133,11 +137,12 @@ export async function POST(request: NextRequest) {
           paid_via_webhook: true,
         },
       }).eq('id', booking.id)
+      if (updateError) throw updateError
 
       // Dispatch WhatsApp Template: payment_received (awaited to prevent Vercel container termination!)
       const routeLabel = booking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'
       await sendWhatsAppTemplateMessage({
-        toPhone: booking.phone,
+        toPhone: booking.extras?.whatsapp_contact || booking.phone,
         templateCode: 'payment_received',
         variables: [
           booking.passenger_name || 'Passenger',

@@ -49,6 +49,16 @@ export async function POST(req: NextRequest) {
     // ── FIX A: PRE-INSERT BOOKING IN 'pending_payment' STATUS BEFORE RAZORPAY ORDER CREATION ──
     let createdBooking: any = null
 
+    // A Flow payment link refers to an existing booking. Resolve it server-side
+    // so browser-supplied amounts and notes cannot change its advance.
+    if (!bookingData && notes?.booking_ref) {
+      const { data: existing, error } = await db.from('bookings').select('*').eq('booking_ref', String(notes.booking_ref)).limit(1).single()
+      if (error || !existing) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
+      if (existing.status !== 'pending_payment') return NextResponse.json({ error: 'This booking is not awaiting payment.' }, { status: 409 })
+      createdBooking = existing
+      numAmount = Math.round(Number(existing.advance_amount || 500) * 100)
+    }
+
     if (bookingData) {
       const directionCode = bookingData.direction === 'K2I' ? 'KI' : 'IK'
       const pointId = (bookingData.point || 'rajendra') as DropPointId
@@ -57,7 +67,7 @@ export async function POST(req: NextRequest) {
       const bookingMode = bookingData.mode === 'confirmed' ? 'confirmed' : 'match'
 
       const fare = calculateBookingFare({
-        mode: bookingMode,
+        mode: bookingMode === 'confirmed' ? 'guaranteed' : 'match',
         direction: bookingData.direction,
         point: pointId,
         pickupTime,

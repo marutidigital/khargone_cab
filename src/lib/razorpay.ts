@@ -2,30 +2,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const apiBase = 'https://api.razorpay.com/v1'
 
-// --- LIVE CREDENTIALS (Preserved for Production - DO NOT DELETE) ---
-export const RAZORPAY_LIVE_KEY_ID = 'rzp_live_TvoQrpE4ShCGDC'
-export const RAZORPAY_LIVE_KEY_SECRET = 't87HNHonjGlKH6vnUXa4SX9v'
-
-// --- TEST CREDENTIALS (Active for Testing) ---
-export const RAZORPAY_TEST_KEY_ID = 'rzp_test_TyAjmTx2XdmBnh'
-export const RAZORPAY_TEST_KEY_SECRET = 'ZhYGm4Lv3EBySMTqKwieyvlg'
-
-// Set to true to force test mode during end-to-end testing
-export const USE_TEST_MODE = true
-
+// Credentials are supplied by the deployment environment only.
 export function getRazorpayCredentials() {
-  if (USE_TEST_MODE) {
-    return {
-      keyId: RAZORPAY_TEST_KEY_ID,
-      keySecret: RAZORPAY_TEST_KEY_SECRET,
-      isTest: true,
-    }
-  }
-  return {
-    keyId: process.env.RAZORPAY_KEY_ID || RAZORPAY_LIVE_KEY_ID,
-    keySecret: process.env.RAZORPAY_KEY_SECRET || RAZORPAY_LIVE_KEY_SECRET,
-    isTest: false,
-  }
+  const keyId = process.env.RAZORPAY_KEY_ID || ''
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || ''
+  return { keyId, keySecret, isTest: keyId.startsWith('rzp_test_') }
 }
 
 export function razorpayConfigured() {
@@ -82,8 +63,6 @@ export function verifyRazorpayPaymentSignature(orderId: string, paymentId: strin
   const secrets = [
     keySecret,
     process.env.RAZORPAY_KEY_SECRET,
-    RAZORPAY_TEST_KEY_SECRET,
-    RAZORPAY_LIVE_KEY_SECRET,
   ].filter(Boolean) as string[]
 
   let supplied: Buffer
@@ -103,8 +82,6 @@ export function verifyRazorpayWebhookSignature(rawBody: string, signature: strin
   const secrets = [
     process.env.RAZORPAY_WEBHOOK_SECRET,
     keySecret,
-    RAZORPAY_TEST_KEY_SECRET,
-    RAZORPAY_LIVE_KEY_SECRET,
     process.env.RAZORPAY_KEY_SECRET,
     'maruticab_webhook_2025',
   ].filter(Boolean) as string[]

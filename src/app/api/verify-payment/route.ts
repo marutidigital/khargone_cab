@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         if (matchedWithId) {
           try {
             const { secureAndConfirmMatch } = await import('@/lib/matching-engine')
-            await secureAndConfirmMatch(booking.id, matchedWithId)
+            await secureAndConfirmMatch({ bookingOutId: booking.direction === 'KI' ? booking.id : matchedWithId, bookingBackId: booking.direction === 'KI' ? matchedWithId : booking.id })
           } catch (pairErr) {
             console.warn('[verify-payment] Auto-pair matching warning:', pairErr)
           }

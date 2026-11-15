@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getAdminApiHeaders } from '@/lib/admin-api'
 import { isMatchTimeCompatible } from '@/lib/config'
 
@@ -11,6 +11,8 @@ const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' 
 
 export function MatchDealBoard() {
   const [date, setDate] = useState(today)
+  const [clock, setClock] = useState(Date.now)
+  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 60000); return () => clearInterval(timer) }, [])
   const [showAllDates, setShowAllDates] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
@@ -35,11 +37,8 @@ export function MatchDealBoard() {
   const dayBookings = bookings.filter((booking) => booking.travel_date === date)
   const waiting = (showAllDates ? allWaiting : dayBookings).filter((booking) => booking.status === 'waiting')
 
-  const compatible = useMemo(() => {
-    if (!selected) return []
-    return waiting.filter((booking) => booking.id !== selected.id && booking.direction !== selected.direction && (booking.travel_date === selected.travel_date || showAllDates))
+  const compatible = !selected ? [] : waiting.filter((booking) => booking.id !== selected.id && booking.direction !== selected.direction && (booking.travel_date === selected.travel_date || showAllDates))
       .sort((a, b) => Math.abs(Date.parse(`${a.travel_date}T${a.pickup_time}`) - Date.parse(`${selected.travel_date}T${selected.pickup_time}`)) - Math.abs(Date.parse(`${b.travel_date}T${b.pickup_time}`) - Date.parse(`${selected.travel_date}T${selected.pickup_time}`)))
-  }, [selected, waiting, showAllDates])
   const k2i = waiting.filter((booking) => booking.direction === 'KI')
   const i2k = waiting.filter((booking) => booking.direction === 'IK')
   const submitMatch = async (other: Booking) => {
@@ -74,10 +73,10 @@ export function MatchDealBoard() {
       setBusy(false)
     }
   }
-  const nearCutoff = (booking: Booking) => booking.cutoff_at ? Date.parse(booking.cutoff_at) - Date.now() <= 3 * 60 * 60 * 1000 : false
+  const nearCutoff = (booking: Booking) => booking.cutoff_at ? Date.parse(booking.cutoff_at) - clock <= 3 * 60 * 60 * 1000 : false
   const isExpired = (booking: Booking) => {
     if (booking.travel_date && booking.travel_date < today()) return true
-    if (booking.cutoff_at && Date.parse(booking.cutoff_at) < Date.now()) return true
+    if (booking.cutoff_at && Date.parse(booking.cutoff_at) < clock) return true
     return false
   }
 

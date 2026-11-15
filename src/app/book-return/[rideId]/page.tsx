@@ -25,7 +25,7 @@ import { Nav } from '@/components/Nav'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
 import { PRICING_CONFIG, formatRs } from '@/config/pricing'
-import { calculateBookingFare, type DropPointId, type RouteDirection } from '@/lib/config'
+import { calculateBookingFare, getDropPointExtra, type DropPointId, type RouteDirection } from '@/lib/config'
 
 interface PublicAvailableRide {
   id: string
@@ -518,13 +518,13 @@ export default function BookReturnRidePage() {
                       >
                         <div className="text-xs sm:text-sm font-bold flex items-center justify-between">
                           <span>{pt.name}</span>
-                          {pt.extraFare > 0 && (
+                          {getDropPointExtra(pt.id) > 0 && (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                              +{formatRs(pt.extraFare)}
+                              +{formatRs(getDropPointExtra(pt.id))}
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{pt.description}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{pt.sub}</p>
                       </button>
                     )
                   })}

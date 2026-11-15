@@ -6,13 +6,11 @@ import {
   normalizeWhatsAppPhone,
   parseWhatsAppActionPayload,
   sendText,
-  sendInteractiveButtons,
-  sendInChatPaymentOrder,
+  sendFlowMessage,
   verifyWhatsAppWebhookSignature,
 } from '@/lib/whatsapp'
-import { notifyAdmin, notify } from '@/lib/booking-notifications'
+import { notifyAdmin } from '@/lib/booking-notifications'
 import { createWhatsAppUpgradeLink, refundWhatsAppBooking } from '@/lib/whatsapp-booking-actions'
-import { recordCapturedUpgrade } from '@/lib/payment-state'
 
 export const runtime = 'nodejs'
 
@@ -118,6 +116,13 @@ async function handleInbound(body: any) {
     try {
       const flowData = typeof flowJsonRaw === 'string' ? JSON.parse(flowJsonRaw) : flowJsonRaw
       if (flowData && typeof flowData === 'object' && Object.keys(flowData).length > 0) {
+        const { validateBookingFlow } = await import('@/lib/whatsapp-flow-validation')
+        const validationError = validateBookingFlow(flowData)
+        if (validationError) {
+          await sendText({ to: phone, body: validationError, eventVersion: `flow_invalid:${message.id}` })
+          await sendFlowMessage({ to: phone, eventVersion: `flow_retry:${message.id}` })
+          return
+        }
         const custName = String(
           flowData.passenger_name ||
           flowData.name ||
@@ -197,7 +202,19 @@ async function handleInbound(body: any) {
         const bookingRef = `KC${Math.floor(10000 + Math.random() * 90000)}`
         const { randomBytes } = await import('node:crypto')
         const publicToken = randomBytes(32).toString('base64url')
-        const idempotencyKey = randomBytes(16).toString('hex')
+        const { createHash } = await import('node:crypto')
+        const sessionKey = typeof flowData.flow_token === 'string' && flowData.flow_token ? flowData.flow_token : message.id
+        const idempotencyKey = `whatsapp_flow:${createHash('sha256').update(`${phone}:${sessionKey}`).digest('hex')}`
+
+        const { data: existingFlowBooking } = await db.from('bookings').select('booking_ref,status').eq('idempotency_key', idempotencyKey).limit(1).single()
+        if (existingFlowBooking) {
+          await sendText({
+            to: phone,
+            body: `Aapki booking #${existingFlowBooking.booking_ref} pehle hi receive ho chuki hai.${existingFlowBooking.status === 'pending_payment' ? `\nAdvance payment: https://www.maruticab.in/pay?ref=${existingFlowBooking.booking_ref}` : '\nStatus ke liye MENU likhein.'}`,
+            eventVersion: `flow_existing:${message.id}`,
+          })
+          return
+        }
 
         const { data: newBooking, error: bookingErr } = await db.from('bookings').insert({
           booking_ref: bookingRef,
@@ -223,42 +240,28 @@ async function handleInbound(body: any) {
           balance_amount: balanceAmount,
           public_token: publicToken,
           idempotency_key: idempotencyKey,
-          extras: { booked_via: 'whatsapp_flow', flow_response: flowData },
+          extras: { booked_via: 'whatsapp_flow', whatsapp_contact: phone, flow_response: flowData },
         }).select().single()
 
         if (bookingErr) {
           console.error('WhatsApp Flow booking insert error:', bookingErr)
+          await sendText({ to: phone, body: 'Booking save nahi ho paayi. Kripya support se +91 72823 16090 par sampark karein. Payment abhi na karein.', eventVersion: `flow_failed:${message.id}` })
+          return
         }
 
         if (newBooking) {
-          const { sendInChatPaymentOrder, sendText } = await import('@/lib/whatsapp')
-
-          // Attempt native in-chat UPI payment order
-          try {
-            await sendInChatPaymentOrder({
-              to: phone,
-              amountInRs: advanceAmount,
-              bookingRef: newBooking.booking_ref,
-              bookingId: newBooking.id,
-              customerName: custName,
-              routeName: routeLabel,
-              travelDate,
-              pickupTime: rawTime,
-            })
-          } catch (orderErr) {
-            console.warn('In-chat payment order notice:', orderErr)
-          }
-
+          // Use the checkout link whose signed Razorpay confirmation is verified
+          // server-side. A WhatsApp order message alone never proves payment.
           // Always send the confirmation text message with the direct payment link
           // This guarantees WhatsApp Web (desktop) & all mobile devices receive the instant 1-minute checkout link
           await sendText({
             to: phone,
-            body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai. 🙏\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Travel Date:* ${travelDate} at ${rawTime}\n🚘 *Vehicle:* Maruti Dzire / Dedicated AC Sedan (4 Seater)\n💰 *Total Fare:* ₹${totalFare.toLocaleString('en-IN')}\n💵 *Advance Amount:* ₹${advanceAmount} (Baaki ₹${balanceAmount.toLocaleString('en-IN')} driver ko cab me dena hai)\n\nNeeche diye link par click karke 1 minute me advance payment karein taaki aapki cab confirm ho jaye:\n👉 https://www.maruticab.in/pay?ref=${newBooking.booking_ref}\n\n🛡️ 100% Refund Guarantee agar match confirm nahi hota.\n📞 24x7 Helpline: +91 72823 16090`,
+            body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai. 🙏\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Travel Date:* ${travelDate} at ${rawTime}\n🚘 *Vehicle:* Maruti Dzire / Dedicated AC Sedan (4 Seater)\n💰 *Total Fare:* ₹${totalFare.toLocaleString('en-IN')}\n💵 *Advance Amount:* ₹${advanceAmount} (Baaki ₹${balanceAmount.toLocaleString('en-IN')} driver ko cab me dena hai)\n\nNeeche diye link par click karke 1 minute me advance payment karein taaki return-match booking process shuru ho:\n👉 https://www.maruticab.in/pay?ref=${newBooking.booking_ref}\n\n🛡️ 100% Refund Guarantee agar match confirm nahi hota.\n📞 24x7 Helpline: +91 72823 16090`,
             bookingId: newBooking.id,
             eventVersion: `flow_confirm:${newBooking.booking_ref}`,
           })
 
-          void notifyAdmin(
+          await notifyAdmin(
             `flow-booking:${newBooking.id}`,
             newBooking.id,
             `🚨 New WhatsApp Flow Booking #${newBooking.booking_ref}: ${custName} (${custPhone}) - ${routeLabel} on ${travelDate} at ${rawTime}. Fare: ₹${totalFare}, Advance ₹${advanceAmount} pending.`
@@ -268,90 +271,20 @@ async function handleInbound(body: any) {
       }
     } catch (e) {
       console.error('WhatsApp flow response processing error:', e)
+      await sendText({ to: phone, body: 'Form process karne mein dikkat aayi. MENU likhein ya +91 72823 16090 par support se baat karein.', eventVersion: `flow_error:${message.id}` })
     }
+    return
   }
 
-  // ── IN-CHAT WHATSAPP PAYMENT COMPLETED (Meta WhatsApp Pay with Razorpay) ──
+  // Order messages are not proof of a captured payment. Only signed Razorpay
+  // events or a verified checkout response may mark a booking paid.
   if (message.type === 'order' || message.order) {
-    const orderRef = String(message.order?.reference_id || message.order?.order_id || '')
-    const transId = String(message.order?.payment?.transaction_id || '')
-    const amountVal = Number(message.order?.payment?.amount?.value || 50000) / 100
-
-    let targetBooking = booking
-    if ((!targetBooking || targetBooking.status !== 'pending_payment') && orderRef) {
-      const refMatch = orderRef.match(/KC\d+/)
-      if (refMatch) {
-        const { data: b } = await db.from('bookings').select('*').eq('booking_ref', refMatch[0]).limit(1).single()
-        if (b) targetBooking = b
-      }
-    }
-
-    if (targetBooking) {
-      const willConfirm = targetBooking.status === 'pending_payment' || targetBooking.status === 'draft' || (targetBooking.advance_paid || 0) < 500
-      if (willConfirm) {
-        await db.from('bookings').update({
-          status: 'waiting',
-          advance_paid: amountVal,
-          advance_amount: amountVal,
-          balance_amount: Math.max(0, (targetBooking.total_fare || 1800) - amountVal),
-          updated_at: new Date().toISOString(),
-          extras: {
-            ...(targetBooking.extras || {}),
-            paid_via: 'whatsapp_in_chat_pay',
-            payment_id: transId || `wa_pay_${Date.now()}`,
-            payment_status: 'paid',
-            whatsapp_order: message.order,
-          },
-        }).eq('id', targetBooking.id)
-
-        // Record in payments table
-        await db.from('payments').insert({
-          booking_id: targetBooking.id,
-          provider: 'razorpay',
-          provider_order_id: String(message.order?.order_id || `order_${targetBooking.booking_ref}`),
-          provider_payment_id: transId || `wa_pay_${Date.now()}`,
-          amount: amountVal,
-          payment_status: 'captured',
-          verified_at: new Date().toISOString(),
-        })
-
-        // Try automatic return match
-        try {
-          const { tryAutomaticFIFOMatch } = await import('@/lib/matching-engine')
-          await tryAutomaticFIFOMatch(targetBooking.id)
-        } catch (matchErr) {
-          console.error('Match engine auto FIFO error on WA payment:', matchErr)
-        }
-
-        // Send payment received template
-        try {
-          const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
-          await sendWhatsAppTemplateMessage({
-            toPhone: phone,
-            templateCode: 'payment_received',
-            variables: [
-              targetBooking.passenger_name || 'Passenger',
-              String(amountVal),
-              targetBooking.booking_ref,
-              transId || 'WhatsApp UPI',
-              targetBooking.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone',
-              targetBooking.travel_date,
-            ],
-            bookingId: targetBooking.id,
-          })
-        } catch (tplErr) {
-          console.error('Failed to send payment confirmation WA template:', tplErr)
-        }
-
-        // Alert Admin
-        await notifyAdmin(
-          `wa_payment_received:${targetBooking.id}`,
-          targetBooking.id,
-          `💰 Advance ₹${amountVal} received via WhatsApp In-Chat UPI for Booking #${targetBooking.booking_ref}! Passenger: ${targetBooking.passenger_name} (${targetBooking.phone}).`
-        )
-      }
-      return
-    }
+    await sendText({
+      to: phone,
+      body: 'Payment confirmation Razorpay se verify hone ke baad automatically bheji jayegi. Booking status dekhne ke liye MENU likhein.',
+      eventVersion: `payment_check:${message.id}`,
+    })
+    return
   }
 
   if (normalizedText === 'STOP' || normalizedText === 'UNSUBSCRIBE') {
@@ -363,7 +296,8 @@ async function handleInbound(body: any) {
   if (normalizedText === 'START') {
     await db.from('whatsapp_phone_preferences').upsert({ wa_id: phone, opt_out: false, last_inbound_at: receivedAt, updated_at: new Date().toISOString() }, { onConflict: 'wa_id' })
     await db.from('bookings').update({ opt_out: false }).eq('phone', phone.slice(-10))
-    await sendText({ to: phone, body: 'MarutiCab booking updates are enabled again.', bookingId: booking?.id, eventVersion: `start:${message.id}` }).catch(() => null)
+    const { handleBookingMenu } = await import('@/lib/whatsapp-booking-menu')
+    await handleBookingMenu(phone, 'MENU', message.id)
     return
   }
 
@@ -503,77 +437,8 @@ async function handleInbound(body: any) {
       eventVersion: `status:${message.id}`,
     })
   } else {
-    // Route into full WhatsApp conversational booking journey powered by OpenAI & interactive buttons
-    try {
-      const { processWhatsAppInbound } = await import('@/lib/whatsapp-conversation')
-      const reply = await processWhatsAppInbound(phone, message.text)
-      if (reply) {
-        const textBody = typeof reply === 'string' ? reply : reply.replyText
-        const buttons = typeof reply === 'object' && Array.isArray(reply.buttons) && reply.buttons.length > 0 ? reply.buttons : null
-        const paymentOrder = typeof reply === 'object' ? reply.paymentOrder : null
-
-        // 1. Send native in-chat UPI payment order if booking was just submitted
-        if (paymentOrder && paymentOrder.bookingRef) {
-          try {
-            await sendInChatPaymentOrder({
-              to: phone,
-              amountInRs: paymentOrder.amountInRs,
-              bookingRef: paymentOrder.bookingRef,
-              bookingId: paymentOrder.bookingId,
-              customerName: paymentOrder.customerName,
-              routeName: paymentOrder.routeName,
-              travelDate: paymentOrder.travelDate,
-              pickupTime: paymentOrder.pickupTime,
-            })
-          } catch (poErr) {
-            console.warn('In-chat payment order notice:', poErr)
-          }
-        }
-
-        // 2. Dispatch official Meta template if triggered by AI or booking flow
-        const templateCode = typeof reply === 'object' ? reply.templateCode : null
-        const templateVariables = typeof reply === 'object' ? reply.templateVariables : null
-        if (templateCode) {
-          try {
-            const { sendWhatsAppTemplateMessage } = await import('@/lib/whatsapp-templates')
-            await sendWhatsAppTemplateMessage({
-              toPhone: phone,
-              templateCode: templateCode as any,
-              variables: templateVariables || [],
-              bookingId: booking?.id,
-            })
-          } catch (tplErr) {
-            console.warn('AI template dispatch error:', tplErr)
-          }
-        }
-
-        // 3. Send interactive reply buttons if available, otherwise regular formatted text
-        if (buttons && buttons.length > 0) {
-          await sendInteractiveButtons({
-            to: phone,
-            body: textBody,
-            buttons,
-            bookingId: booking?.id,
-            eventVersion: `ai_btn:${message.id}`,
-          })
-        } else {
-          await sendText({
-            to: phone,
-            body: textBody,
-            bookingId: booking?.id,
-            eventVersion: `ai_txt:${message.id}`,
-          })
-        }
-      }
-    } catch (convErr) {
-      console.error('Conversation processing error:', convErr)
-      await sendText({
-        to: phone,
-        body: `Dhanyavad! MarutiCab dispatch team will assist you shortly. Call +91 72823 16090 for urgent booking.`,
-        bookingId: booking?.id,
-        eventVersion: `fallback:${message.id}`,
-      })
-    }
+    const { handleBookingMenu } = await import('@/lib/whatsapp-booking-menu')
+    await handleBookingMenu(phone, message.text, message.id)
   }
 }
 

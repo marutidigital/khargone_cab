@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { calculateBookingFare, getMatchCutoffAt, isMatchDealWithinWindow, parsePickupDateTime, type DropPointId } from '@/lib/config'
 import { PRICING_CONFIG } from '@/config/pricing'
 import { notify, notifyAdmin } from '@/lib/booking-notifications'
+import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { sendBookingAutomation } from '@/lib/whatsapp-automation'
 import { tryAutomaticFIFOMatch, secureAndConfirmMatch } from '@/lib/matching-engine'
 

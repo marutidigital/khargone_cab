@@ -219,7 +219,7 @@ export async function secureAndConfirmMatch(params: {
     )
 
     // 9. If no driver pre-assigned, start automated sequential provider dispatch across 6 providers!
-    if (!driverId) {
+    if (!params.driverId) {
       try {
         const { startProviderDispatch } = await import('@/lib/provider-dispatch-engine')
         await startProviderDispatch(matchId)

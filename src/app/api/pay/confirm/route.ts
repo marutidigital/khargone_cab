@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { tryAutomaticFIFOMatch } from '@/lib/matching-engine'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
+import { fetchCapturedBookingPayment } from '@/lib/verified-booking-payment'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,6 @@ export async function POST(req: NextRequest) {
       orderId,
       paymentId,
       signature,
-      advancePaid = 500,
       couponCode,
     } = body
 
@@ -56,13 +56,18 @@ export async function POST(req: NextRequest) {
     }
 
     const booking = bookings[0]
-    const amountVal = Number(advancePaid) || 500
+    // Fetch the captured amount and booking attribution from Razorpay, rather
+    // than trusting the amount sent by the browser.
+    const amountVal = await fetchCapturedBookingPayment(String(paymentId), String(orderId), booking)
+    if (Number(booking.advance_paid || 0) > 0 && booking.extras?.razorpay_payment_id === paymentId) {
+      return NextResponse.json({ success: true, booking_ref: booking.booking_ref, status: booking.status, alreadyProcessed: true })
+    }
     const totalFare = Number(booking.total_fare) || 2200
     const balanceVal = Math.max(0, totalFare - amountVal)
 
     // 3. Update booking status to 'waiting' (for return match) or 'confirmed'
     const newStatus = booking.mode === 'match' ? 'waiting' : 'confirmed'
-    await db.from('bookings').update({
+    const { error: updateError } = await db.from('bookings').update({
       status: newStatus,
       advance_paid: amountVal,
       advance_amount: amountVal,
@@ -77,6 +82,7 @@ export async function POST(req: NextRequest) {
         paid_at: new Date().toISOString(),
       },
     }).eq('id', booking.id)
+    if (updateError) throw updateError
 
     // 4. Record payment in payments table
     try {
@@ -104,7 +110,7 @@ export async function POST(req: NextRequest) {
     const routeLabel = booking.direction === 'IK' ? 'Indore ➔ Khargone' : 'Khargone ➔ Indore'
     try {
       await sendWhatsAppTemplateMessage({
-        toPhone: booking.phone,
+        toPhone: booking.extras?.whatsapp_contact || booking.phone,
         templateCode: 'payment_received',
         variables: [
           booking.passenger_name || 'Passenger',

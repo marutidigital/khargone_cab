@@ -146,7 +146,7 @@ function CheckoutContent() {
   // Calculate fare
   const fare = checkoutData
     ? calculateBookingFare({
-        mode: checkoutData.mode,
+        mode: checkoutData.mode === 'confirmed' ? 'guaranteed' : 'match',
         direction: checkoutData.direction,
         point: checkoutData.pointId,
         pickupTime: checkoutData.time,
@@ -182,7 +182,7 @@ function CheckoutContent() {
           currency: 'INR',
           bookingData: {
             direction: checkoutData.direction,
-            mode: checkoutData.mode,
+            mode: checkoutData.mode === 'confirmed' ? 'guaranteed' : 'match',
             point: checkoutData.pointId,
             date: checkoutData.date,
             time: checkoutData.time,

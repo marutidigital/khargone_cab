@@ -36,6 +36,9 @@ export interface Booking {
   email_sent: boolean
   advance_paid?: number
   payment_status?: string | null
+  refund_status?: string | null
+  refund_amount?: number | null
+  notes?: string | null
   mode?: 'match' | 'guaranteed'
   passengers?: number
   passenger_count?: number

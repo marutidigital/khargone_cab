@@ -23,6 +23,8 @@ import { EditTimeModal } from '@/components/admin/EditTimeModal'
 import { AssignDriverModal } from '@/components/admin/AssignDriverModal'
 
 export function AdminMatchesAndFleetPanel() {
+  const [clock, setClock] = useState(Date.now)
+  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 60000); return () => clearInterval(timer) }, [])
   const [matches, setMatches] = useState<any[]>([])
   const [waitingKI, setWaitingKI] = useState<any[]>([])
   const [waitingIK, setWaitingIK] = useState<any[]>([])
@@ -361,7 +363,7 @@ export function AdminMatchesAndFleetPanel() {
                               <span className="rounded-full bg-rose-100 text-rose-800 px-1.5 py-0.5 text-[9px] font-bold border border-rose-200">
                                 ⏰ Date Passed
                               </span>
-                            ) : b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                            ) : b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || clock + 86400000) > new Date(clock) ? (
                               <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
                                 🌐 Public Board: Active
                               </span>
@@ -470,7 +472,7 @@ export function AdminMatchesAndFleetPanel() {
                               <span className="rounded-full bg-rose-100 text-rose-800 px-1.5 py-0.5 text-[9px] font-bold border border-rose-200">
                                 ⏰ Date Passed
                               </span>
-                            ) : b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || Date.now() + 86400000) > new Date() ? (
+                            ) : b.status === 'waiting' && (b.advance_paid > 0 || b.advance_amount > 0) && new Date(b.cutoff_at || clock + 86400000) > new Date(clock) ? (
                               <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-black border border-emerald-300">
                                 🌐 Public Board: Active
                               </span>

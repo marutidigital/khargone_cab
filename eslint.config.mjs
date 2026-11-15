@@ -4,6 +4,7 @@ import nextTypescript from "eslint-config-next/typescript";
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
+  { files: ["scripts/**/*.cjs", "scratch/**/*.js"], rules: { "@typescript-eslint/no-require-imports": "off" } },
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",

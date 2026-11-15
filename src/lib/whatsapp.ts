@@ -177,7 +177,7 @@ export async function sendFlowMessage({
           name: 'flow',
           parameters: {
             flow_message_version: '3',
-            flow_token: `flow_${Date.now()}`,
+            flow_token: randomUUID(),
             flow_id: flowId,
             flow_cta: ctaText,
             flow_action: 'navigate',

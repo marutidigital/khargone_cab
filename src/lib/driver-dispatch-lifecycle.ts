@@ -234,7 +234,7 @@ export async function assignDriverAndVehicleToMatch(params: {
   await notifyAdmin(
     `driver_assigned:${matchId}`,
     bOut.id,
-    `🚘 *DRIVER & CAR ASSIGNED!* Match #${matchId.slice(0, 8)}\nDriver: ${cleanName} (${cleanDriverPhone})\nCar: ${cleanModel} (${cleanRegNo})\nTrip 1: #${bOut.booking_ref} (${bOut.passenger_name})\nTrip 2: #${bBack.booking_ref} (${bBack.passenger_name})`
+    `🚘 *DRIVER & CAR ASSIGNED!* Match #${(matchId || '').slice(0, 8)}\nDriver: ${cleanName} (${cleanDriverPhone})\nCar: ${cleanModel} (${cleanRegNo})\nTrip 1: #${bOut.booking_ref} (${bOut.passenger_name})\nTrip 2: #${bBack.booking_ref} (${bBack.passenger_name})`
   )
 
   return {
@@ -545,7 +545,7 @@ export async function handleDriverLifecycleWebhook(text: string, fromPhone: stri
       await notifyAdmin(
         `round_match_completed:${matchId}`,
         bBack.id,
-        `🎉 *ROUND TRIP MATCH 100% COMPLETED!* Match #${matchId.slice(0, 8)}. Driver ${bOut.driver_name} ne dono legs (Khargone ⇄ Indore) safaltapoorvak poore kar liye hain!`
+        `🎉 *ROUND TRIP MATCH 100% COMPLETED!* Match #${(matchId || '').slice(0, 8)}. Driver ${bOut.driver_name} ne dono legs (Khargone ⇄ Indore) safaltapoorvak poore kar liye hain!`
       )
 
       // Send Final Summary to Driver

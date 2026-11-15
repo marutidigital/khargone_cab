@@ -397,6 +397,42 @@ export async function handleWhatsAppAIConversation(
     }
   }
 
+  // Ask for a typed date instead of sending this button's ID to the AI.
+  if (upper === 'BTN_DATE_OTHER' || upper === 'OTHER DATE') {
+    delete conv.data.travel_date
+    conv.state = 'ENTER_TRAVEL_DATE'
+    conv.step = 2
+    await saveConversation(conv)
+    return {
+      replyText: '📆 Apni travel date *DD/MM/YYYY* format mein likhein (jaise 20/11/2026).',
+    }
+  }
+
+  if (conv.state === 'ENTER_TRAVEL_DATE' && !['BTN_DATE_TODAY', 'TODAY', 'AAJ', 'BTN_DATE_TOMORROW', 'TOMORROW', 'KAL'].includes(upper)) {
+    const parts = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(text)
+    const isoParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text)
+    const year = Number(parts?.[3] || isoParts?.[1])
+    const month = Number(parts?.[2] || isoParts?.[2])
+    const day = Number(parts?.[1] || isoParts?.[3])
+    const date = new Date(Date.UTC(year, month - 1, day))
+    const travelDate = Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : ''
+    if (!travelDate || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day || travelDate < dateIST) {
+      return { replyText: '📆 Kripya aaj ya aane wali valid travel date *DD/MM/YYYY* format mein likhein (jaise 20/11/2026).' }
+    }
+    conv.data.travel_date = travelDate
+    conv.state = 'SELECT_TIME'
+    conv.step = 3
+    await saveConversation(conv)
+    return {
+      replyText: `📅 Travel Date: *${travelDate}* note kar liya! ✅\n\n⏰ Pickup kis samay chahiye? Neeche diye options me se chuniye ya apna time likhein:`,
+      buttons: [
+        { id: 'BTN_TIME_0800', title: '🌅 8:00 AM' },
+        { id: 'BTN_TIME_1200', title: '☀️ 12:00 PM' },
+        { id: 'BTN_TIME_1700', title: '🌆 5:00 PM' },
+      ],
+    }
+  }
+
   // Button: Today Date
   if (upper === 'BTN_DATE_TODAY' || upper === 'TODAY' || upper === 'AAJ') {
     conv.data.travel_date = dateIST
@@ -751,7 +787,7 @@ Helpline par foran baat karne ke liye:
 
   // ── 2. OPENAI GPT-4O-MINI INTELLIGENCE ENGINE ──
   // Build conversation context and message history for multi-turn understanding
-  const history = (conv.data.history as Array<{ role: 'user' | 'assistant'; text: string }>) || []
+  const history = conv.data.history || []
   const messages: OpenAIMessage[] = [
     { role: 'system', content: getSystemPrompt(dateIST, timeIST) },
   ]
@@ -760,7 +796,7 @@ Helpline par foran baat karne ke liye:
   for (const h of history.slice(-4)) {
     messages.push({
       role: h.role,
-      content: h.text,
+      content: h.content,
     })
   }
 
@@ -822,8 +858,8 @@ Helpline par foran baat karne ke liye:
     // Save updated history
     const updatedHistory = [
       ...history.slice(-5),
-      { role: 'user' as const, text },
-      { role: 'assistant' as const, text: replyText },
+      { role: 'user' as const, content: text },
+      { role: 'assistant' as const, content: replyText },
     ]
     conv.data.history = updatedHistory
     await saveConversation(conv)
