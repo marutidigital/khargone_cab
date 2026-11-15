@@ -7,7 +7,7 @@ import { verifyRazorpayWebhookSignature } from '@/lib/razorpay'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { notifyAdmin } from '@/lib/booking-notifications'
 import { tryMatchBookingAndConfirm } from '@/lib/matching-engine'
-import { fetchCapturedBookingPayment } from '@/lib/verified-booking-payment'
+import { fetchCapturedBookingPayment, fetchRazorpayOrder } from '@/lib/verified-booking-payment'
 
 export const runtime = 'nodejs'
 
@@ -61,7 +61,13 @@ export async function POST(request: NextRequest) {
     ) {
       const paymentId = payment?.id || body.payload?.payment?.entity?.id
       const orderId = payment?.order_id || paymentLink?.order_id
-      const notes = payment?.notes || paymentLink?.notes || {}
+      let notes = payment?.notes || paymentLink?.notes || {}
+      // Native WhatsApp checkout creates its Razorpay order during payment.
+      // Payment entities do not always repeat the order's booking notes.
+      if (!notes.booking_id && !notes.booking_ref && orderId) {
+        const gatewayOrder = await fetchRazorpayOrder(String(orderId))
+        notes = gatewayOrder.notes || {}
+      }
 
       const targetBookingId = notes.booking_id
       const targetBookingRef = notes.booking_ref

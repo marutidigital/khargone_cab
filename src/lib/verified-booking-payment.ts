@@ -1,5 +1,17 @@
 import { getRazorpayCredentials } from '@/lib/razorpay'
 
+export async function fetchRazorpayOrder(orderId: string) {
+  if (!/^order_[A-Za-z0-9]+$/.test(orderId)) throw new Error('Invalid payment order.')
+  const { keyId, keySecret } = getRazorpayCredentials()
+  if (!keyId || !keySecret) throw new Error('Payment gateway is not configured.')
+  const response = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
+    headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}` },
+    cache: 'no-store', signal: AbortSignal.timeout(15000),
+  })
+  if (!response.ok) throw new Error('Could not fetch the payment order from Razorpay.')
+  return response.json()
+}
+
 export async function fetchCapturedBookingPayment(paymentId: string, orderId: string, booking: { id: string; booking_ref: string; advance_amount?: number }) {
   if (!/^pay_[A-Za-z0-9]+$/.test(paymentId) || !/^order_[A-Za-z0-9]+$/.test(orderId)) throw new Error('Invalid payment identifiers.')
   const { keyId, keySecret } = getRazorpayCredentials()

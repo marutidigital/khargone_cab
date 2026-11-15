@@ -7,6 +7,7 @@ import {
   parseWhatsAppActionPayload,
   sendText,
   sendFlowMessage,
+  sendInChatPaymentOrder,
   verifyWhatsAppWebhookSignature,
 } from '@/lib/whatsapp'
 import { notifyAdmin } from '@/lib/booking-notifications'
@@ -36,9 +37,15 @@ async function handleStatus(status: any) {
   if (status.status === 'delivered') update.delivered_at = new Date(Number(status.timestamp || Date.now() / 1000) * 1000).toISOString()
   if (status.status === 'read') update.read_at = new Date(Number(status.timestamp || Date.now() / 1000) * 1000).toISOString()
   if (status.status === 'failed') update.error = (status.errors || []).map((item: any) => `${item.code || 'unknown'}: ${item.title || item.message || 'delivery failed'}`).join('; ').slice(0, 500)
-  const { data: rows } = await db.from('notifications').update(update).eq('wa_message_id', status.id).select('booking_id,template,recipient_type,error')
+  const { data: rows } = await db.from('notifications').update(update).eq('wa_message_id', status.id).select('booking_id,template,recipient_type,error,event_version')
   if (status.status === 'failed') {
     for (const row of rows ?? []) {
+      if (String(row.event_version || '').startsWith('native_payment:') && row.booking_id) {
+        const { data: pending } = await db.from('bookings').select('booking_ref,status,extras,phone').eq('id', row.booking_id).single()
+        if (pending?.status === 'pending_payment') {
+          await sendText({ to: pending.extras?.whatsapp_contact || pending.phone, bookingId: row.booking_id, eventVersion: `native_fallback:${status.id}`, body: `WhatsApp payment card deliver nahi ho paaya. Booking #${pending.booking_ref} ke liye secure backup link:\nhttps://www.maruticab.in/pay?ref=${pending.booking_ref}` })
+        }
+      }
       if (row.recipient_type !== 'admin') await notifyAdmin(`delivery_failed:${status.id}`, row.booking_id, `WhatsApp delivery failed for ${row.template}`)
     }
   }
@@ -250,13 +257,17 @@ async function handleInbound(body: any) {
         }
 
         if (newBooking) {
-          // Use the checkout link whose signed Razorpay confirmation is verified
-          // server-side. A WhatsApp order message alone never proves payment.
-          // Always send the confirmation text message with the direct payment link
-          // This guarantees WhatsApp Web (desktop) & all mobile devices receive the instant 1-minute checkout link
+          const nativePayment = await sendInChatPaymentOrder({
+            to: phone, bookingId: newBooking.id, bookingRef: newBooking.booking_ref,
+            amountInRs: advanceAmount, customerName: custName, routeName: routeLabel,
+            travelDate, pickupTime: rawTime,
+          })
+          const paymentInstructions = nativePayment.success
+            ? '₹500 advance ke liye isi chat mein Review and Pay chuniye. Payment verify hone par receipt yahin milega.'
+            : `WhatsApp payment card abhi available nahi hai. Secure backup payment link:\nhttps://www.maruticab.in/pay?ref=${newBooking.booking_ref}`
           await sendText({
             to: phone,
-            body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai. 🙏\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Travel Date:* ${travelDate} at ${rawTime}\n🚘 *Vehicle:* Maruti Dzire / Dedicated AC Sedan (4 Seater)\n💰 *Total Fare:* ₹${totalFare.toLocaleString('en-IN')}\n💵 *Advance Amount:* ₹${advanceAmount} (Baaki ₹${balanceAmount.toLocaleString('en-IN')} driver ko cab me dena hai)\n\nNeeche diye link par click karke 1 minute me advance payment karein taaki return-match booking process shuru ho:\n👉 https://www.maruticab.in/pay?ref=${newBooking.booking_ref}\n\n🛡️ 100% Refund Guarantee agar match confirm nahi hota.\n📞 24x7 Helpline: +91 72823 16090`,
+            body: `🚕 *Maruti Cab Booking Received!*\n\nHey ${custName}! Aapki *${routeLabel}* cab booking request record ho gayi hai. 🙏\n\n🧾 *Booking Ref:* #${newBooking.booking_ref}\n📅 *Travel Date:* ${travelDate} at ${rawTime}\n🚘 *Vehicle:* Maruti Dzire / Dedicated AC Sedan (4 Seater)\n💰 *Total Fare:* ₹${totalFare.toLocaleString('en-IN')}\n💵 *Advance Amount:* ₹${advanceAmount} (Baaki ₹${balanceAmount.toLocaleString('en-IN')} driver ko cab me dena hai)\n\n${paymentInstructions}\n\n🛡️ 100% Refund Guarantee agar match confirm nahi hota.\n📞 24x7 Helpline: +91 72823 16090`,
             bookingId: newBooking.id,
             eventVersion: `flow_confirm:${newBooking.booking_ref}`,
           })

@@ -212,77 +212,15 @@ export async function sendInChatPaymentOrder({
   travelDate: string
   pickupTime: string
 }) {
-  const phone = normalizeWhatsAppPhone(to)
-  const amountPaise = Math.round(amountInRs * 100)
-
-  const paymentPayload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: phone,
-    type: 'interactive',
-    interactive: {
-      type: 'order_details',
-      header: {
-        type: 'image',
-        image: {
-          link: 'https://www.maruticab.in/hero-banner.jpg',
-        },
-      },
-      body: {
-        text: `Hey ${customerName || 'Passenger'}! 👋\n\nAapki *${routeName}* cab booking ke liye ₹${amountInRs} advance payment request.\n\n🧾 *Booking Ref:* #${bookingRef}\n📅 *Travel Date:* ${travelDate} at ${pickupTime}\n\nNeeche *"Review and Pay"* dabakar Google Pay, PhonePe ya Paytm se WhatsApp ke andar hi pay karein! ⚡`,
-      },
-      footer: {
-        text: '100% Refund Guaranteed · MarutiCab 🚕',
-      },
-      action: {
-        name: 'review_and_pay',
-        parameters: {
-          reference_id: `KC_${bookingRef}_${Date.now()}`,
-          type: 'digital-goods',
-          payment_settings: [
-            {
-              type: 'payment_gateway',
-              payment_gateway: {
-                type: 'razorpay',
-                configuration_name: 'MarutiCabRazorpay',
-              },
-            },
-          ],
-          currency: 'INR',
-          total_amount: {
-            value: amountPaise,
-            offset: 100,
-          },
-          order: {
-            status: 'pending',
-            description: `MarutiCab Advance Booking #${bookingRef}`,
-            items: [
-              {
-                retailer_id: `cab_advance_${bookingRef}`,
-                name: `${routeName} Cab Advance`,
-                amount: {
-                  value: amountPaise,
-                  offset: 100,
-                },
-                quantity: 1,
-              },
-            ],
-            subtotal: {
-              value: amountPaise,
-              offset: 100,
-            },
-          },
-        },
-      },
-    },
-  }
-
+  const { buildWhatsAppPaymentOrder } = await import('@/lib/whatsapp-payment-order')
+  const configurationName = process.env.WHATSAPP_PAYMENT_CONFIGURATION || ''
   try {
-    const response = await postToMeta(paymentPayload)
-    return { success: true, response }
-  } catch (err: any) {
-    console.error('Failed to send In-Chat payment order:', err?.message || err)
-    return { success: false, error: err?.message }
+    const phone = normalizeWhatsAppPhone(to)
+    const { referenceId, message } = buildWhatsAppPaymentOrder({ bookingId, bookingRef, amountInRs, customerName, routeName, travelDate, pickupTime }, configurationName)
+    const response = await sendLoggedFreeform({ phone, message, bookingId, eventVersion: `native_payment:${referenceId}` }) as { messages?: { id?: string }[]; reason?: string }
+    return { success: Boolean(response.messages?.[0]?.id), response, referenceId, error: response.reason }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Could not send WhatsApp payment request.' }
   }
 }
 

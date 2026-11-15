@@ -6,6 +6,8 @@ export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret')
   const phoneParam = req.nextUrl.searchParams.get('phone') || '9406633778'
   const templateName = req.nextUrl.searchParams.get('template') || 'testflow'
+  const mode = req.nextUrl.searchParams.get('mode') || req.nextUrl.searchParams.get('type') || 'template'
+  const flowId = req.nextUrl.searchParams.get('flow_id') || '1585365243178046'
 
   if (secret !== 'maruti2026' && secret !== 'maruti') {
     return NextResponse.json({ error: 'Unauthorized. Use ?secret=maruti' }, { status: 401 })
@@ -23,6 +25,100 @@ export async function GET(req: NextRequest) {
 
   const rawDigits = phoneParam.replace(/\D/g, '')
   const targetPhone = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits
+
+  // MODE: Interactive Buttons Test (Zero AI, Pure Button Automation)
+  if (mode === 'buttons' || mode === 'welcome') {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: targetPhone,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: {
+          text: 'Namaste! 🙏 Welcome to MarutiCab 🚕\n\nKhargone ↔ Indore ki comfortable Private Sedan Cab Service.\n\nAapki journey ko easy aur affordable banana hamara goal hai.\n\nAapko kis cheez mein help chahiye?\n\n────────────────\n*MarutiCab | 24×7 Support: +91 72823 16090*',
+        },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'BTN_BOOK_CAB', title: '🚕 Book a Cab' } },
+            { type: 'reply', reply: { id: 'BTN_MY_BOOKING', title: '📊 My Booking' } },
+            { type: 'reply', reply: { id: 'BTN_SUPPORT', title: '📞 Talk to Support' } },
+          ],
+        },
+      },
+    }
+
+    const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const sendResult = await sendRes.json()
+    return NextResponse.json({
+      success: sendRes.ok,
+      mode: 'interactive_buttons',
+      sendResult,
+      payload,
+      hint: !sendRes.ok && sendResult?.error?.code === 131047
+        ? 'Customer must have messaged this business number within the last 24 hours to receive interactive button messages. Send "hi" to +91 72823 16090 first.'
+        : undefined,
+    })
+  }
+
+  // MODE: WhatsApp Flow Test (Native popup form)
+  if (mode === 'flow') {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: targetPhone,
+      type: 'interactive',
+      interactive: {
+        type: 'flow',
+        header: { type: 'text', text: '🚕 Maruti Cab Booking' },
+        body: {
+          text: 'Khargone ⇄ Indore Dedicated Private AC Sedan.\n\nNeeche diye button par tap karke apni trip details (Route, Date, Time, Pickup) 30 seconds mein select karein.',
+        },
+        footer: { text: '100% On-Time Pickup · MarutiCab' },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_token: `token_${Date.now()}`,
+            flow_id: flowId,
+            flow_cta: 'Book Cab Now',
+            flow_action: 'navigate',
+            flow_action_payload: {
+              screen: 'BOOK_CAB',
+            },
+          },
+        },
+      },
+    }
+
+    const sendRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const sendResult = await sendRes.json()
+    return NextResponse.json({
+      success: sendRes.ok,
+      mode: 'whatsapp_flow',
+      sendResult,
+      payload,
+      hint: !sendRes.ok && sendResult?.error?.code === 131047
+        ? 'Customer must have messaged this business number within the last 24 hours to receive interactive messages. Send "hi" to +91 72823 16090 first.'
+        : undefined,
+    })
+  }
 
   if (req.nextUrl.searchParams.get('list') === 'true') {
     if (!wabaId) {
