@@ -67,17 +67,17 @@ export default function MyRidesPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-      case 'matched':
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
             <CheckCircle2 className="w-3.5 h-3.5" /> Confirmed
           </span>
         )
+      case 'matched':
       case 'waiting':
       case 'pending_payment':
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
-            <Clock3 className="w-3.5 h-3.5" /> Active / Matching
+            <Clock3 className="w-3.5 h-3.5" /> Unconfirmed / Matching
           </span>
         )
       case 'cancelled':

@@ -64,3 +64,7 @@ body {
     animation: none;
   }
 }
+
+.booking-primary { display:flex; align-items:center; justify-content:center; gap:0.75rem; width:100%; min-height:52px; padding:14px 20px; border-radius:12px; background:#fbbf24; color:#0f172a; font-weight:800; }
+.booking-primary:hover { background:#f59e0b; }
+.booking-primary:focus-visible { outline:3px solid #92400e; outline-offset:3px; }
