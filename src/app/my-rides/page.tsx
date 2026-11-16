@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { BookingHeader } from '@/components/booking/BookingHeader'
+import { useState } from "react";
+import Link from "next/link";
+import { BookingHeader } from "@/components/booking/BookingHeader";
 import {
   Car,
   Calendar,
@@ -15,91 +15,91 @@ import {
   Clock3,
   AlertCircle,
   MessageCircle,
-} from 'lucide-react'
-import { formatRs } from '@/config/pricing'
+} from "lucide-react";
+import { formatRs } from "@/config/pricing";
 
 interface BookingSummary {
-  id: string
-  booking_ref: string
-  direction: string
-  drop_name: string
-  travel_date: string
-  pickup_time: string
-  status: string
-  total_fare: number
-  advance_paid: number
-  balance_amount: number
-  public_token: string
-  driver_name: string | null
-  created_at: string
+  id: string;
+  booking_ref: string;
+  direction: string;
+  drop_name: string;
+  travel_date: string;
+  pickup_time: string;
+  status: string;
+  total_fare: number;
+  advance_paid: number;
+  balance_amount: number;
+  public_token: string;
+  driver_name: string | null;
+  created_at: string;
 }
 
 export default function MyRidesPage() {
-  const [phone, setPhone] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
-  const [bookings, setBookings] = useState<BookingSummary[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [bookings, setBookings] = useState<BookingSummary[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLookup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+    e.preventDefault();
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
     if (cleanPhone.length !== 10) {
-      setError('Sahi 10 digit ka mobile number likhein')
-      return
+      setError("Sahi 10 digit ka mobile number likhein");
+      return;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/bookings/my-rides?phone=${cleanPhone}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Bookings nahi mil paayin')
-      setBookings(data.bookings || [])
-      setSearched(true)
+      const res = await fetch(`/api/bookings/my-rides?phone=${cleanPhone}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bookings nahi mil paayin");
+      setBookings(data.bookings || []);
+      setSearched(true);
     } catch (err: any) {
-      setError(err.message || 'Bookings nahi khul paayin')
+      setError(err.message || "Bookings nahi khul paayin");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'confirmed':
+      case "confirmed":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Cab confirm hai
+            <CheckCircle2 className="w-3.5 h-3.5" /> Confirmed
           </span>
-        )
-      case 'matched':
-      case 'waiting':
-      case 'pending_payment':
+        );
+      case "matched":
+      case "waiting":
+      case "pending_payment":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
-            <Clock3 className="w-3.5 h-3.5" /> Abhi confirm nahi / match jaari
+            <Clock3 className="w-3.5 h-3.5" /> Unconfirmed / Matching
           </span>
-        )
-      case 'cancelled':
+        );
+      case "cancelled":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800">
-            <XCircle className="w-3.5 h-3.5" /> Request cancel hui
+            <XCircle className="w-3.5 h-3.5" /> Cancelled
           </span>
-        )
-      case 'completed':
+        );
+      case "completed":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Safar poora hua
+            <CheckCircle2 className="w-3.5 h-3.5" /> Completed
           </span>
-        )
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
             {status}
           </span>
-        )
+        );
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[#F4F4F5] text-slate-900 font-sans">
@@ -111,10 +111,10 @@ export default function MyRidesPage() {
               <Car className="w-6 h-6 text-amber-800" />
             </div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Meri rides aur booking ka status
+              My Rides & Booking Status
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Apni trip ka status aur driver ki jaankari yahan dekhein.
+              Apni trip ka status aur driver details yahan dekhein.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ export default function MyRidesPage() {
                   required
                   placeholder="10 digit ka mobile number likhein"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-12 pr-4 py-3 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FBBF24] focus:border-[#FBBF24]"
                 />
               </div>
@@ -140,7 +140,11 @@ export default function MyRidesPage() {
                 disabled={loading}
                 className="bg-[#FBBF24] hover:bg-[#F59E0B] text-slate-950 font-black px-5 py-3 rounded-xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-98 disabled:opacity-50"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Rides dhoondhein</span>}
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span>Find Rides</span>
+                )}
               </button>
             </div>
             {error && (
@@ -155,9 +159,10 @@ export default function MyRidesPage() {
             <div className="flex items-center gap-2.5">
               <MessageCircle className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <span className="font-extrabold block">MarutiCab se WhatsApp par baat karein</span>
+                <span className="font-extrabold block">WhatsApp Support</span>
                 <span className="text-[11px] text-emerald-800">
-                  Trip mein madad ke liye WhatsApp par <strong>+91 72823 16090</strong> par baat karein.
+                  Trip mein madad ke liye WhatsApp par{" "}
+                  <strong>+91 72823 16090</strong> par baat karein.
                 </span>
               </div>
             </div>
@@ -167,7 +172,7 @@ export default function MyRidesPage() {
               rel="noopener noreferrer"
               className="bg-[#25D366] hover:bg-[#20bd5a] text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shrink-0"
             >
-              WhatsApp kholein
+              Open WhatsApp
             </a>
           </div>
 
@@ -175,18 +180,22 @@ export default function MyRidesPage() {
           {searched && (
             <div className="space-y-4">
               <h2 className="text-sm font-black text-slate-800 uppercase tracking-wide">
-                Aapki bookings ({bookings.length})
+                Your Bookings ({bookings.length})
               </h2>
 
               {bookings.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
-                  <p className="text-sm font-bold">Is number par koi booking nahi mili.</p>
-                  <p className="text-xs mt-1">Wahi mobile number likhein jo booking ke waqt diya tha.</p>
+                  <p className="text-sm font-bold">
+                    Is number par koi booking nahi mili.
+                  </p>
+                  <p className="text-xs mt-1">
+                    Wahi mobile number likhein jo booking ke waqt diya tha.
+                  </p>
                   <Link
                     href="/"
                     className="mt-4 inline-flex items-center gap-1.5 bg-[#FBBF24] text-slate-950 px-4 py-2 rounded-xl text-xs font-black shadow-xs"
                   >
-                    Abhi cab request bhejein <ArrowRight className="w-3.5 h-3.5" />
+                    Book Now <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               ) : (
@@ -201,9 +210,13 @@ export default function MyRidesPage() {
                           #{b.booking_ref}
                         </div>
                         <h3 className="text-sm font-extrabold text-slate-900 mt-0.5">
-                          {b.direction === 'KI' ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'}
+                          {b.direction === "KI"
+                            ? "Khargone ➔ Indore"
+                            : "Indore ➔ Khargone"}
                         </h3>
-                        <p className="text-xs text-slate-600">Jagah: {b.drop_name}</p>
+                        <p className="text-xs text-slate-600">
+                          Location: {b.drop_name}
+                        </p>
                       </div>
                       <div>{getStatusBadge(b.status)}</div>
                     </div>
@@ -219,7 +232,9 @@ export default function MyRidesPage() {
                       </div>
                       <div className="col-span-2 flex items-center justify-between pt-1 border-t border-slate-200 text-slate-800">
                         <span>
-                          Advance diya: <strong>{formatRs(b.advance_paid || 0)}</strong> · Baaki kiraya:{' '}
+                          Advance Paid:{" "}
+                          <strong>{formatRs(b.advance_paid || 0)}</strong> ·
+                          Balance:{" "}
                           <strong>{formatRs(b.balance_amount || 0)}</strong>
                         </span>
                         <strong className="text-sm font-black text-slate-950">
@@ -233,16 +248,16 @@ export default function MyRidesPage() {
                         href={`/booking/${b.public_token}`}
                         className="flex-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl py-2 px-3 text-center text-xs font-bold text-slate-800 transition"
                       >
-                        Trip aur driver ki jaankari dekhein
+                        View Trip & Driver
                       </Link>
                       <a
                         href={`https://wa.me/917282316090?text=${encodeURIComponent(
-                          `Namaste MarutiCab, booking ka status bataayein: ${b.booking_ref}`
+                          `Namaste MarutiCab, booking ka status bataayein: ${b.booking_ref}`,
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-[#25D366] hover:bg-[#20bd5a] text-white p-2 rounded-xl transition"
-                        title="WhatsApp par baat karein"
+                        title="Chat on WhatsApp"
                       >
                         <MessageCircle className="w-4 h-4 fill-white" />
                       </a>
@@ -255,5 +270,5 @@ export default function MyRidesPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

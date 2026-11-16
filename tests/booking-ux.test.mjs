@@ -12,8 +12,8 @@ const {customerStatus,indiaDate,addCalendarDays,timePeriod,timeLabel} = mod.expo
 test('payment, a match and unknown states cannot display cab confirmation', () => {
  for(const status of ['waiting','pending_payment','matched','no_match_decision','cancelled','refunded','completed','unknown']) assert.equal(customerStatus(status).confirmed,false,status)
  assert.equal(customerStatus('confirmed').confirmed,true)
- assert.match(customerStatus('matched').label,/ABHI CONFIRM NAHI/)
- assert.match(customerStatus('waiting').detail,/Usi safar ki tareekh/)
+ assert.match(customerStatus('matched').label,/UNCONFIRMED/)
+ assert.match(customerStatus('waiting').detail,/Usi travel date/)
 })
 test('India dates cross UTC midnight and calendar month boundaries correctly', () => {
  assert.equal(indiaDate(new Date('2026-11-15T19:00:00Z')),'2026-11-16')

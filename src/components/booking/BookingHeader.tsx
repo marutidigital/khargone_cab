@@ -15,25 +15,25 @@ export function BookingHeader({
           <span className="rounded-xl bg-amber-400 p-2">
             <Car className="h-6 w-6" />
           </span>
-          MarutiCab<span className="sr-only">Home par jaayein</span>
+          MarutiCab<span className="sr-only">Home</span>
         </Link>
         <div className="flex items-center gap-2">
           <a
             href={whatsappUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label="WhatsApp par madad lein"
+            aria-label="WhatsApp Support"
             className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200"
           >
             <MessageCircle className="h-5 w-5" />
           </a>
           <a
             href="tel:+917282316090"
-            aria-label="Call karein"
+            aria-label="Call Us"
             className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold"
           >
             <Phone className="h-4 w-4" />
-            <span className="hidden sm:inline">Call karein</span>
+            <span className="hidden sm:inline">Call Us</span>
           </a>
         </div>
       </div>

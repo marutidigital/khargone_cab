@@ -74,9 +74,7 @@ export default function BookingConfirmationPage() {
           setError("");
         }
       } catch {
-        setError(
-          "Booking nahi khul paayi. Apna internet check karein.",
-        );
+        setError("Booking nahi khul paayi. Apna internet check karein.");
       } finally {
         setLoading(false);
         if (showIndicator) setIsRefreshing(false);
@@ -153,13 +151,13 @@ export default function BookingConfirmationPage() {
               className="booking-primary mt-5"
               onClick={() => void loadBooking(true)}
             >
-              Dobara koshish karein
+              Try Again
             </button>
             <a
               className="mt-4 flex min-h-12 items-center justify-center underline"
               href={whatsappUrl}
             >
-              WhatsApp par madad lein
+              WhatsApp Support
             </a>
           </section>
         ) : (
@@ -185,7 +183,8 @@ export default function BookingConfirmationPage() {
                   {status.detail}
                 </p>
                 <p className="mt-4 text-sm text-slate-500">
-                  Yahan aapki booking ka abhi ka status dikhta hai. Sirf payment ya return match se cab confirm nahi hoti.
+                  Yahan aapki booking ka abhi ka status dikhta hai. Sirf payment
+                  ya return match se cab confirm nahi hoti.
                 </p>
                 <button
                   type="button"
@@ -196,34 +195,34 @@ export default function BookingConfirmationPage() {
                   <RefreshCw
                     className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
                   />
-                  {isRefreshing ? "Check ho raha hai…" : "Abhi ka status dekhein"}
+                  {isRefreshing ? "Checking…" : "Refresh Status"}
                 </button>
               </section>
               <section className="rounded-3xl border border-slate-200 bg-white p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-bold">Aapki trip</h2>
+                  <h2 className="font-bold">Your Trip</h2>
                   <button
                     onClick={copyRef}
                     className="inline-flex min-h-11 items-center gap-2 text-sm text-slate-600"
                   >
                     <Copy className="h-4 w-4" />
-                    {copied ? "Copy ho gaya" : `#${booking.booking_ref}`}
+                    {copied ? "Copied" : `#${booking.booking_ref}`}
                   </button>
                 </div>
                 <h3 className="mt-4 text-xl font-bold">{route}</h3>
                 <dl className="mt-5 space-y-4 text-sm">
                   {[
-                    ["Indore mein jagah", booking.drop_name],
-                    ["Safar ki tareekh", formatPickupDate(booking.travel_date)],
+                    ["Indore Location", booking.drop_name],
+                    ["Travel Date", formatPickupDate(booking.travel_date)],
                     [
-                      "Pickup ka sahi time",
+                      "Pickup Time",
                       `${formatPickupTime12h(booking.pickup_time)} IST`,
                     ],
-                    ["Yatri ka naam", booking.passenger_name],
+                    ["Passenger Name", booking.passenger_name],
                     ["WhatsApp", booking.masked_phone || booking.phone],
-                    ["Kitne log safar karenge?", booking.passenger_count],
+                    ["Passengers", booking.passenger_count],
                     ...(booking.address
-                      ? [["Pickup ki pehchaan", booking.address]]
+                      ? [["Pickup Landmark", booking.address]]
                       : []),
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-4">
@@ -236,13 +235,13 @@ export default function BookingConfirmationPage() {
                 </dl>
               </section>
               <section className="rounded-3xl border border-slate-200 bg-white p-6">
-                <h2 className="font-bold">Payment ki jaankari</h2>
+                <h2 className="font-bold">Payment Details</h2>
                 <dl className="mt-4 space-y-3 text-sm">
                   {[
-                    ["Kul kiraya", booking.total_fare],
-                    ["Advance mil gaya", booking.advance_paid],
+                    ["Total Fare", booking.total_fare],
+                    ["Advance Paid", booking.advance_paid],
                     [
-                      "Baaki kiraya",
+                      "Balance",
                       Math.max(
                         0,
                         Number(booking.total_fare) -
@@ -261,19 +260,19 @@ export default function BookingConfirmationPage() {
                 </dl>
                 {booking.refund_status && (
                   <p className="mt-4 text-sm">
-                    Refund ka status: {booking.refund_status}
+                    Refund Status: {booking.refund_status}
                   </p>
                 )}
                 <Link
                   href="/refund"
                   className="mt-4 inline-flex min-h-11 items-center text-sm underline"
                 >
-                  Refund ke niyam dekhein
+                  View Refund Policy
                 </Link>
               </section>
               {booking.driver && (
                 <section className="rounded-3xl border border-slate-200 bg-white p-6">
-                  <h2 className="font-bold">Driver aur gaadi ki jaankari</h2>
+                  <h2 className="font-bold">Driver & Car Details</h2>
                   <p className="mt-3">{booking.driver.name}</p>
                   <p className="mt-2 text-sm text-slate-600">
                     {booking.driver.vehicle_model} ·{" "}
@@ -284,7 +283,7 @@ export default function BookingConfirmationPage() {
                     href={`tel:${booking.driver.phone}`}
                   >
                     <Phone className="h-4 w-4" />
-                    Driver ko call karein
+                    Call Driver
                   </a>
                 </section>
               )}
@@ -297,23 +296,24 @@ export default function BookingConfirmationPage() {
                   className="booking-primary mt-4"
                 >
                   <MessageCircle className="h-5 w-5" />
-                  WhatsApp par madad lein
+                  WhatsApp Support
                 </a>
                 <a
                   className="mt-3 flex min-h-12 items-center justify-center font-bold"
                   href={`tel:${SUPPORT_PHONE}`}
                 >
-                  Call karein: +91 72823 16090
+                  Call +91 72823 16090
                 </a>
               </section>
               <p className="text-center text-sm leading-relaxed text-slate-500">
-                Apni request check karne ke liye yeh private link sambhal kar rakhein. Updates WhatsApp par bhi milenge.
+                Apni request check karne ke liye yeh private link sambhal kar
+                rakhein. Updates WhatsApp par bhi milenge.
               </p>
               <Link
                 href="/"
                 className="flex min-h-12 items-center justify-center text-sm font-bold underline"
               >
-                MarutiCab par wapas jaayein
+                Back to Home
               </Link>
             </div>
           )

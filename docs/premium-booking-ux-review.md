@@ -47,3 +47,7 @@ Review the three steps, Hindi/English wording, mobile readability and UNCONFIRME
 ## Hinglish copy revision
 
 The redesigned booking journey, payment panel, status pages, lookup page and support links now use Roman-script Hinglish. Display status labels include “ABHI CONFIRM NAHI” and “CAB CONFIRM HAI”; backend status keys, fare calculations, payment amounts and matching behavior remain unchanged. Time period display uses Subah / Dopahar / Shaam / Raat while internal filter values remain unchanged.
+
+## Final language preference
+
+Short headings, form labels, status badges and buttons use familiar English (Today, Tomorrow, Continue, Enter coupon code, Pay & Submit Request). One-line messages and explanations stay in natural Roman Hinglish, using common English terms such as trip details, travel date, payment and refund policy. This supersedes the earlier all-Hinglish labels.

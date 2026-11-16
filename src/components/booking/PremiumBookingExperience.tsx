@@ -29,7 +29,7 @@ import {
 } from "@/lib/booking-ux";
 
 const money = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
-const steps = ["Kahan jaana hai?", "Kab jaana hai?", "Aapki jaankari"];
+const steps = ["Select Route", "Date & Time", "Your Details"];
 export function PremiumBookingExperience() {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -143,11 +143,7 @@ export function PremiumBookingExperience() {
             Apni private cab ke liye sirf 3 aasaan steps mein request bhejein.
           </p>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
-            {[
-              "Aapki private sedan",
-              "Ek taraf ka kiraya",
-              "Saaf aur seedha kiraya",
-            ].map((text) => (
+            {["Private Sedan", "One-way Fare", "Clear Pricing"].map((text) => (
               <span key={text} className="flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-amber-700" />
                 {text}
@@ -160,8 +156,7 @@ export function PremiumBookingExperience() {
             href={`/booking/${encodeURIComponent(recentToken)}`}
             className="mb-6 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold"
           >
-            Apni pichhli request ka status dekhein{" "}
-            <ArrowRight className="h-4 w-4 shrink-0" />
+            View Request Status <ArrowRight className="h-4 w-4 shrink-0" />
           </Link>
         )}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -170,7 +165,7 @@ export function PremiumBookingExperience() {
             className="min-w-0 scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8"
           >
             <ol
-              aria-label="Booking ke steps"
+              aria-label="Booking Progress"
               className="mb-8 grid grid-cols-3 gap-2"
             >
               {steps.map((label, index) => (
@@ -200,14 +195,14 @@ export function PremiumBookingExperience() {
               tabIndex={-1}
               className="mt-2 text-2xl font-bold outline-none"
             >
-              {step === 2 ? "Apni trip ki jaankari dein" : steps[step]}
+              {step === 2 ? "Review & Pay" : steps[step]}
             </h2>
             <p className="mb-6 mt-2 text-sm leading-relaxed text-slate-500">
               {
                 [
                   "Apna route aur Indore mein pickup ya drop ki jagah chunein.",
                   "Safar ki tareekh aur pickup ka sahi time chunein.",
-                  "Apni trip ki jaankari check karein aur cab request bhejein.",
+                  "Apni trip details check karein aur cab request bhejein.",
                 ][step]
               }
             </p>
@@ -239,7 +234,7 @@ export function PremiumBookingExperience() {
                   ))}
                 </div>
                 <label className="block text-sm font-semibold">
-                  Indore mein {direction === "K2I" ? "drop" : "pickup"} ki jagah
+                  Indore {direction === "K2I" ? "Drop" : "Pickup"} Location
                   <select
                     value={point}
                     onChange={(event) =>
@@ -265,9 +260,7 @@ export function PremiumBookingExperience() {
                 </label>
                 <div className="flex items-end justify-between gap-3 rounded-2xl bg-slate-50 p-5">
                   <div>
-                    <p className="text-sm text-slate-500">
-                      Aapka ek taraf ka kiraya
-                    </p>
+                    <p className="text-sm text-slate-500">One-way Fare</p>
                     <p className="mt-1 text-3xl font-black">
                       {money(fare.totalFare)}
                     </p>
@@ -279,7 +272,7 @@ export function PremiumBookingExperience() {
                   </span>
                 </div>
                 <button onClick={() => move(1)} className="booking-primary">
-                  Aage badhein <ArrowRight className="h-5 w-5" />
+                  Continue <ArrowRight className="h-5 w-5" />
                 </button>
               </div>
             )}
@@ -299,7 +292,7 @@ export function PremiumBookingExperience() {
                         className={selected(date === value)}
                       >
                         <span className="block font-bold">
-                          {offset ? "Kal" : "Aaj"}
+                          {offset ? "Tomorrow" : "Today"}
                         </span>
                         <span className="mt-1 block text-sm text-slate-500">
                           {new Date(
@@ -315,7 +308,7 @@ export function PremiumBookingExperience() {
                   })}
                 </div>
                 <label className="block text-sm font-semibold">
-                  Ya koi aur tareekh chunein
+                  Travel Date
                   <input
                     className={input}
                     type="date"
@@ -332,7 +325,7 @@ export function PremiumBookingExperience() {
                 </label>
                 <fieldset>
                   <legend className="mb-3 text-sm font-semibold">
-                    Din ka hissa chunein
+                    Time of Day
                   </legend>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {["Morning", "Afternoon", "Evening", "Night"].map(
@@ -346,10 +339,10 @@ export function PremiumBookingExperience() {
                         >
                           {
                             {
-                              Morning: "Subah",
-                              Afternoon: "Dopahar",
-                              Evening: "Shaam",
-                              Night: "Raat",
+                              Morning: "Morning",
+                              Afternoon: "Afternoon",
+                              Evening: "Evening",
+                              Night: "Night",
                             }[value]
                           }
                         </button>
@@ -382,7 +375,7 @@ export function PremiumBookingExperience() {
                   </p>
                 </fieldset>
                 <label className="block text-sm font-semibold">
-                  Pickup ka sahi time chunein
+                  Pickup Time
                   <input
                     type="time"
                     step={60}
@@ -417,7 +410,7 @@ export function PremiumBookingExperience() {
                   }
                   className="booking-primary"
                 >
-                  Aage badhein <ArrowRight className="h-5 w-5" />
+                  Continue <ArrowRight className="h-5 w-5" />
                 </button>
               </div>
             )}
@@ -447,18 +440,18 @@ export function PremiumBookingExperience() {
                     onClick={() => move(1)}
                     className="mt-2 min-h-11 font-bold underline underline-offset-4"
                   >
-                    Trip mein badlav karein
+                    Edit Trip
                   </button>
                 </div>
                 <label className="block text-sm font-semibold">
-                  Aapka poora naam
+                  Full Name
                   <input
                     autoComplete="name"
                     required
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     className={input}
-                    placeholder="Apna naam likhein"
+                    placeholder="Enter your name"
                   />
                 </label>
                 <label className="block text-sm font-semibold">
@@ -476,14 +469,12 @@ export function PremiumBookingExperience() {
                       )
                     }
                     className={input}
-                    placeholder="10 digit ka mobile number"
+                    placeholder="10-digit mobile number"
                   />
                 </label>
                 <label className="block text-sm font-semibold">
-                  Pickup ka pata ya paas ki pehchaan{" "}
-                  <span className="font-normal text-slate-500">
-                    (zaroori nahi)
-                  </span>
+                  Pickup Address / Landmark{" "}
+                  <span className="font-normal text-slate-500">(optional)</span>
                   <input
                     autoComplete="street-address"
                     value={address}
@@ -492,7 +483,7 @@ export function PremiumBookingExperience() {
                   />
                 </label>
                 <label className="block text-sm font-semibold">
-                  Kitne log safar karenge?
+                  Passengers
                   <select
                     value={passengers}
                     onChange={(event) =>
@@ -522,8 +513,9 @@ export function PremiumBookingExperience() {
                     </Link>{" "}
                     aur{" "}
                     <Link href="/refund" className="underline">
-                      refund ke niyamon
-                    </Link> se sehmat hoon.
+                      refund policy
+                    </Link>{" "}
+                    se sehmat hoon.
                   </span>
                 </label>
                 {!valid && (
@@ -588,7 +580,7 @@ export function PremiumBookingExperience() {
                       setSubmitting(false);
                     }
                   }}
-                  bookingLabel="Private cab ki request"
+                  bookingLabel="Private Cab Request"
                 />
               </fieldset>
             )}
@@ -600,7 +592,7 @@ export function PremiumBookingExperience() {
                 className="mt-5 inline-flex min-h-12 items-center gap-2 text-sm font-semibold"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Peechhe
+                Back
               </button>
             )}
           </section>
@@ -627,8 +619,7 @@ export function PremiumBookingExperience() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-bold">Madad chahiye? Hum hain na.</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Upar online request bhejein, ya trip ki jaankari humse share
-                karein.
+                Upar online request bhejein, ya trip details humse share karein.
               </p>
               <a
                 href={whatsapp}
@@ -637,13 +628,13 @@ export function PremiumBookingExperience() {
                 className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 text-sm font-bold"
               >
                 <MessageCircle className="h-5 w-5" />
-                WhatsApp par booking karein
+                Book on WhatsApp
               </a>
               <a
                 href="tel:+917282316090"
                 className="mt-2 flex min-h-12 items-center justify-center text-sm font-bold"
               >
-                Call karein: +91 72823 16090
+                Call +91 72823 16090
               </a>
             </div>
           </aside>
@@ -651,19 +642,19 @@ export function PremiumBookingExperience() {
         <footer className="mt-10 flex flex-wrap gap-5 border-t border-slate-200 pt-6 text-sm text-slate-500">
           <span>© MarutiCab</span>
           <Link className="min-h-11" href="/confirmed-rides">
-            Return rides dekhein
+            Available Return Rides
           </Link>
           <Link className="min-h-11" href="/terms">
-            Booking ki shartein
+            Terms
           </Link>
           <Link className="min-h-11" href="/refund">
-            Refund ke niyam
+            Refund Policy
           </Link>
           <Link className="min-h-11" href="/privacy">
-            Privacy ke niyam
+            Privacy
           </Link>
           <Link className="min-h-11" href="/my-rides">
-            Meri requests
+            My Requests
           </Link>
         </footer>
       </main>

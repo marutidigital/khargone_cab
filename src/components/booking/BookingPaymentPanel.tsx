@@ -306,7 +306,7 @@ export function BookingPaymentPanel({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">
-              Payment aur advance
+              Payment & Advance
             </h2>
           </div>
           <span className="rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold px-2.5 py-0.5">
@@ -317,29 +317,27 @@ export function BookingPaymentPanel({
         {/* Fare Breakdown Details */}
         <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:text-sm">
           <div className="flex justify-between gap-3 text-slate-600">
-            <span>Cab ki request</span>
+            <span>Booking Type</span>
             <strong className="text-slate-900">
               {bookingLabel ||
-                (mode === "match"
-                  ? "Return match wali request"
-                  : "Confirm cab ki booking")}
+                (mode === "match" ? "Match Deal Request" : "Confirmed Booking")}
             </strong>
           </div>
           <div className="flex justify-between gap-3 text-slate-600">
             <span>Pickup</span>
             <strong className="text-right text-slate-900">
-              {dateLabel} · {timeLabel || "Time chunein"}
+              {dateLabel} · {timeLabel || "Select time"}
             </strong>
           </div>
           <div className="flex justify-between gap-3 text-slate-600">
-            <span>Route ka kiraya</span>
+            <span>Base Fare</span>
             <strong className="text-slate-900">
               {formatRs(breakdown.baseFare)}
             </strong>
           </div>
           {breakdown.dropPointExtra > 0 && (
             <div className="flex justify-between gap-3 text-slate-600">
-              <span>Location ka extra charge</span>
+              <span>Location Extra</span>
               <strong className="text-slate-900">
                 +{formatRs(breakdown.dropPointExtra)}
               </strong>
@@ -347,7 +345,7 @@ export function BookingPaymentPanel({
           )}
           {breakdown.nightSurcharge > 0 && (
             <div className="flex justify-between gap-3 text-slate-600">
-              <span>Raat ka extra charge</span>
+              <span>Night Charge</span>
               <strong className="text-slate-900">
                 +{formatRs(breakdown.nightSurcharge)}
               </strong>
@@ -355,7 +353,7 @@ export function BookingPaymentPanel({
           )}
 
           <div className="flex justify-between gap-3 border-t border-slate-200 pt-2.5 font-bold text-slate-900">
-            <span>Trip ka kul kiraya</span>
+            <span>Total Fare</span>
             <strong className="text-base font-black text-slate-950">
               {formatRs(breakdown.totalFare)}
             </strong>
@@ -366,7 +364,7 @@ export function BookingPaymentPanel({
             <div className="flex justify-between items-center text-amber-900 bg-amber-50/80 p-2 rounded-xl">
               <span className="font-extrabold flex items-center gap-1.5">
                 <CreditCard className="w-4 h-4 text-amber-600" />
-                Abhi online advance dein
+                Advance Payment
               </span>
               <div className="text-right">
                 {isCouponActive && (
@@ -381,7 +379,7 @@ export function BookingPaymentPanel({
             </div>
 
             <div className="flex justify-between items-center text-emerald-900 bg-emerald-50/70 p-2 rounded-xl">
-              <span className="font-bold">Baaki kiraya driver ko dein</span>
+              <span className="font-bold">Balance to Driver</span>
               <strong className="text-sm font-black text-emerald-950">
                 {formatRs(balanceAmount)}
               </strong>
@@ -393,7 +391,7 @@ export function BookingPaymentPanel({
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
             <Tag className="w-3.5 h-3.5 text-amber-600" />
-            <span>Coupon code hai? (zaroori nahi)</span>
+            <span>Have a coupon code? (optional)</span>
           </div>
 
           {appliedCoupon ? (
@@ -401,8 +399,8 @@ export function BookingPaymentPanel({
               <div className="flex items-center gap-2 text-emerald-900">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <strong>{appliedCoupon}</strong> lag gaya:{" "}
-                  <strong>Coupon lag gaya</strong>
+                  <strong>{appliedCoupon}</strong> applied:{" "}
+                  <strong>Coupon Applied</strong>
                   <div className="text-[10px] text-emerald-700">
                     Abhi sirf ₹{advanceAmount} dekar request bhejein.
                   </div>
@@ -413,24 +411,24 @@ export function BookingPaymentPanel({
                 onClick={handleRemoveCoupon}
                 className="min-h-11 text-xs text-rose-600 font-bold hover:underline cursor-pointer ml-2"
               >
-                Hataayein
+                Remove
               </button>
             </div>
           ) : (
             <form onSubmit={handleApplyCoupon} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Coupon code likhein"
+                placeholder="Enter coupon code"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                aria-label="Coupon code likhein"
+                aria-label="Enter coupon code"
                 className="min-w-0 min-h-11 flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 placeholder:normal-case placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#FBBF24]"
               />
               <button
                 type="submit"
                 className="min-h-11 bg-slate-900 hover:bg-black text-white px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
               >
-                Lagaayein
+                Apply
               </button>
             </form>
           )}
@@ -449,7 +447,7 @@ export function BookingPaymentPanel({
         </p>
         {/* Notice of advance payment */}
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-950">
-          <strong>Advance ke niyam:</strong> Request bhejne ke liye abhi{" "}
+          <strong>Advance Policy:</strong> Request bhejne ke liye abhi{" "}
           <strong>{formatRs(advanceAmount)}</strong> advance online dena hai.
           Baaki <strong>{formatRs(balanceAmount)}</strong> safar ke waqt seedha
           driver ko dein.
@@ -472,13 +470,11 @@ export function BookingPaymentPanel({
           {paymentLoading || isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Payment process ho rahi hai…</span>
+              <span>Processing Payment…</span>
             </>
           ) : (
             <>
-              <span>
-                {formatRs(advanceAmount)} dein aur cab request bhejein
-              </span>
+              <span>Pay {formatRs(advanceAmount)} &amp; Submit Request</span>
               <ArrowRight className="h-4 w-4" />
             </>
           )}
