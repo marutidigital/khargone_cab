@@ -1,295 +1,264 @@
-'use client'
-
-import React, { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
-import {
-  Car,
-  Calendar,
-  ArrowRight,
-  RefreshCw,
-} from 'lucide-react'
-import { formatRs } from '@/config/pricing'
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, Calendar, Car, Clock, RefreshCw } from "lucide-react";
+import { BOOKING_CONFIG } from "@/lib/config";
+import { indiaDate } from "@/lib/booking-ux";
 
 export interface PublicAvailableRide {
-  id: string
-  direction: 'KI' | 'IK'
-  routeDirection: 'K2I' | 'I2K'
-  routeLabel: string
-  travelDate: string
-  travelDateFormatted: string
-  pickupTime: string
-  pickupTimeFormatted: string
-  passengerCount: number
-  dropPoint: string
-  dropName: string
-  totalFare: number
-  advanceAmount: number
-  oppositeDirection: 'I2K' | 'K2I'
-  oppositeRouteLabel: string
-  oppositeBaseFare: number
-  statusText: string
+  id: string;
+  direction: "KI" | "IK";
+  routeDirection: "K2I" | "I2K";
+  routeLabel: string;
+  travelDate: string;
+  travelDateFormatted: string;
+  pickupTime: string;
+  pickupTimeFormatted: string;
+  passengerCount: number;
+  dropPoint: string;
+  dropName: string;
+  totalFare: number;
+  advanceAmount: number;
+  oppositeDirection: "I2K" | "K2I";
+  oppositeRouteLabel: string;
+  oppositeBaseFare: number;
+  statusText: string;
 }
 
-interface PublicRideMatchingBoardProps {
-  onBookingSuccess?: (bookingRef: string, publicToken: string, whatsappUrl: string) => void
+interface Props {
+  onNewRequest?: () => void;
 }
-
-export function PublicRideMatchingBoard({ onBookingSuccess }: PublicRideMatchingBoardProps) {
-  const [activeTab, setActiveTab] = useState<'ALL' | 'I2K' | 'K2I'>('ALL')
-  const [rides, setRides] = useState<PublicAvailableRide[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchRides = useCallback(async () => {
-    try {
-      const res = await fetch('/api/public/available-rides', { cache: 'no-store' })
-      if (!res.ok) throw new Error('Failed to fetch available rides')
-      const data = await res.json()
-      setRides(data.rides || [])
-    } catch (err) {
-      console.warn('Error loading public available rides:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
+export function PublicRideMatchingBoard({ onNewRequest }: Props) {
+  const [direction, setDirection] = useState<"ALL" | "I2K" | "K2I">("ALL");
+  const [date, setDate] = useState("");
+  const [rides, setRides] = useState<PublicAvailableRide[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [refresh, setRefresh] = useState(0);
   useEffect(() => {
-    void fetchRides()
-    const timer = window.setInterval(() => void fetchRides(), 20_000)
-    return () => window.clearInterval(timer)
-  }, [fetchRides])
-
-  const countI2K = rides.filter((r) => r.oppositeDirection === 'I2K').length
-  const countK2I = rides.filter((r) => r.oppositeDirection === 'K2I').length
-
-  const filteredRides = rides.filter((r) => {
-    if (activeTab === 'ALL') return true
-    return r.oppositeDirection === activeTab
-  })
-
+    const abort = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch("/api/public/available-rides", {
+          cache: "no-store",
+          signal: abort.signal,
+        });
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data.rides))
+          throw new Error("Unavailable");
+        if (!abort.signal.aborted) setRides(data.rides);
+      } catch {
+        if (!abort.signal.aborted) {
+          setRides([]);
+          setError(
+            "Rides abhi load nahi ho paayin. Refresh karein ya humse baat karein.",
+          );
+        }
+      } finally {
+        if (!abort.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    const timer = window.setInterval(
+      () => setRefresh((value) => value + 1),
+      20_000,
+    );
+    return () => {
+      abort.abort();
+      window.clearInterval(timer);
+    };
+  }, [refresh]);
+  const visible = rides.filter(
+    (ride) =>
+      (direction === "ALL" || ride.oppositeDirection === direction) &&
+      (!date || ride.travelDate === date),
+  );
+  const today = indiaDate();
+  const newRequest = onNewRequest ? (
+    <button
+      type="button"
+      onClick={onNewRequest}
+      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"
+    >
+      New Cab Request <ArrowRight className="h-4 w-4" />
+    </button>
+  ) : (
+    <Link
+      href="/#booking-section"
+      className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white"
+    >
+      New Cab Request
+    </Link>
+  );
   return (
-    <section id="confirmed-rides-board" className="my-8 rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-8 shadow-sm transition-all">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
+    <section
+      id="confirmed-rides-board"
+      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8"
+    >
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-xs">
-              ⚡ Confirmed Rides
-            </span>
-            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              {rides.length > 0 ? `${rides.length} Return Cab${rides.length > 1 ? 's' : ''} Ready` : 'Live Matching Active'}
-            </span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5 flex items-center gap-2">
-            <span>Available Rides – Complete Your Round</span>
-            <span>🚕</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Opposite return trips ready for direct booking. Complete the round trip and get instant ride confirmation.
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
+            Return Matching
           </p>
+          <h2 className="mt-2 text-2xl font-bold">Available Rides</h2>
         </div>
-
         <button
           type="button"
-          onClick={() => {
-            setLoading(true)
-            void fetchRides()
-          }}
-          className="self-start sm:self-center flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold px-3.5 py-2 transition-colors cursor-pointer shadow-2xs"
-          title="Refresh ride board"
+          onClick={() => setRefresh((value) => value + 1)}
+          disabled={loading}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-amber-600' : ''}`} />
-          <span>Refresh</span>
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
         </button>
       </div>
-
-      {/* Direction Switch Tabs */}
-      <div className="mt-6">
-        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-          Select Your Travel Route:
-        </div>
-        <div className="flex flex-wrap gap-2 rounded-2xl bg-slate-100/80 p-1.5 max-w-xl">
-          <button
-            type="button"
-            onClick={() => setActiveTab('ALL')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeTab === 'ALL'
-                ? 'bg-slate-950 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>All Available</span>
-            <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
-              activeTab === 'ALL' ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700'
-            }`}>
-              {rides.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('I2K')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeTab === 'I2K'
-                ? 'bg-amber-400 text-slate-950 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Indore ➔ Khargone</span>
-            <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
-              activeTab === 'I2K' ? 'bg-slate-950 text-amber-300' : 'bg-slate-200 text-slate-700'
-            }`}>
-              {countI2K}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('K2I')}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm font-black transition-all cursor-pointer ${
-              activeTab === 'K2I'
-                ? 'bg-amber-400 text-slate-950 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Khargone ➔ Indore</span>
-            <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
-              activeTab === 'K2I' ? 'bg-slate-950 text-amber-300' : 'bg-slate-200 text-slate-700'
-            }`}>
-              {countK2I}
-            </span>
-          </button>
-        </div>
+      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
+        Kisi passenger ki opposite-direction request pehle se available hai.
+        Apni date aur pickup time match karke booking request bhejein. Aapko
+        sirf apni one-way trip book karni hai.
+      </p>
+      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+        <strong>Confirmation:</strong> Yeh matching opportunities hain, pehle se
+        confirmed cabs nahi. Usi travel date par time aur booking checks poore
+        hone ke baad hi final confirmation milegi.
       </div>
-
-      {/* Ride Cards List */}
-      <div className="mt-6">
-        {loading && rides.length === 0 ? (
-          <div className="py-14 text-center">
-            <RefreshCw className="h-7 w-7 animate-spin text-amber-500 mx-auto mb-2" />
-            <p className="text-xs font-bold text-slate-500">Scanning active return rides...</p>
-          </div>
-        ) : filteredRides.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/70 p-8 sm:p-10 text-center max-w-xl mx-auto space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto text-amber-800">
-              <Car className="h-6 w-6" />
-            </div>
-            <h4 className="text-sm sm:text-base font-black text-slate-900">
-              No return rides available for {activeTab === 'I2K' ? 'Indore ➔ Khargone' : activeTab === 'K2I' ? 'Khargone ➔ Indore' : 'this selection'} right now
-            </h4>
-            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-              {activeTab === 'K2I' && countI2K > 0 ? (
-                <>
-                  Good news: <strong>{countI2K} cab{countI2K > 1 ? 's are' : ' is'} waiting in the opposite direction (Indore ➔ Khargone)</strong>!
-                </>
-              ) : activeTab === 'I2K' && countK2I > 0 ? (
-                <>
-                  Good news: <strong>{countK2I} cab{countK2I > 1 ? 's are' : ' is'} waiting in the opposite direction (Khargone ➔ Indore)</strong>!
-                </>
-              ) : (
-                'You can request a new booking below — our system will match an opposite return passenger automatically!'
-              )}
-            </p>
-
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
-              {activeTab === 'K2I' && countI2K > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('I2K')}
-                  className="rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-2.5 transition active:scale-95 cursor-pointer shadow-xs"
-                >
-                  ⚡ View Indore ➔ Khargone Rides ({countI2K})
-                </button>
-              )}
-              {activeTab === 'I2K' && countK2I > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('K2I')}
-                  className="rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-2.5 transition active:scale-95 cursor-pointer shadow-xs"
-                >
-                  ⚡ View Khargone ➔ Indore Rides ({countK2I})
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  document.getElementById('booking-section')?.scrollIntoView({ behavior: 'smooth' })
-                }}
-                className="rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2.5 transition active:scale-95 cursor-pointer"
-              >
-                Book Custom Cab Below ↓
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredRides.map((ride) => (
-              <div
+      <div className="mt-6 flex flex-wrap gap-2" aria-label="Your travel route">
+        {(["ALL", "K2I", "I2K"] as const).map((value) => (
+          <button
+            type="button"
+            key={value}
+            aria-pressed={direction === value}
+            onClick={() => setDirection(value)}
+            className={`min-h-12 rounded-xl border px-4 py-3 text-sm font-bold ${direction === value ? "border-amber-400 bg-amber-400" : "border-slate-200"}`}
+          >
+            {value === "ALL"
+              ? "All Routes"
+              : value === "K2I"
+                ? "Khargone → Indore"
+                : "Indore → Khargone"}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <label className="text-sm font-semibold">
+          Travel Date
+          <input
+            type="date"
+            min={today}
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="mt-2 block min-h-12 max-w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base"
+          />
+        </label>
+        <button
+          type="button"
+          aria-pressed={date === today}
+          onClick={() => setDate(today)}
+          className={`min-h-12 rounded-xl border px-4 text-sm font-bold ${date === today ? "border-amber-500 bg-amber-50" : "border-slate-200"}`}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          aria-pressed={!date}
+          onClick={() => setDate("")}
+          className={`min-h-12 rounded-xl border px-4 text-sm font-bold ${!date ? "border-amber-500 bg-amber-50" : "border-slate-200"}`}
+        >
+          All Dates
+        </button>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">
+        Aaj aur future dates ki available rides yahan dikhti hain. List har 20
+        seconds mein refresh hoti hai.
+      </p>
+      {loading ? (
+        <p role="status" className="py-10 text-sm text-slate-600">
+          Available rides check ho rahi hain…
+        </p>
+      ) : error ? (
+        <div
+          role="alert"
+          className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+        >
+          {error}
+          <a
+            href="tel:+917282316090"
+            className="mt-2 flex min-h-11 items-center font-bold underline"
+          >
+            Call Support
+          </a>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+          <h3 className="font-bold">No Available Rides</h3>
+          <p className="mb-4 mt-2 text-sm leading-relaxed text-slate-600">
+            Is route aur date ke liye abhi return match available nahi hai. All
+            Dates check karein ya nayi cab request bhejein.
+          </p>
+          {newRequest}
+        </div>
+      ) : (
+        <>
+          <p role="status" className="mt-6 text-sm text-slate-500">
+            {visible.length} available{" "}
+            {visible.length === 1 ? "match" : "matches"}
+          </p>
+          <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visible.map((ride) => (
+              <article
                 key={ride.id}
-                className="group flex flex-col justify-between rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs hover:border-amber-400 hover:shadow-lg transition-all"
+                className="min-w-0 rounded-2xl border border-slate-200 p-5"
               >
-                <div className="space-y-3.5">
-                  {/* Your Booking Route */}
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2 rounded-xl bg-amber-400 text-slate-950 shadow-2xs">
-                        <Car className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Your Travel Route
-                        </span>
-                        <strong className="text-base font-black text-slate-900">
-                          {ride.oppositeRouteLabel}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 text-[10px] font-black uppercase">
-                      ⚡ Instant Match
-                    </span>
-                  </div>
-
-                  {/* Travel Date */}
-                  <div className="flex items-center gap-2 text-xs text-slate-800 font-bold">
-                    <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span>Travel Date: {ride.travelDateFormatted}</span>
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Dedicated 4-seater AC Sedan (Dzire / Amaze). Complete this return trip and both rides get confirmed immediately.
-                  </p>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-950">
+                  Available Match
+                </span>
+                <p className="mt-4 text-xs font-semibold text-slate-500">
+                  Your Route
+                </p>
+                <h3 className="mt-1 text-lg font-bold">
+                  {ride.oppositeRouteLabel}
+                </h3>
+                <p className="mt-4 flex items-center gap-2 text-sm font-semibold">
+                  <Calendar className="h-4 w-4 shrink-0 text-amber-700" />
+                  {ride.travelDateFormatted}
+                </p>
+                <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  Opposite pickup: {ride.pickupTimeFormatted}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {ride.routeLabel} ki request available hai. Apna compatible
+                  pickup time next step mein chunein.
+                </p>
+                <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+                  <Car className="h-4 w-4" />
+                  Private AC Sedan · One-way Trip
                 </div>
-
-                {/* Pricing & Booking Button */}
-                <div className="mt-5 border-t border-slate-100 pt-4 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Fixed Fare
-                    </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <strong className="text-xl font-black text-slate-900">
-                        {formatRs(ride.oppositeBaseFare)}
-                      </strong>
-                      <span className="text-[11px] font-bold text-emerald-700">
-                        · ₹{ride.advanceAmount} Adv
-                      </span>
-                    </div>
-                  </div>
-
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <p className="text-xs text-slate-500">Fare from</p>
+                  <p className="mt-1 text-2xl font-black">
+                    ₹
+                    {BOOKING_CONFIG.matchDealBaseFares[
+                      ride.oppositeDirection
+                    ].toLocaleString("en-IN")}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    Final fare pickup time aur location ke hisaab se dikhega.
+                  </p>
                   <Link
-                    href={`/book-return/${ride.id}`}
-                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-4 py-2.5 text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
+                    href={`/book-return/${encodeURIComponent(ride.id)}`}
+                    className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold"
                   >
-                    <span>Book Now</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
+                    View & Book <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </section>
-  )
+  );
 }

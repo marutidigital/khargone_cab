@@ -51,3 +51,14 @@ The redesigned booking journey, payment panel, status pages, lookup page and sup
 ## Final language preference
 
 Short headings, form labels, status badges and buttons use familiar English (Today, Tomorrow, Continue, Enter coupon code, Pay & Submit Request). One-line messages and explanations stay in natural Roman Hinglish, using common English terms such as trip details, travel date, payment and refund policy. This supersedes the earlier all-Hinglish labels.
+
+## Confirmed Booking tab
+
+- Added a prominent homepage tab next to New Cab Request. Switching tabs preserves the request form, and switching is disabled while checkout is busy. Tab controls support arrow keys and Home/End.
+- Reused the existing public available-rides API and existing return checkout. No API routes, database or matching/payment algorithms changed.
+- Rebuilt `PublicRideMatchingBoard.tsx` with visitor-direction route labels, date/Today/All Dates filters, base-fare estimates from current configuration, explicit Available Match badges, 20-second refresh, loading/error/empty states, and View & Book links. Failed refresh removes stale cards.
+- Updated `/confirmed-rides` to use the same board and customer header. Existing return checkout copy no longer promises instant/100% confirmation, and it rejects an API response explicitly marked unavailable.
+- Local isolated browser fixtures verified both directions, today and future dates, no matches, failed refresh with no stale cards, 320px overflow, and a ride that became unavailable before checkout. Screenshot uses mock rides; those were never added to the database or deployment.
+- Read-only production public API check returned 0 available rides at verification time. The real board therefore correctly shows an empty list until eligible waiting requests are returned by that API.
+- 33 tests, TypeScript and build pass. Targeted ESLint has zero errors; warnings remain in the existing return-checkout page.
+- Existing public API caps the list at 50 rows and defines eligibility/cutoff behavior. This frontend does not widen those backend rules. Existing payment/atomic matching limitations described above still apply; the tab does not certify them resolved.

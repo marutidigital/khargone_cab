@@ -105,8 +105,8 @@ export default function BookReturnRidePage() {
         throw new Error('This return ride is no longer available or was already booked.')
       }
       const data = await res.json()
-      if (!data.ride) {
-        throw new Error('Return ride details not found.')
+      if (!data.ride || data.ride.isAvailable === false) {
+        throw new Error('Yeh ride ab available nahi hai. List refresh karke doosri ride chunein.')
       }
       setRide(data.ride)
     } catch (err: any) {
@@ -280,7 +280,7 @@ export default function BookReturnRidePage() {
         modal: {
           ondismiss: () => {
             setIsSubmitting(false)
-            setErrorMsg('Advance payment cancelled. Booking requires advance to confirm.')
+            setErrorMsg('Advance payment cancel hui. Request bhejne ke liye advance dena zaroori hai.')
           },
         },
         handler: async (response: {
@@ -395,12 +395,12 @@ export default function BookReturnRidePage() {
               className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-950 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to Confirmed Rides Board</span>
+              <span>Back to Available Rides</span>
             </Link>
 
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-bold">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>100% Confirmed Return Deal</span>
+              <span>Available Return Match</span>
             </span>
           </div>
 
@@ -416,7 +416,7 @@ export default function BookReturnRidePage() {
                 <span className="text-amber-400">{ride.oppositeRouteLabel}</span>
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-                A verified passenger is traveling on <strong>{ride.routeLabel}</strong> at <strong>{ride.pickupTimeFormatted}</strong> on <strong>{ride.travelDateFormatted}</strong>. By reserving your return seat below, both rides get immediately confirmed with our dedicated driver fleet.
+                <strong>{ride.routeLabel}</strong> ki request <strong>{ride.travelDateFormatted}</strong> ko <strong>{ride.pickupTimeFormatted}</strong> par available hai. Apni opposite-direction trip ke liye compatible pickup time chunein. Final confirmation same-date match aur booking checks poore hone ke baad milegi.
               </p>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mt-4 text-xs">
@@ -719,7 +719,7 @@ export default function BookReturnRidePage() {
                     </>
                   ) : (
                     <>
-                      <span>Pay {formatRs(advanceToPay)} Advance & Confirm</span>
+                      <span>Pay {formatRs(advanceToPay)} & Submit Request</span>
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
@@ -727,7 +727,7 @@ export default function BookReturnRidePage() {
 
                 <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-slate-500">
                   <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  <span>100% Secure Payment via Razorpay · Instant WhatsApp Confirmation</span>
+                  <span>Secure Payment via Razorpay · WhatsApp Updates</span>
                 </div>
               </div>
             </div>
