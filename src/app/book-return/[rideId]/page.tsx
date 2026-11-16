@@ -24,6 +24,7 @@ import {
 import { Nav } from '@/components/Nav'
 import { FooterMarquee } from '@/components/FooterMarquee'
 import { FooterTrust } from '@/components/FooterTrust'
+import { INDORE_BOOKING_POINTS, defaultAddresses, EXTRA_DISTANCE_NOTICE } from '@/lib/booking-addresses'
 import { PRICING_CONFIG, formatRs } from '@/config/pricing'
 import { calculateBookingFare, getDropPointExtra, type DropPointId, type RouteDirection } from '@/lib/config'
 
@@ -79,6 +80,7 @@ export default function BookReturnRidePage() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [address, setAddress] = useState('')
+  const [dropAddress, setDropAddress] = useState('')
   const [passengers, setPassengers] = useState(1)
   const [selectedPointId, setSelectedPointId] = useState<DropPointId>('rajendra')
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -235,7 +237,8 @@ export default function BookReturnRidePage() {
             name: name.trim(),
             phone: phone.trim(),
             email: email.trim() || undefined,
-            address: address.trim() || undefined,
+            address: address.trim() || defaultAddresses(visitorDirection, PRICING_CONFIG.points.find(point => point.id === selectedPointId)!.name).pickup,
+            dropAddress: dropAddress.trim() || defaultAddresses(visitorDirection, PRICING_CONFIG.points.find(point => point.id === selectedPointId)!.name).drop,
             passengers: passengers,
             idempotencyKey,
             matchedWithBookingId: ride.id,
@@ -255,7 +258,7 @@ export default function BookReturnRidePage() {
         throw new Error(orderData.error || 'Failed to initialize payment gateway.')
       }
 
-      const keyId = orderData.key_id || 'rzp_test_TyAjmTx2XdmBnh'
+      const keyId = orderData.key_id; if (!keyId) throw new Error('Payment configuration unavailable. Please contact support.')
       const RazorpayClass = (window as any).Razorpay
       if (!RazorpayClass) {
         throw new Error('Payment gateway SDK loading. Please retry in a few seconds.')
@@ -503,7 +506,7 @@ export default function BookReturnRidePage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                  {PRICING_CONFIG.points.map((pt) => {
+                  {PRICING_CONFIG.points.filter(pt => (INDORE_BOOKING_POINTS as readonly string[]).includes(pt.id)).map((pt) => {
                     const isSelected = selectedPointId === pt.id
                     return (
                       <button
@@ -532,16 +535,18 @@ export default function BookReturnRidePage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Exact Pickup / Drop Address or Landmark (Optional)
+                    Pickup Address
                   </label>
                   <input
                     type="text"
+                    maxLength={250}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Near Vijay Nagar Square / Collectorate / Home Address"
+                    placeholder={defaultAddresses(visitorDirection, PRICING_CONFIG.points.find(point => point.id === selectedPointId)!.name).pickup}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   />
                 </div>
+                <label className="mt-4 block text-sm font-bold">Drop Address<input type="text" maxLength={250} value={dropAddress} onChange={event => setDropAddress(event.target.value)} placeholder={defaultAddresses(visitorDirection, PRICING_CONFIG.points.find(point => point.id === selectedPointId)!.name).drop} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 px-3 text-base" /></label><p className="mt-3 rounded-xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{EXTRA_DISTANCE_NOTICE}</p>
               </div>
 
               {/* Step 3: Passenger Information */}

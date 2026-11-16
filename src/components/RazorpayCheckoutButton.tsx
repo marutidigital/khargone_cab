@@ -71,7 +71,7 @@ export function RazorpayCheckoutButton({
         throw new Error(orderData.error || 'Failed to initialize payment order.')
       }
 
-      const keyId = orderData.key_id || 'rzp_test_TyAjmTx2XdmBnh'
+      const keyId = orderData.key_id; if (!keyId) throw new Error('Payment configuration unavailable. Please contact support.')
 
       if (!window.Razorpay) {
         throw new Error('Razorpay SDK failed to load. Please check your internet connection.')

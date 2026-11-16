@@ -12,7 +12,8 @@ export async function fetchRazorpayOrder(orderId: string) {
   return response.json()
 }
 
-export async function fetchCapturedBookingPayment(paymentId: string, orderId: string, booking: { id: string; booking_ref: string; advance_amount?: number }) {
+export async function fetchCapturedBookingPayment(paymentId: string, orderId: string, booking: { id: string; booking_ref: string; advance_amount?: number; extras?: {razorpay_order_id?: string} }) {
+  if (booking.extras?.razorpay_order_id && booking.extras.razorpay_order_id !== orderId) throw new Error('Payment order does not belong to this booking.')
   if (!/^pay_[A-Za-z0-9]+$/.test(paymentId) || !/^order_[A-Za-z0-9]+$/.test(orderId)) throw new Error('Invalid payment identifiers.')
   const { keyId, keySecret } = getRazorpayCredentials()
   if (!keyId || !keySecret) throw new Error('Payment gateway is not configured.')
@@ -28,7 +29,8 @@ export async function fetchCapturedBookingPayment(paymentId: string, orderId: st
   return Number(payment.amount) / 100
 }
 
-export function assertCapturedBookingPayment(payment: any, order: any, booking: { id: string; booking_ref: string; advance_amount?: number }) {
+export function assertCapturedBookingPayment(payment: any, order: any, booking: { id: string; booking_ref: string; advance_amount?: number; extras?: {razorpay_order_id?: string} }) {
+  if (booking.extras?.razorpay_order_id && booking.extras.razorpay_order_id !== order.id) throw new Error('Payment order does not belong to this booking.')
   if (payment.status !== 'captured' || payment.order_id !== order.id || payment.currency !== 'INR') throw new Error('Payment is not captured for this order.')
   if (order.notes?.booking_id !== booking.id && order.notes?.booking_ref !== booking.booking_ref) throw new Error('Payment does not belong to this booking.')
   const expectedPaise = Math.round(Number(booking.advance_amount || 500) * 100)

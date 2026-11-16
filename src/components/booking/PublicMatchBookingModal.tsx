@@ -221,7 +221,7 @@ export function PublicMatchBookingModal({
         throw new Error(orderData.error || 'Failed to create payment order.')
       }
 
-      const keyId = orderData.key_id || 'rzp_test_TyAjmTx2XdmBnh'
+      const keyId = orderData.key_id; if (!keyId) throw new Error('Payment configuration unavailable. Please contact support.')
 
       // 3. Open Razorpay modal
       const options = {

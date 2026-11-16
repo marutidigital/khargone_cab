@@ -14,7 +14,6 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
   const signature = request.headers.get('x-razorpay-signature') || ''
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET
 
   // 1. Signature Verification - Fail immediately with 401 if invalid
   if (!verifyRazorpayWebhookSignature(rawBody, signature)) {

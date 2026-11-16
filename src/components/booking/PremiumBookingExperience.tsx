@@ -12,6 +12,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { PublicRideMatchingBoard } from "./PublicRideMatchingBoard";
+import {
+  INDORE_BOOKING_POINTS,
+  defaultAddresses,
+  EXTRA_DISTANCE_NOTICE,
+} from "@/lib/booking-addresses";
 import { BookingHeader } from "./BookingHeader";
 import { BookingPaymentPanel } from "./BookingPaymentPanel";
 import {
@@ -44,7 +49,8 @@ export function PremiumBookingExperience() {
   const [period, setPeriod] = useState("Morning");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState("Bus Stand, Khargone");
+  const [dropAddress, setDropAddress] = useState("Rajendra Nagar, Indore");
   const [passengers, setPassengers] = useState(1);
   const [consent, setConsent] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
@@ -77,7 +83,10 @@ export function PremiumBookingExperience() {
   const timeValid = Boolean(
     pickup && pickup.getTime() > now && date >= today && date <= maxDate,
   );
+  const addressesValid =
+    address.trim().length >= 5 && dropAddress.trim().length >= 5;
   const valid =
+    addressesValid &&
     timeValid &&
     name.trim().length >= 2 &&
     /^[6-9]\d{9}$/.test(phone) &&
@@ -92,7 +101,7 @@ export function PremiumBookingExperience() {
       year: "numeric",
     },
   );
-  const whatsapp = `https://wa.me/917282316090?text=${encodeURIComponent(`Namaste MarutiCab, mujhe ${route} ki booking mein madad chahiye. Indore mein jagah: ${location.name}. Safar ki tareekh: ${date}${time ? `, pickup ka time: ${timeLabel(time)}` : ""}.`)}`;
+  const whatsapp = `https://wa.me/917282316090?text=${encodeURIComponent(`Namaste MarutiCab, mujhe ${route} ki booking mein madad chahiye. Pickup: ${address}. Drop: ${dropAddress}. Safar ki tareekh: ${date}${time ? `, pickup ka time: ${timeLabel(time)}` : ""}.`)}`;
   const move = (next: number) => {
     if (paymentBusy || submitting) return;
     setStep(next);
@@ -114,7 +123,8 @@ export function PremiumBookingExperience() {
       name: name.trim(),
       phone,
       passengers,
-      address,
+      address: address.trim(),
+      dropAddress: dropAddress.trim(),
       consent,
     };
     const fingerprint = JSON.stringify(data);
@@ -287,6 +297,10 @@ export function PremiumBookingExperience() {
                         type="button"
                         aria-pressed={direction === value}
                         onClick={() => {
+                          if (value !== direction) {
+                            setAddress(dropAddress);
+                            setDropAddress(address);
+                          }
                           setDirection(value);
                           setTime("");
                         }}
@@ -309,27 +323,91 @@ export function PremiumBookingExperience() {
                     Indore {direction === "K2I" ? "Drop" : "Pickup"} Location
                     <select
                       value={point}
-                      onChange={(event) =>
-                        setPoint(event.target.value as DropPointId)
-                      }
+                      onChange={(event) => {
+                        const id = event.target.value as DropPointId;
+                        setPoint(id);
+                        const next = defaultAddresses(
+                          direction,
+                          PRICING_CONFIG.points.find(
+                            (entry) => entry.id === id,
+                          )!.name,
+                        );
+                        if (direction === "K2I") setDropAddress(next.drop);
+                        else setAddress(next.pickup);
+                      }}
                       className={input}
                     >
-                      {PRICING_CONFIG.points.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.name} —{" "}
-                          {
+                      {PRICING_CONFIG.points
+                        .filter((entry) =>
+                          (INDORE_BOOKING_POINTS as readonly string[]).includes(
+                            entry.id,
+                          ),
+                        )
+                        .map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.name} ·{" "}
+                            {money(
+                              calculateBookingFare({
+                                mode: "match",
+                                direction,
+                                point: entry.id,
+                                pickupTime: time || "12:00",
+                              }).totalFare,
+                            )}{" "}
+                            —{" "}
                             {
-                              rajendra: "Shehar ka drop",
-                              bhawarkua: "AB Road ki location",
-                              rajwada: "Purana shehar / bazaar",
-                              railway: "Indore Junction",
-                              airport: "Devi Ahilya Airport",
-                            }[entry.id]
-                          }
-                        </option>
-                      ))}
+                              {
+                                rajendra: "Shehar ka drop",
+                                bhawarkua: "AB Road ki location",
+                                rajwada: "Purana shehar / bazaar",
+                                railway: "Indore Junction",
+                                airport: "Devi Ahilya Airport",
+                              }[entry.id]
+                            }
+                          </option>
+                        ))}
                     </select>
                   </label>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-semibold">
+                      Pickup Address
+                      <input
+                        autoComplete="section-pickup street-address"
+                        required
+                        minLength={5}
+                        maxLength={250}
+                        value={address}
+                        onChange={(event) => setAddress(event.target.value)}
+                        placeholder="Enter pickup address"
+                        className={input}
+                      />
+                    </label>
+                    <label className="block text-sm font-semibold">
+                      Drop Address
+                      <input
+                        autoComplete="section-drop street-address"
+                        required
+                        minLength={5}
+                        maxLength={250}
+                        value={dropAddress}
+                        onChange={(event) => setDropAddress(event.target.value)}
+                        placeholder="Enter drop address"
+                        className={input}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-sm leading-relaxed text-slate-500">
+                    Base route Khargone Bus Stand se Rajendra Nagar, Indore tak
+                    hai. Apna exact pickup aur drop address yahan likhein.
+                  </p>
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+                    {EXTRA_DISTANCE_NOTICE}
+                  </p>
+                  {error && (
+                    <p role="alert" className="text-sm text-rose-700">
+                      {error}
+                    </p>
+                  )}
                   <div className="flex items-end justify-between gap-3 rounded-2xl bg-slate-50 p-5">
                     <div>
                       <p className="text-sm text-slate-500">One-way Fare</p>
@@ -343,7 +421,16 @@ export function PremiumBookingExperience() {
                       Raat ke pickup par extra charge lagega
                     </span>
                   </div>
-                  <button onClick={() => move(1)} className="booking-primary">
+                  <button
+                    onClick={() =>
+                      addressesValid
+                        ? move(1)
+                        : setError(
+                            "Pickup aur drop ke poore addresses bharein.",
+                          )
+                    }
+                    className="booking-primary"
+                  >
                     Continue <ArrowRight className="h-5 w-5" />
                   </button>
                 </div>
@@ -502,6 +589,12 @@ export function PremiumBookingExperience() {
                     <p className="mt-2 text-slate-600">
                       {location.name} · {dateLabel}
                     </p>
+                    <p className="mt-2 break-words text-slate-600">
+                      <strong>Pickup:</strong> {address}
+                    </p>
+                    <p className="mt-2 break-words text-slate-600">
+                      <strong>Drop:</strong> {dropAddress}
+                    </p>
                     <p className="mt-1 font-semibold">
                       Pickup: {timeLabel(time)}
                     </p>
@@ -543,18 +636,6 @@ export function PremiumBookingExperience() {
                       }
                       className={input}
                       placeholder="10-digit mobile number"
-                    />
-                  </label>
-                  <label className="block text-sm font-semibold">
-                    Pickup Address / Landmark{" "}
-                    <span className="font-normal text-slate-500">
-                      (optional)
-                    </span>
-                    <input
-                      autoComplete="street-address"
-                      value={address}
-                      onChange={(event) => setAddress(event.target.value)}
-                      className={input}
                     />
                   </label>
                   <label className="block text-sm font-semibold">

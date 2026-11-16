@@ -7,6 +7,7 @@ import { PRICING_CONFIG } from '@/config/pricing'
 import { notify, notifyAdmin } from '@/lib/booking-notifications'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { sendBookingAutomation } from '@/lib/whatsapp-automation'
+import { fetchCapturedBookingPayment } from '@/lib/verified-booking-payment'
 import { tryAutomaticFIFOMatch, secureAndConfirmMatch } from '@/lib/matching-engine'
 
 const Input = z.object({
@@ -15,6 +16,7 @@ const Input = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   name: z.string().trim().min(2).max(60), phone: z.string().regex(/^[6-9]\d{9}$/),
   email: z.string().trim().email().optional().or(z.literal('')).transform(val => val || undefined),
+  dropAddress: z.string().trim().max(250).optional(),
   passengers: z.number().int().min(1).max(4), address: z.string().trim().max(250).optional().default(''),
   consent: z.literal(true), idempotencyKey: z.string().min(12).max(100),
   confirmedRideId: z.string().uuid().optional(),
@@ -60,7 +62,8 @@ export async function POST(request: NextRequest) {
   // Enforce advance payment: verify Razorpay signature
   let advancePaid = 0
   if (data.paymentOrderId && data.paymentId && data.paymentSignature) {
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 't87HNHonjGlKH6vnUXa4SX9v'
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
+    if (!keySecret) return NextResponse.json({error:'Payment verification is not configured.'}, {status:503})
     const generatedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${data.paymentOrderId}|${data.paymentId}`)
@@ -80,13 +83,19 @@ export async function POST(request: NextRequest) {
     }, { status: 400 })
   }
 
-  const balanceAmount = Math.max(0, fare.totalFare - advancePaid)
+  let balanceAmount = Math.max(0, fare.totalFare - advancePaid)
 
   const db = createServiceClient()
-  const { data: existing, error: duplicateError } = await db.from('bookings').select('id,public_token,booking_ref,status,phone').eq('idempotency_key', data.idempotencyKey).limit(1)
+  const { data: existing, error: duplicateError } = await db.from('bookings').select('id,public_token,booking_ref,status,phone,extras,advance_amount,total_fare').eq('idempotency_key', data.idempotencyKey).limit(1)
   if (duplicateError) return NextResponse.json({ error: 'Booking storage is unavailable. Apply the Supabase migration and try again.' }, { status: 503 })
+  if (!existing?.[0]) return NextResponse.json({error:'Start checkout first so this payment can be linked to a booking.'}, {status:409})
   if (existing?.[0]) {
     const prior = existing[0]
+    if (prior.phone !== data.phone) return NextResponse.json({error:'This checkout is not associated with your phone number.'}, {status:403})
+    try {
+      advancePaid = await fetchCapturedBookingPayment(String(data.paymentId), String(data.paymentOrderId), prior)
+      balanceAmount = Math.max(0, Number(prior.total_fare || fare.totalFare) - advancePaid)
+    } catch { return NextResponse.json({error:'Payment is not captured for this booking and order.'}, {status:409}) }
     if (prior.phone !== data.phone) return NextResponse.json({ error: 'This checkout key is not associated with your phone number.' }, { status: 403 })
     if (['waiting', 'matched', 'confirmed', 'no_match_decision'].includes(prior.status)) {
       return NextResponse.json({ bookingRef: prior.booking_ref, publicToken: prior.public_token, status: prior.status, fare })
@@ -100,6 +109,8 @@ export async function POST(request: NextRequest) {
         balance_amount: balanceAmount,
         updated_at: new Date().toISOString(),
         extras: {
+          ...(prior.extras || {}),
+          ...(data.dropAddress ? {drop_address: data.dropAddress} : {}),
           razorpay_order_id: data.paymentOrderId,
           razorpay_payment_id: data.paymentId,
           coupon_code: data.couponCode || null,
@@ -207,6 +218,7 @@ export async function POST(request: NextRequest) {
     total_fare: fare.totalFare, advance_amount: advancePaid, advance_paid: advancePaid,
     is_night: fare.nightSurcharge > 0,
     extras: {
+      ...(data.dropAddress ? {drop_address: data.dropAddress} : {}),
       drop_point_extra: fare.dropPointExtra,
       night_surcharge: fare.nightSurcharge,
       razorpay_order_id: data.paymentOrderId,

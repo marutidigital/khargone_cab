@@ -12,6 +12,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { BookingHeader } from "@/components/booking/BookingHeader";
+import {
+  getBookingAddresses,
+  EXTRA_DISTANCE_NOTICE,
+} from "@/lib/booking-addresses";
 import { customerStatus } from "@/lib/booking-ux";
 
 interface DriverInfo {
@@ -30,6 +34,7 @@ interface BookingView {
   direction: string;
   drop_name: string;
   address?: string | null;
+  extras?: { drop_address?: string } | null;
   travel_date: string;
   pickup_time: string;
   passenger_count: number;
@@ -125,6 +130,7 @@ export default function BookingConfirmationPage() {
     return `${String(h12).padStart(2, "0")}:${String(m || 0).padStart(2, "0")} ${period}`;
   };
 
+  const locations = booking ? getBookingAddresses(booking) : null;
   const status = customerStatus(booking?.status || "");
   const route =
     booking?.direction === "KI" || booking?.direction === "K2I"
@@ -221,9 +227,8 @@ export default function BookingConfirmationPage() {
                     ["Passenger Name", booking.passenger_name],
                     ["WhatsApp", booking.masked_phone || booking.phone],
                     ["Passengers", booking.passenger_count],
-                    ...(booking.address
-                      ? [["Pickup Landmark", booking.address]]
-                      : []),
+                    ["Pickup Address", locations?.pickup || ""],
+                    ["Drop Address", locations?.drop || ""],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-4">
                       <dt className="text-slate-500">{label}</dt>
@@ -236,6 +241,9 @@ export default function BookingConfirmationPage() {
               </section>
               <section className="rounded-3xl border border-slate-200 bg-white p-6">
                 <h2 className="font-bold">Payment Details</h2>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {EXTRA_DISTANCE_NOTICE}
+                </p>
                 <dl className="mt-4 space-y-3 text-sm">
                   {[
                     ["Total Fare", booking.total_fare],

@@ -200,6 +200,7 @@ function CheckoutContent() {
         throw new Error(orderData.error || 'Could not initiate payment order.')
       }
 
+      if (!orderData.key_id) throw new Error('Payment configuration unavailable. Please contact support.')
       setOrderId(orderData.id)
 
       if (typeof window === 'undefined' || !(window as any).Razorpay) {
@@ -208,7 +209,7 @@ function CheckoutContent() {
 
       // 2. Open Razorpay Checkout modal
       const options = {
-        key: orderData.key_id || 'rzp_test_TyAjmTx2XdmBnh',
+        key: orderData.key_id,
         amount: orderData.amount,
         currency: orderData.currency || 'INR',
         name: 'MarutiCab Intercity',

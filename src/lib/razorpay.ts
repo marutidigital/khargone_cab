@@ -4,8 +4,10 @@ const apiBase = 'https://api.razorpay.com/v1'
 
 // Credentials are supplied by the deployment environment only.
 export function getRazorpayCredentials() {
-  const keyId = process.env.RAZORPAY_KEY_ID || ''
-  const keySecret = process.env.RAZORPAY_KEY_SECRET || ''
+  const keyId = process.env.RAZORPAY_KEY_ID?.trim() || ''
+  const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim() || ''
+  const production = process.env.VERCEL_ENV === 'production' || (process.env.NODE_ENV === 'production' && !process.env.VERCEL_ENV)
+  if (production && keyId && !keyId.startsWith('rzp_live_')) throw new Error('Live Razorpay credentials are required in production.')
   return { keyId, keySecret, isTest: keyId.startsWith('rzp_test_') }
 }
 
@@ -78,13 +80,7 @@ export function verifyRazorpayPaymentSignature(orderId: string, paymentId: strin
 }
 
 export function verifyRazorpayWebhookSignature(rawBody: string, signature: string) {
-  const { keySecret } = getRazorpayCredentials()
-  const secrets = [
-    process.env.RAZORPAY_WEBHOOK_SECRET,
-    keySecret,
-    process.env.RAZORPAY_KEY_SECRET,
-    'maruticab_webhook_2025',
-  ].filter(Boolean) as string[]
+  const secrets = [process.env.RAZORPAY_WEBHOOK_SECRET].filter(Boolean) as string[]
 
   if (!signature || secrets.length === 0) return false
 

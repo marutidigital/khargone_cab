@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
+import { EXTRA_DISTANCE_NOTICE } from "@/lib/booking-addresses";
 import { formatRs } from "@/config/pricing";
 import { type BookingMode, type FareBreakdown } from "@/lib/config";
 
@@ -165,7 +166,7 @@ export function BookingPaymentPanel({
         );
       }
 
-      const keyId = orderData.key_id || "rzp_test_TyAjmTx2XdmBnh";
+      const keyId = orderData.key_id; if (!keyId) throw new Error('Payment configuration unavailable. Please contact support.');
       if (!window.Razorpay) {
         throw new Error(
           "Payment ki suvidha taiyaar ho rahi hai. Kuch second baad dobara koshish karein.",
@@ -353,7 +354,7 @@ export function BookingPaymentPanel({
           )}
 
           <div className="flex justify-between gap-3 border-t border-slate-200 pt-2.5 font-bold text-slate-900">
-            <span>Total Fare</span>
+            <span>Route Fare</span>
             <strong className="text-base font-black text-slate-950">
               {formatRs(breakdown.totalFare)}
             </strong>
@@ -445,6 +446,7 @@ export function BookingPaymentPanel({
           tak aapki cab confirm nahi hai. Sirf payment karne se cab confirm nahi
           hoti.
         </p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">{EXTRA_DISTANCE_NOTICE}</p>
         {/* Notice of advance payment */}
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-950">
           <strong>Advance Policy:</strong> Request bhejne ke liye abhi{" "}

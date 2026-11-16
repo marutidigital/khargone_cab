@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase-server'
 import { verifyRazorpayPaymentSignature } from '@/lib/razorpay'
 import { sendWhatsAppTemplateMessage } from '@/lib/whatsapp-templates'
 import { notifyAdmin } from '@/lib/booking-notifications'
+import { fetchCapturedBookingPayment } from '@/lib/verified-booking-payment'
 import { tryMatchBookingAndConfirm } from '@/lib/matching-engine'
 
 export async function POST(req: NextRequest) {
@@ -56,15 +57,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (booking) {
-      const amountRupees = Number(booking.advance_amount || 500)
+      let amountRupees: number
+      try { amountRupees = await fetchCapturedBookingPayment(String(paymentId), String(orderId), booking) }
+      catch { return NextResponse.json({success:false,error:'Payment is not captured for this booking and order. Please check status before paying again.'}, {status:409}) }
 
       // Ensure payment is logged in public.payments table
       const { data: existingPay } = await db
         .from('payments')
-        .select('id')
+        .select('id,booking_id')
         .eq('provider_payment_id', paymentId)
         .limit(1)
 
+      if (existingPay?.[0]?.booking_id && existingPay[0].booking_id !== booking.id) return NextResponse.json({success:false,error:'Payment is already associated with another booking.'}, {status:409})
       if (!existingPay || existingPay.length === 0) {
         await db.from('payments').insert({
           booking_id: booking.id,
@@ -199,12 +203,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Payment verified successfully.',
-      order_id: orderId,
-      payment_id: paymentId,
-    })
+    return NextResponse.json({success:false,error:'No booking is linked to this payment order.'}, {status:404})
   } catch (error: any) {
     console.error('Razorpay verify-payment error:', error)
     return NextResponse.json(

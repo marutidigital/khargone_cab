@@ -17,6 +17,7 @@ import {
   User,
   ArrowRight,
 } from 'lucide-react'
+import { getBookingAddresses } from '@/lib/booking-addresses'
 import { getAdminApiHeaders } from '@/lib/admin-api'
 import { formatRs } from '@/config/pricing'
 import type { Booking, BookingStatus } from '@/types'
@@ -549,7 +550,7 @@ export function AdminBookingsPanel() {
                                 </div>
                                 <div className="text-[11px] text-slate-600 flex justify-between">
                                   <span>📞 {bookingOut.phone}</span>
-                                  <span>Drop: {bookingOut.drop_name}</span>
+                                  <span>Drop: {getBookingAddresses(bookingOut).drop}</span>
                                 </div>
                                 <div className="flex items-center justify-between pt-1 border-t border-slate-200/80 text-[11px]">
                                   <span className="font-bold text-slate-700">Fare: {formatRs(bookingOut.total_fare)}</span>
@@ -593,7 +594,7 @@ export function AdminBookingsPanel() {
                                 </div>
                                 <div className="text-[11px] text-slate-600 flex justify-between">
                                   <span>📞 {bookingBack.phone}</span>
-                                  <span>Drop: {bookingBack.drop_name}</span>
+                                  <span>Drop: {getBookingAddresses(bookingBack).drop}</span>
                                 </div>
                                 <div className="flex items-center justify-between pt-1 border-t border-slate-200/80 text-[11px]">
                                   <span className="font-bold text-slate-700">Fare: {formatRs(bookingBack.total_fare)}</span>
@@ -660,6 +661,7 @@ export function AdminBookingsPanel() {
                             <span className="font-black text-slate-900 text-sm">#{b.booking_ref} · {b.passenger_name}</span>
                             <div className="text-[11px] text-slate-500 mt-0.5">
                               {isKI ? 'Khargone ➔ Indore' : 'Indore ➔ Khargone'} · {b.drop_name}
+                              <p className="mt-2 break-words"><strong>Pickup:</strong> {getBookingAddresses(b).pickup}</p><p className="mt-1 break-words"><strong>Drop:</strong> {getBookingAddresses(b).drop}</p>
                             </div>
                           </div>
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${STATUS_STYLES[b.status]}`}>
@@ -891,7 +893,7 @@ export function AdminBookingsPanel() {
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <div className="text-[11px] text-slate-400 truncate max-w-[160px]">{booking.drop_name}</div>
+                        <div className="mt-2 max-w-xs whitespace-normal break-words text-xs text-slate-600"><p><strong>Pickup:</strong> {getBookingAddresses(booking).pickup}</p><p className="mt-1"><strong>Drop:</strong> {getBookingAddresses(booking).drop}</p></div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-1.5 font-semibold capitalize text-slate-800">

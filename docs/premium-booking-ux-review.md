@@ -62,3 +62,17 @@ Short headings, form labels, status badges and buttons use familiar English (Tod
 - Read-only production public API check returned 0 available rides at verification time. The real board therefore correctly shows an empty list until eligible waiting requests are returned by that API.
 - 33 tests, TypeScript and build pass. Targeted ESLint has zero errors; warnings remain in the existing return-checkout page.
 - Existing public API caps the list at 50 rows and defines eligibility/cutoff behavior. This frontend does not widen those backend rules. Existing payment/atomic matching limitations described above still apply; the tab does not certify them resolved.
+
+## Custom pickup and drop addresses
+
+The owner clarified: collect custom addresses only. Do not calculate additional kilometres or add map-based charges. Drivers explain extra-distance charges during the trip.
+
+- Homepage route step now offers Rajendra Nagar, Railway Station and Airport with fares from the existing calculator. Pickup and Drop Address are separate editable fields, prefilled for the direction/location. Reversing direction swaps addresses. Exact addresses appear in review, support-message prefill and private booking status.
+- Existing return-match checkout also captures both addresses.
+- Pickup continues to use the existing `bookings.address` field. Drop is stored under `bookings.extras.drop_address`, without a schema migration. The create-order API validates the new optional field before any order/booking write; the legacy bookings API also accepts/preserves it. Older clients without the field continue working. Existing extras are preserved during the fallback pending-payment update.
+- Customer payment pages show the extra-distance notice. No distance calculation, map integration, new per-km fee, fare change or environment change was added.
+- Authenticated admin booking views show the saved addresses. Public ride-list queries and payloads are unchanged and do not include the custom drop address.
+- `src/lib/booking-addresses.ts` provides defaults, legacy fallback and drop-input validation. `tests/booking-addresses.test.mjs` verifies reverse direction, separate custom addresses, mocked create-order persistence, unchanged fare/advance, invalid-input rejection before writes, and compatibility with old clients. All 37 tests pass.
+- This revision extends the original frontend-only scope solely for the requested address persistence in two existing APIs and admin display. No production database writes or test payments/messages were performed.
+
+Browser verification for addresses: Railway Station/Airport selection updates the Indore address; reversing direction swaps the two custom addresses; 320px has no horizontal overflow. Isolated mock checkout preserved both exact typed addresses through the order payload and private booking status. The mock order remained 50000 paise and the route fare stayed ₹2,200. A fallback API regression test verifies unrelated JSON metadata is retained. No real customer addresses were used.

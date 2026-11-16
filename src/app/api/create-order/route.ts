@@ -4,12 +4,14 @@ import Razorpay from 'razorpay'
 import { getRazorpayCredentials } from '@/lib/razorpay'
 import { createServiceClient } from '@/lib/supabase-server'
 import {
+  BOOKING_CONFIG,
   calculateBookingFare,
   getMatchCutoffAt,
   isMatchDealWithinWindow,
   parsePickupDateTime,
   type DropPointId,
 } from '@/lib/config'
+import { parseDropAddress } from '@/lib/booking-addresses'
 import { PRICING_CONFIG } from '@/config/pricing'
 
 export async function POST(req: NextRequest) {
@@ -60,11 +62,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (bookingData) {
+      let dropAddress: string | undefined
+      try { dropAddress = parseDropAddress(bookingData.dropAddress) }
+      catch { return NextResponse.json({error:'Drop address must be text with at most 250 characters.'}, {status:400}) }
       const directionCode = bookingData.direction === 'K2I' ? 'KI' : 'IK'
       const pointId = (bookingData.point || 'rajendra') as DropPointId
       const pickupTime = bookingData.time || '10:00'
       const travelDate = bookingData.date
       const bookingMode = bookingData.mode === 'confirmed' ? 'confirmed' : 'match'
+      const coupon = String(bookingData.couponCode || '').trim().toUpperCase()
+      const twoRupeeCoupons = ['MARUTI2', 'CAB2', 'TEST2', 'PAY2', 'TWO']
+      const fiveRupeeCoupons = ['TEST99', 'MARUTI99', 'DISCOUNT99', 'CAB99', 'OFF99']
+      if (coupon && !twoRupeeCoupons.includes(coupon) && !fiveRupeeCoupons.includes(coupon)) return NextResponse.json({error:'Invalid coupon code.'}, {status:400})
+      const requiredAdvance = twoRupeeCoupons.includes(coupon) ? 2 : fiveRupeeCoupons.includes(coupon) ? 5 : bookingMode === 'confirmed' ? BOOKING_CONFIG.guaranteedAdvance : BOOKING_CONFIG.matchAdvance
+      if (numAmount !== requiredAdvance * 100) return NextResponse.json({error:'Payment amount does not match the required booking advance.'}, {status:400})
 
       const fare = calculateBookingFare({
         mode: bookingMode === 'confirmed' ? 'guaranteed' : 'match',
@@ -142,6 +153,7 @@ export async function POST(req: NextRequest) {
             public_token: token,
             idempotency_key: idempotencyKey,
             extras: {
+              ...(dropAddress ? {drop_address: dropAddress} : {}),
               drop_point_extra: fare.dropPointExtra,
               night_surcharge: fare.nightSurcharge,
               coupon_code: bookingData.couponCode || null,
