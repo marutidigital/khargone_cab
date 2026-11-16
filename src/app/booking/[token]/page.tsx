@@ -68,14 +68,14 @@ export default function BookingConfirmationPage() {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error || "Could not load your booking details.");
+          setError(data.error || "Booking ki jaankari nahi khul paayi.");
         } else {
           setBooking(data.booking);
           setError("");
         }
       } catch {
         setError(
-          "Unable to load booking. Please check your internet connection.",
+          "Booking nahi khul paayi. Apna internet check karein.",
         );
       } finally {
         setLoading(false);
@@ -134,18 +134,18 @@ export default function BookingConfirmationPage() {
       : "Indore → Khargone";
   const money = (value: number) =>
     `₹${Number(value || 0).toLocaleString("en-IN")}`;
-  const whatsappUrl = `https://wa.me/${SUPPORT_WA}?text=${encodeURIComponent(`Hi MarutiCab, please help with request #${booking?.booking_ref || ""}, ${route}, ${booking?.travel_date || ""} at ${booking?.pickup_time || ""}.`)}`;
+  const whatsappUrl = `https://wa.me/${SUPPORT_WA}?text=${encodeURIComponent(`Namaste MarutiCab, is request mein madad chahiye: #${booking?.booking_ref || ""}, ${route}, ${booking?.travel_date || ""} at ${booking?.pickup_time || ""}.`)}`;
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-slate-950">
       <BookingHeader />
       <main className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
         {loading ? (
           <p role="status" className="rounded-3xl border bg-white p-8">
-            Loading your request…
+            Aapki request khul rahi hai…
           </p>
         ) : error ? (
           <section className="rounded-3xl border border-rose-200 bg-white p-6">
-            <h1 className="text-xl font-bold">Could not load your request</h1>
+            <h1 className="text-xl font-bold">Aapki request nahi khul paayi</h1>
             <p role="alert" className="mt-3 text-rose-700">
               {error}
             </p>
@@ -153,13 +153,13 @@ export default function BookingConfirmationPage() {
               className="booking-primary mt-5"
               onClick={() => void loadBooking(true)}
             >
-              Try again
+              Dobara koshish karein
             </button>
             <a
               className="mt-4 flex min-h-12 items-center justify-center underline"
               href={whatsappUrl}
             >
-              WhatsApp support
+              WhatsApp par madad lein
             </a>
           </section>
         ) : (
@@ -185,8 +185,7 @@ export default function BookingConfirmationPage() {
                   {status.detail}
                 </p>
                 <p className="mt-4 text-sm text-slate-500">
-                  This page follows the current booking status. Payment and a
-                  return match alone do not mean your cab is confirmed.
+                  Yahan aapki booking ka abhi ka status dikhta hai. Sirf payment ya return match se cab confirm nahi hoti.
                 </p>
                 <button
                   type="button"
@@ -197,34 +196,34 @@ export default function BookingConfirmationPage() {
                   <RefreshCw
                     className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
                   />
-                  {isRefreshing ? "Checking…" : "Check latest status"}
+                  {isRefreshing ? "Check ho raha hai…" : "Abhi ka status dekhein"}
                 </button>
               </section>
               <section className="rounded-3xl border border-slate-200 bg-white p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-bold">Your journey</h2>
+                  <h2 className="font-bold">Aapki trip</h2>
                   <button
                     onClick={copyRef}
                     className="inline-flex min-h-11 items-center gap-2 text-sm text-slate-600"
                   >
                     <Copy className="h-4 w-4" />
-                    {copied ? "Copied" : `#${booking.booking_ref}`}
+                    {copied ? "Copy ho gaya" : `#${booking.booking_ref}`}
                   </button>
                 </div>
                 <h3 className="mt-4 text-xl font-bold">{route}</h3>
                 <dl className="mt-5 space-y-4 text-sm">
                   {[
-                    ["Indore location", booking.drop_name],
-                    ["Travel date", formatPickupDate(booking.travel_date)],
+                    ["Indore mein jagah", booking.drop_name],
+                    ["Safar ki tareekh", formatPickupDate(booking.travel_date)],
                     [
-                      "Exact pickup time",
+                      "Pickup ka sahi time",
                       `${formatPickupTime12h(booking.pickup_time)} IST`,
                     ],
-                    ["Passenger", booking.passenger_name],
+                    ["Yatri ka naam", booking.passenger_name],
                     ["WhatsApp", booking.masked_phone || booking.phone],
-                    ["Passengers", booking.passenger_count],
+                    ["Kitne log safar karenge?", booking.passenger_count],
                     ...(booking.address
-                      ? [["Pickup landmark", booking.address]]
+                      ? [["Pickup ki pehchaan", booking.address]]
                       : []),
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-4">
@@ -237,13 +236,13 @@ export default function BookingConfirmationPage() {
                 </dl>
               </section>
               <section className="rounded-3xl border border-slate-200 bg-white p-6">
-                <h2 className="font-bold">Payment details</h2>
+                <h2 className="font-bold">Payment ki jaankari</h2>
                 <dl className="mt-4 space-y-3 text-sm">
                   {[
-                    ["Total fare", booking.total_fare],
-                    ["Advance received", booking.advance_paid],
+                    ["Kul kiraya", booking.total_fare],
+                    ["Advance mil gaya", booking.advance_paid],
                     [
-                      "Balance",
+                      "Baaki kiraya",
                       Math.max(
                         0,
                         Number(booking.total_fare) -
@@ -262,19 +261,19 @@ export default function BookingConfirmationPage() {
                 </dl>
                 {booking.refund_status && (
                   <p className="mt-4 text-sm">
-                    Refund status: {booking.refund_status}
+                    Refund ka status: {booking.refund_status}
                   </p>
                 )}
                 <Link
                   href="/refund"
                   className="mt-4 inline-flex min-h-11 items-center text-sm underline"
                 >
-                  View refund policy
+                  Refund ke niyam dekhein
                 </Link>
               </section>
               {booking.driver && (
                 <section className="rounded-3xl border border-slate-200 bg-white p-6">
-                  <h2 className="font-bold">Driver & car details</h2>
+                  <h2 className="font-bold">Driver aur gaadi ki jaankari</h2>
                   <p className="mt-3">{booking.driver.name}</p>
                   <p className="mt-2 text-sm text-slate-600">
                     {booking.driver.vehicle_model} ·{" "}
@@ -285,12 +284,12 @@ export default function BookingConfirmationPage() {
                     href={`tel:${booking.driver.phone}`}
                   >
                     <Phone className="h-4 w-4" />
-                    Call driver
+                    Driver ko call karein
                   </a>
                 </section>
               )}
               <section className="rounded-3xl border border-slate-200 bg-white p-6">
-                <h2 className="font-bold">Need help with this request?</h2>
+                <h2 className="font-bold">Is request mein madad chahiye?</h2>
                 <a
                   target="_blank"
                   rel="noreferrer"
@@ -298,24 +297,23 @@ export default function BookingConfirmationPage() {
                   className="booking-primary mt-4"
                 >
                   <MessageCircle className="h-5 w-5" />
-                  WhatsApp support
+                  WhatsApp par madad lein
                 </a>
                 <a
                   className="mt-3 flex min-h-12 items-center justify-center font-bold"
                   href={`tel:${SUPPORT_PHONE}`}
                 >
-                  Call +91 72823 16090
+                  Call karein: +91 72823 16090
                 </a>
               </section>
               <p className="text-center text-sm leading-relaxed text-slate-500">
-                Keep this private link to check your request. Updates will also
-                be shared on WhatsApp.
+                Apni request check karne ke liye yeh private link sambhal kar rakhein. Updates WhatsApp par bhi milenge.
               </p>
               <Link
                 href="/"
                 className="flex min-h-12 items-center justify-center text-sm font-bold underline"
               >
-                Back to MarutiCab
+                MarutiCab par wapas jaayein
               </Link>
             </div>
           )

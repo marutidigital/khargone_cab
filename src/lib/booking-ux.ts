@@ -28,64 +28,64 @@ export function timeLabel(time: string) {
 export function customerStatus(status: string) {
   if (status === "confirmed")
     return {
-      title: "आपकी Cab Confirm हो गई है!",
-      label: "CONFIRMED",
+      title: "Aapki cab confirm ho gayi hai!",
+      label: "CAB CONFIRM HAI",
       detail:
-        "Your cab request is confirmed. Check your journey and driver details below.",
+        "Aapki cab confirm hai. Neeche apni trip aur driver ki jaankari dekhein.",
       confirmed: true,
     };
   if (status === "completed")
     return {
-      title: "यात्रा पूरी हो गई",
-      label: "COMPLETED",
-      detail: "Thank you for travelling with MarutiCab.",
+      title: "Aapka safar poora ho gaya",
+      label: "SAFAR POORA HUA",
+      detail: "MarutiCab ke saath safar karne ke liye shukriya.",
       confirmed: false,
     };
   if (status === "cancelled")
     return {
-      title: "Request cancelled",
-      label: "CANCELLED",
+      title: "Aapki request cancel ho gayi",
+      label: "REQUEST CANCEL HUI",
       detail:
-        "This request is cancelled. Contact us for help with your payment or another journey.",
+        "Yeh request cancel ho gayi hai. Payment ya doosri trip mein madad ke liye humse baat karein.",
       confirmed: false,
     };
   if (status === "refunded")
     return {
-      title: "Payment refunded",
-      label: "REFUNDED",
+      title: "Aapka payment refund ho gaya",
+      label: "PAYMENT REFUND HUA",
       detail:
-        "Your booking is marked refunded. Contact support for payment details.",
+        "Aapki booking ka status refunded hai. Payment ki jaankari ke liye humse baat karein.",
       confirmed: false,
     };
   if (status === "pending_payment")
     return {
-      title: "आपकी Cab Request मिल गई है!",
-      label: "PAYMENT PENDING",
+      title: "Aapki cab request mil gayi hai!",
+      label: "PAYMENT BAAKI HAI",
       detail:
-        "Complete the advance payment to submit your request. Your cab is not confirmed yet.",
+        "Request bhejne ke liye advance payment poori karein. Aapki cab abhi confirm nahi hai.",
       confirmed: false,
     };
   if (status === "no_match_decision")
     return {
-      title: "Return match अभी नहीं मिला",
-      label: "UNCONFIRMED",
+      title: "Return match abhi nahi mila",
+      label: "ABHI CONFIRM NAHI",
       detail:
-        "A compatible return journey was not found. Contact us to discuss your request and the existing refund policy.",
+        "Sahi return trip ka match nahi mila. Apni request aur refund ke niyamon ke liye humse baat karein.",
       confirmed: false,
     };
   if (status === "matched")
     return {
-      title: "आपकी Cab Request मिल गई है!",
-      label: "UNCONFIRMED · MATCH FOUND",
+      title: "Aapki cab request mil gayi hai!",
+      label: "ABHI CONFIRM NAHI · MATCH MILA",
       detail:
-        "A return journey has been matched. Final booking confirmation is still pending.",
+        "Return trip ka match mil gaya hai. Final booking confirmation abhi baaki hai.",
       confirmed: false,
     };
   return {
-    title: "आपकी Cab Request मिल गई है!",
-    label: "UNCONFIRMED",
+    title: "Aapki cab request mil gayi hai!",
+    label: "ABHI CONFIRM NAHI",
     detail:
-      "उसी travel date पर compatible return passenger मिलने और booking confirmation के बाद ही cab confirm होगी। Until then, please keep a backup travel plan.",
+      "Usi safar ki tareekh par sahi return passenger milne aur final booking confirmation ke baad hi cab confirm hogi. Tab tak safar ka backup plan bhi rakhein.",
     confirmed: false,
   };
 }

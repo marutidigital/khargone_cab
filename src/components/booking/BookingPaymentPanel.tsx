@@ -90,7 +90,7 @@ export function BookingPaymentPanel({
     const code = couponInput.trim().toUpperCase();
 
     if (!code) {
-      setCouponError("Enter a coupon code");
+      setCouponError("Coupon code likhein likhein");
       return;
     }
 
@@ -108,7 +108,7 @@ export function BookingPaymentPanel({
       setCouponInput("");
       setCouponError(null);
     } else {
-      setCouponError("Invalid coupon code.");
+      setCouponError("Yeh coupon code sahi nahi hai.");
     }
   };
 
@@ -121,7 +121,7 @@ export function BookingPaymentPanel({
     if (checkoutLock.current) return;
     if (!isValid || !timeLabel) {
       setPaymentError(
-        "Please fill all passenger details and select date/time first.",
+        "Pehle apni jaankari bharein aur tareekh aur time chunein.",
       );
       return;
     }
@@ -160,14 +160,15 @@ export function BookingPaymentPanel({
       const orderData = await orderRes.json();
       if (!orderRes.ok) {
         throw new Error(
-          orderData.error || "Failed to initialize payment gateway.",
+          orderData.error ||
+            "Payment shuru nahi ho paayi. Dobara koshish karein.",
         );
       }
 
       const keyId = orderData.key_id || "rzp_test_TyAjmTx2XdmBnh";
       if (!window.Razorpay) {
         throw new Error(
-          "Payment gateway SDK loading. Please retry in a few seconds.",
+          "Payment ki suvidha taiyaar ho rahi hai. Kuch second baad dobara koshish karein.",
         );
       }
 
@@ -177,7 +178,7 @@ export function BookingPaymentPanel({
         amount: orderData.amount,
         currency: orderData.currency || "INR",
         name: "MarutiCab Intercity",
-        description: `₹${advanceAmount} Advance Booking Reservation`,
+        description: `₹${advanceAmount} Cab request ka advance`,
         order_id: orderData.order_id,
         prefill: {
           name: passengerName,
@@ -192,7 +193,7 @@ export function BookingPaymentPanel({
             checkoutLock.current = false;
             setPaymentLoading(false);
             setPaymentError(
-              "Advance payment cancelled. An advance is required to submit your request.",
+              "Advance payment cancel hui. Request bhejne ke liye advance dena zaroori hai.",
             );
           },
         },
@@ -217,7 +218,8 @@ export function BookingPaymentPanel({
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok || !verifyData.success) {
               throw new Error(
-                verifyData.error || "Payment signature verification failed.",
+                verifyData.error ||
+                  "Payment verify nahi ho paayi. Dobara pay karne se pehle humse baat karein.",
               );
             }
 
@@ -263,7 +265,8 @@ export function BookingPaymentPanel({
             });
           } catch (verifyErr: any) {
             setPaymentError(
-              verifyErr.message || "Payment verification failed.",
+              verifyErr.message ||
+                "Payment verify nahi ho paayi. Humse baat karein.",
             );
           } finally {
             checkoutLock.current = false;
@@ -275,7 +278,7 @@ export function BookingPaymentPanel({
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (err: any) => {
         setPaymentError(
-          err.error?.description || "Payment failed. Please try again.",
+          err.error?.description || "Payment nahi hui. Dobara koshish karein.",
         );
         checkoutLock.current = false;
         setPaymentLoading(false);
@@ -283,7 +286,9 @@ export function BookingPaymentPanel({
 
       rzp.open();
     } catch (err: any) {
-      setPaymentError(err.message || "Could not launch checkout.");
+      setPaymentError(
+        err.message || "Payment page nahi khul paaya. Dobara koshish karein.",
+      );
       checkoutLock.current = false;
       setPaymentLoading(false);
     }
@@ -301,7 +306,7 @@ export function BookingPaymentPanel({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">
-              Payment & Advance
+              Payment aur advance
             </h2>
           </div>
           <span className="rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold px-2.5 py-0.5">
@@ -312,27 +317,29 @@ export function BookingPaymentPanel({
         {/* Fare Breakdown Details */}
         <div className="space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:text-sm">
           <div className="flex justify-between gap-3 text-slate-600">
-            <span>Ride type</span>
+            <span>Cab ki request</span>
             <strong className="text-slate-900">
               {bookingLabel ||
-                (mode === "match" ? "Match Deal" : "Confirmed Booking")}
+                (mode === "match"
+                  ? "Return match wali request"
+                  : "Confirm cab ki booking")}
             </strong>
           </div>
           <div className="flex justify-between gap-3 text-slate-600">
             <span>Pickup</span>
             <strong className="text-right text-slate-900">
-              {dateLabel} · {timeLabel || "Choose a time"}
+              {dateLabel} · {timeLabel || "Time chunein"}
             </strong>
           </div>
           <div className="flex justify-between gap-3 text-slate-600">
-            <span>Base route fare</span>
+            <span>Route ka kiraya</span>
             <strong className="text-slate-900">
               {formatRs(breakdown.baseFare)}
             </strong>
           </div>
           {breakdown.dropPointExtra > 0 && (
             <div className="flex justify-between gap-3 text-slate-600">
-              <span>Drop-point extra</span>
+              <span>Location ka extra charge</span>
               <strong className="text-slate-900">
                 +{formatRs(breakdown.dropPointExtra)}
               </strong>
@@ -340,7 +347,7 @@ export function BookingPaymentPanel({
           )}
           {breakdown.nightSurcharge > 0 && (
             <div className="flex justify-between gap-3 text-slate-600">
-              <span>Night surcharge</span>
+              <span>Raat ka extra charge</span>
               <strong className="text-slate-900">
                 +{formatRs(breakdown.nightSurcharge)}
               </strong>
@@ -348,7 +355,7 @@ export function BookingPaymentPanel({
           )}
 
           <div className="flex justify-between gap-3 border-t border-slate-200 pt-2.5 font-bold text-slate-900">
-            <span>Total Trip Fare</span>
+            <span>Trip ka kul kiraya</span>
             <strong className="text-base font-black text-slate-950">
               {formatRs(breakdown.totalFare)}
             </strong>
@@ -359,7 +366,7 @@ export function BookingPaymentPanel({
             <div className="flex justify-between items-center text-amber-900 bg-amber-50/80 p-2 rounded-xl">
               <span className="font-extrabold flex items-center gap-1.5">
                 <CreditCard className="w-4 h-4 text-amber-600" />
-                Advance Online Payment
+                Abhi online advance dein
               </span>
               <div className="text-right">
                 {isCouponActive && (
@@ -374,9 +381,7 @@ export function BookingPaymentPanel({
             </div>
 
             <div className="flex justify-between items-center text-emerald-900 bg-emerald-50/70 p-2 rounded-xl">
-              <span className="font-bold">
-                Remaining balance (to driver in cab)
-              </span>
+              <span className="font-bold">Baaki kiraya driver ko dein</span>
               <strong className="text-sm font-black text-emerald-950">
                 {formatRs(balanceAmount)}
               </strong>
@@ -388,7 +393,7 @@ export function BookingPaymentPanel({
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
             <Tag className="w-3.5 h-3.5 text-amber-600" />
-            <span>Have a coupon code? (optional)</span>
+            <span>Coupon code hai? (zaroori nahi)</span>
           </div>
 
           {appliedCoupon ? (
@@ -396,10 +401,10 @@ export function BookingPaymentPanel({
               <div className="flex items-center gap-2 text-emerald-900">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <strong>{appliedCoupon}</strong> Applied:{" "}
-                  <strong>Discount Verified</strong>
+                  <strong>{appliedCoupon}</strong> lag gaya:{" "}
+                  <strong>Coupon lag gaya</strong>
                   <div className="text-[10px] text-emerald-700">
-                    Pay only ₹{advanceAmount} now to submit your request.
+                    Abhi sirf ₹{advanceAmount} dekar request bhejein.
                   </div>
                 </div>
               </div>
@@ -408,24 +413,24 @@ export function BookingPaymentPanel({
                 onClick={handleRemoveCoupon}
                 className="min-h-11 text-xs text-rose-600 font-bold hover:underline cursor-pointer ml-2"
               >
-                Remove
+                Hataayein
               </button>
             </div>
           ) : (
             <form onSubmit={handleApplyCoupon} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Enter coupon code"
+                placeholder="Coupon code likhein"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                aria-label="Coupon code"
+                aria-label="Coupon code likhein"
                 className="min-w-0 min-h-11 flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-900 placeholder:normal-case placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#FBBF24]"
               />
               <button
                 type="submit"
                 className="min-h-11 bg-slate-900 hover:bg-black text-white px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
               >
-                Apply
+                Lagaayein
               </button>
             </form>
           )}
@@ -438,16 +443,16 @@ export function BookingPaymentPanel({
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-amber-950">
-          Your request stays UNCONFIRMED until a compatible same-date return
-          journey and final confirmation. Payment alone does not confirm a cab.
+          Usi tareekh par sahi return trip ka match aur final confirmation milne
+          tak aapki cab confirm nahi hai. Sirf payment karne se cab confirm nahi
+          hoti.
         </p>
         {/* Notice of advance payment */}
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-950">
-          <strong>Advance Booking Policy:</strong> We collect{" "}
-          <strong>{formatRs(advanceAmount)}</strong> advance online payment to
-          submit your booking request. The remaining balance of{" "}
-          <strong>{formatRs(balanceAmount)}</strong> is payable directly to your
-          driver in the cab.
+          <strong>Advance ke niyam:</strong> Request bhejne ke liye abhi{" "}
+          <strong>{formatRs(advanceAmount)}</strong> advance online dena hai.
+          Baaki <strong>{formatRs(balanceAmount)}</strong> safar ke waqt seedha
+          driver ko dein.
         </p>
 
         {paymentError && (
@@ -467,18 +472,20 @@ export function BookingPaymentPanel({
           {paymentLoading || isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Processing Payment…</span>
+              <span>Payment process ho rahi hai…</span>
             </>
           ) : (
             <>
-              <span>Pay {formatRs(advanceAmount)} & Submit Cab Request</span>
+              <span>
+                {formatRs(advanceAmount)} dein aur cab request bhejein
+              </span>
               <ArrowRight className="h-4 w-4" />
             </>
           )}
         </button>
 
         <p className="mt-2 text-center text-[11px] text-slate-500">
-          🔒 100% Secure Online Payment · Safe & Encrypted
+          🔒 Aapki online payment surakshit hai
         </p>
       </section>
     </>

@@ -43,3 +43,7 @@ Before a production release, separately review the matching/atomic allocation gu
 ## Review guidance
 
 Review the three steps, Hindi/English wording, mobile readability and UNCONFIRMED status screenshot. The hosted preview uses the existing project integrations; do not submit a real booking or pay just to review its layout. Existing available-return-rides pages remain accessible from the footer. This preview does not change the WhatsApp-native payment experience.
+
+## Hinglish copy revision
+
+The redesigned booking journey, payment panel, status pages, lookup page and support links now use Roman-script Hinglish. Display status labels include “ABHI CONFIRM NAHI” and “CAB CONFIRM HAI”; backend status keys, fare calculations, payment amounts and matching behavior remain unchanged. Time period display uses Subah / Dopahar / Shaam / Raat while internal filter values remain unchanged.
